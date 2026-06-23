@@ -52,7 +52,7 @@ void test_geodesic_evolution() {
     std::cout << "初始流形态: 0x" << std::hex << manifold_state << std::dec << std::endl;
 
     for (int step = 0; step < 12; step++) {
-        void_spin_4320_optimized(manifold_state);
+        void_spin_4320_optimized(&manifold_state);
         std::cout << "步骤 " << (step+1) << ": 0x" << std::hex << manifold_state << std::dec << std::endl;
     }
     std::cout << "✓ 12步周期完成" << std::endl;
