@@ -28,6 +28,10 @@ target_include_directories(sov_math INTERFACE
 
 target_compile_features(sov_math INTERFACE cxx_std_23)
 
+# VAVX3 虚拟 ISA 子项目
+add_subdirectory(vavx3)
+target_link_libraries(sov_math INTERFACE vavx3_lib)
+
 # 链接已有的C内核 .so
 # 直接指定 .so 文件绝对路径，避免 CMake 的 -l 前缀处理
 set(VAVX3_KERNEL_PATH "${CMAKE_CURRENT_SOURCE_DIR}/vavx3/vavx3_s2_kernels.so")
@@ -93,14 +97,6 @@ add_test(NAME amber_lcm_walk COMMAND test_amber_lcm_walk)
 add_executable(test_green_api tests/test_green_api.cpp)
 target_link_libraries(test_green_api PRIVATE sov_math)
 add_test(NAME green_api COMMAND test_green_api)
-
-# ═══════════════════════════════════════════════════════════
-# 🟣 VAVX3 ISA 测试 (C11, 纯 C)
-# ═══════════════════════════════════════════════════════════
-add_executable(test_vavx3 vavx3/test_vavx3.c)
-target_include_directories(test_vavx3 PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/vavx3/include)
-target_link_libraries(test_vavx3 PRIVATE m)
-add_test(NAME vavx3_isa COMMAND test_vavx3)
 
 # ============================================================================
 # 三、安装

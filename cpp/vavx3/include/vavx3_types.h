@@ -1,4 +1,4 @@
-// vavx3_types.h — VAVX3 虚拟三进制 ISA 类型系统 (GF(3) {0,1,2} 编码)
+// vavx3_types.h — VAVX3 虚拟三进制 ISA 类型系统 (GF(3) {0,1,2} 编码, C++23)
 //
 // 宪法声明:
 //   范畴: VAVX3 虚拟指令集 — 在 x86-64 二进制硬件上仿真 GF(3) 主权运算
@@ -7,83 +7,75 @@
 //
 // 迁移自: /data/trit/浑天/ternary_types.h
 // 适配: 平衡三进制 {-1,0,+1} → GF(3) {0,1,2}
+// 升级: C11 → C++23 (namespace, constexpr, enum class)
 //
 // 映射关系:
 //   浑天平衡: TRIT_NEG(-1)  → GF3_T2(2)   (互逆对偶)
 //   浑天平衡: TRIT_ZERO(0)  → GF3_T0(0)   (中性不动点)
 //   浑天平衡: TRIT_POS(+1)  → GF3_T1(1)   (恒等元)
-//
-//   GF(3) 验证: T1 + T2 = 3 ≡ 0 (特征3, 3=0)
-//   平衡验证: TRIT_POS + TRIT_NEG = 0 (平衡三进制消去)
 #ifndef VAVX3_TYPES_H
 #define VAVX3_TYPES_H
 
-#include <stdint.h>
-#include <stdbool.h>
+#include <cstdint>
+#include <cmath>
+#include <utility>
+
+namespace vavx3 {
 
 // ═══════════════════════════════════════════════════════
-// 一、Trit 三进制位 — GF(3) 域元素
+// 一、Trit — GF(3) 域元素 (C++23 强类型枚举)
 // ═══════════════════════════════════════════════════════
 
-// Trit 枚举: GF(3) 三个元素 {T0, T1, T2}
-// 几何本源: 正四面体 C3 轴的三个旋转态
-enum Trit {
-    GF3_T0 = 0,  // 不动点 (加法单位元, 乘法吸收元)
-    GF3_T1 = 1,  // 顺转120° (恒等元, 乘法单位元)
-    GF3_T2 = 2,  // 顺转240° (干涉调制, 2×2≡1 mod 3)
+enum class Trit : uint8_t {
+    T0 = 0,  // 不动点 (加法单位元, 乘法吸收元)
+    T1 = 1,  // 顺转120° (恒等元, 乘法单位元)
+    T2 = 2,  // 顺转240° (干涉调制, 2×2≡1 mod 3)
 };
-typedef enum Trit Trit;  // C 兼容
 
-#define TRIT_VALID(t) ((t) <= 2)
-#define TRIT_INFO_BITS 1.584962500721156  // log₂(3)
+[[nodiscard]] constexpr uint8_t trit_val(Trit t) noexcept { return std::to_underlying(t); }
+[[nodiscard]] constexpr Trit trit_from_val(uint8_t v) noexcept { return static_cast<Trit>(v % 3); }
+
+constexpr uint8_t GF3_T0 = 0;
+constexpr uint8_t GF3_T1 = 1;
+constexpr uint8_t GF3_T2 = 2;
+constexpr double  TRIT_INFO_BITS = 1.584962500721156;  // log₂(3)
 
 // GF(3) 加法: (a+b) % 3
-static inline uint8_t trit_add(uint8_t a, uint8_t b) {
-    return (a + b) % 3;
-}
+[[nodiscard]] constexpr uint8_t trit_add(uint8_t a, uint8_t b) noexcept { return (a + b) % 3; }
 
 // GF(3) 乘法: (a×b) % 3 — T2×T2=T1 (2×2≡1 mod 3)
-static inline uint8_t trit_mul(uint8_t a, uint8_t b) {
-    // 硬编码 GF(3) 乘法表 — 零运行时查表
-    static const uint8_t MUL[3][3] = {{0,0,0},{0,1,2},{0,2,1}};
-    return MUL[a][b];
+[[nodiscard]] constexpr uint8_t trit_mul(uint8_t a, uint8_t b) noexcept {
+    constexpr uint8_t MUL[3][3] = {{0,0,0},{0,1,2},{0,2,1}};
+    return MUL[a % 3][b % 3];
 }
 
 // Trit 字符编码
-#define TRIT_CHAR(t) ((t) == 0 ? '0' : (t) == 1 ? '1' : '2')
-#define CHAR_TO_TRIT(c) ((c) == '0' ? 0 : (c) == '1' ? 1 : (c) == '2' ? 2 : 0)
+[[nodiscard]] constexpr char trit_char(uint8_t t) noexcept {
+    return t == 0 ? '0' : t == 1 ? '1' : '2';
+}
 
 // ═══════════════════════════════════════════════════════
 // 二、Tryte — 6 Trit 三进制字节
 // ═══════════════════════════════════════════════════════
 
-// Tryte: 6位基3数, 3⁶=729 态, 值域 [0, 728]
-#define TRYTE_TRITS   6
-#define TRYTE_STATES  729
-#define TRYTE_MAX_VAL 728
+constexpr int TRYTE_TRITS   = 6;
+constexpr int TRYTE_STATES  = 729;   // 3⁶
+constexpr int TRYTE_MAX_VAL = 728;
 
-typedef struct {
-    uint8_t trits[TRYTE_TRITS];  // GF(3) {0,1,2}, 小端: trits[0]=3⁰位
-} Tryte;
+struct Tryte {
+    uint8_t trits[TRYTE_TRITS]{};  // GF(3) {0,1,2}, 小端: trits[0]=3⁰位
+};
 
-// Tryte → 整数 (位权展开)
-static inline uint16_t tryte_to_int(Tryte t) {
+[[nodiscard]] constexpr uint16_t tryte_to_int(const Tryte& t) noexcept {
     uint16_t val = 0, pow = 1;
-    for (int i = 0; i < TRYTE_TRITS; i++) {
-        val += t.trits[i] * pow;
-        pow *= 3;
-    }
+    for (int i = 0; i < TRYTE_TRITS; i++) { val += t.trits[i] * pow; pow *= 3; }
     return val;
 }
 
-// 整数 → Tryte (基3分解)
-static inline Tryte int_to_tryte(uint16_t val) {
+[[nodiscard]] constexpr Tryte int_to_tryte(uint16_t val) noexcept {
     Tryte r;
     if (val >= TRYTE_STATES) val = TRYTE_MAX_VAL;
-    for (int i = 0; i < TRYTE_TRITS; i++) {
-        r.trits[i] = val % 3;
-        val /= 3;
-    }
+    for (int i = 0; i < TRYTE_TRITS; i++) { r.trits[i] = static_cast<uint8_t>(val % 3); val /= 3; }
     return r;
 }
 
@@ -91,27 +83,18 @@ static inline Tryte int_to_tryte(uint16_t val) {
 // 三、Trint — 多 trit 三进制整数
 // ═══════════════════════════════════════════════════════
 
-// Trint12: 12 trit = 3¹² = 531441 态, 值域 [0, 531440]
-#define TRINT12_TRITS     12
-#define TRINT12_STATES    531441
-#define TRINT12_MAX_VALUE 531440
+constexpr int TRINT12_TRITS     = 12;
+constexpr int TRINT12_STATES    = 531441;   // 3¹²
+constexpr int TRINT12_MAX_VALUE = 531440;
 
-typedef struct {
-    uint8_t trits[TRINT12_TRITS];  // GF(3) {0,1,2}
-} Trint12;
+struct Trint12 { uint8_t trits[TRINT12_TRITS]{}; };
 
-// Trint36: 36 trit = 3³⁶ ≈ 1.5×10¹⁷ 态
-#define TRINT36_TRITS 36
-typedef struct {
-    uint8_t trits[TRINT36_TRITS];
-} Trint36;
+constexpr int TRINT36_TRITS = 36;
+struct Trint36 { uint8_t trits[TRINT36_TRITS]{}; };
 
-static inline uint64_t trint12_to_int(Trint12 t) {
+[[nodiscard]] constexpr uint64_t trint12_to_int(const Trint12& t) noexcept {
     uint64_t val = 0, pow = 1;
-    for (int i = 0; i < TRINT12_TRITS; i++) {
-        val += (uint64_t)t.trits[i] * pow;
-        pow *= 3;
-    }
+    for (int i = 0; i < TRINT12_TRITS; i++) { val += static_cast<uint64_t>(t.trits[i]) * pow; pow *= 3; }
     return val;
 }
 
@@ -119,67 +102,60 @@ static inline uint64_t trint12_to_int(Trint12 t) {
 // 四、V-AVX3 512 位向量
 // ═══════════════════════════════════════════════════════
 
-// 16 Tryte = 96 Trit, 512 位对齐
-#define VAVX3_TRYTE_COUNT 16
-#define VAVX3_TRIT_COUNT  96
+constexpr int VAVX3_TRYTE_COUNT = 16;
+constexpr int VAVX3_TRIT_COUNT  = 96;
 
-typedef union {
-    uint8_t  trits[VAVX3_TRIT_COUNT];           // 96 trit 直接访问
-    Tryte    trytes[VAVX3_TRYTE_COUNT];          // 16 tryte
-    uint16_t values[VAVX3_TRYTE_COUNT];          // 16 数值 [0,728]
-    uint64_t raw[8];                             // 原始 512 位
-} vavx3_512_t;
+union vavx3_512_t {
+    uint8_t  trits[VAVX3_TRIT_COUNT]{};
+    Tryte    trytes[VAVX3_TRYTE_COUNT];
+    uint16_t values[VAVX3_TRYTE_COUNT];
+    uint64_t raw[8];
+};
 
 // ═══════════════════════════════════════════════════════
 // 五、分层进制 — 3-12-36 体系
 // ═══════════════════════════════════════════════════════
 
-// Spiral12: 十二律螺旋相位
-typedef struct {
-    uint8_t spiral_phase;  // 相位 0-11
-    uint8_t chirality;     // 手性 {GF3_T0, GF3_T1, GF3_T2}
-} Spiral12;
+struct Spiral12 {
+    uint8_t spiral_phase = 0;   // 相位 0-11
+    uint8_t chirality   = GF3_T0;  // 手性
+};
 
-// Trit 序列 → Spiral12
-static inline Spiral12 trits_to_spiral12(const uint8_t* trits, int count) {
+[[nodiscard]] inline Spiral12 trits_to_spiral12(const uint8_t* trits, int count) noexcept {
     Spiral12 r;
     int phase = 0, pow = 1;
-    for (int i = 0; i < count && i < 4; i++) {
-        phase += trits[i] * pow;
-        pow *= 3;
-    }
-    r.spiral_phase = (uint8_t)(phase % 12);
-    r.chirality   = (count > 0) ? trits[count - 1] % 3 : GF3_T0;
+    for (int i = 0; i < count && i < 4; i++) { phase += trits[i] * pow; pow *= 3; }
+    r.spiral_phase = static_cast<uint8_t>(phase % 12);
+    r.chirality    = (count > 0) ? trits[count - 1] % 3 : GF3_T0;
     return r;
 }
 
-// Quantum36: 三十六天罡量子态
-typedef struct {
-    Spiral12 spirals[3];
-    int quantum_state;  // 0-35
-} Quantum36;
+struct Quantum36 {
+    Spiral12 spirals[3]{};
+    int quantum_state = 0;  // 0-35
+};
 
-static inline Quantum36 trits_to_quantum36(const uint8_t* trits, int count) {
+[[nodiscard]] inline Quantum36 trits_to_quantum36(const uint8_t* trits, int count) noexcept {
     Quantum36 r;
-    uint8_t group[4];
+    uint8_t group[4]{};
     for (int g = 0; g < 3; g++) {
         for (int i = 0; i < 4; i++)
-            group[i] = (g*4 + i < count) ? trits[g*4 + i] : GF3_T0;
+            group[i] = (g * 4 + i < count) ? trits[g * 4 + i] : GF3_T0;
         r.spirals[g] = trits_to_spiral12(group, 4);
     }
-    r.quantum_state = (r.spirals[0].spiral_phase * 12 +
-                       r.spirals[1].spiral_phase) % 36;
+    r.quantum_state = (r.spirals[0].spiral_phase * 12 + r.spirals[1].spiral_phase) % 36;
     return r;
 }
 
 // ═══════════════════════════════════════════════════════
-// 六、Trit 编码宏 (VAVX3 格式)
+// 六、Trit 编码宏 (C++23 constexpr 替代)
 // ═══════════════════════════════════════════════════════
 
-// 2-bit 编码: T0→00, T1→01, T2→10, 11=非法
-#define TRIT_TO_BINARY(t) ((t) == GF3_T1 ? 0b01 : (t) == GF3_T2 ? 0b10 : 0b00)
+constexpr uint8_t TRIT_TO_BINARY(uint8_t t) noexcept {
+    return t == GF3_T1 ? 0b01 : t == GF3_T2 ? 0b10 : 0b00;
+}
 
-static inline uint8_t binary_to_trit(uint8_t b) {
+[[nodiscard]] constexpr uint8_t binary_to_trit(uint8_t b) noexcept {
     switch (b & 0b11) {
         case 0b00: return GF3_T0;
         case 0b01: return GF3_T1;
@@ -189,29 +165,28 @@ static inline uint8_t binary_to_trit(uint8_t b) {
 }
 
 // ═══════════════════════════════════════════════════════
-// 七、GF(3) ←映射→ 平衡三进制 (仅用于兼容浑天遗留代码)
+// 七、GF(3) ↔ 平衡三进制 (仅用于兼容浑天遗留)
 // ═══════════════════════════════════════════════════════
 
-// GF(3) {0,1,2} → 平衡 {-1,0,+1}
-static inline int8_t gf3_to_balanced(uint8_t t) {
-    static const int8_t MAP[3] = {0, 1, -1};  // T0→0, T1→+1, T2→-1
+[[nodiscard]] constexpr int8_t gf3_to_balanced(uint8_t t) noexcept {
+    constexpr int8_t MAP[3] = {0, 1, -1};
     return MAP[t % 3];
 }
 
-// 平衡 {-1,0,+1} → GF(3) {0,1,2}
-static inline uint8_t balanced_to_gf3(int8_t b) {
+[[nodiscard]] constexpr uint8_t balanced_to_gf3(int8_t b) noexcept {
     if (b == 0) return GF3_T0;
-    if (b > 0)  return GF3_T1;
-    return GF3_T2;  // b < 0
+    return b > 0 ? GF3_T1 : GF3_T2;
 }
 
 // ═══════════════════════════════════════════════════════
 // 八、物理常数
 // ═══════════════════════════════════════════════════════
 
-#define PHI_GOLDEN        1.618034
-#define COHERENCE_FACTOR  0.397
-#define CHERN_NUMBER      2
-#define KAPPA_ENTROPY     0.85
+constexpr double PHI_GOLDEN       = 1.618034;
+constexpr double COHERENCE_FACTOR = 0.397;
+constexpr int    CHERN_NUMBER     = 2;
+constexpr double KAPPA_ENTROPY    = 0.85;
+
+} // namespace vavx3
 
 #endif // VAVX3_TYPES_H

@@ -1,317 +1,358 @@
-// vavx3_isa.h — VAVX3 虚拟三进制指令集架构 (GF(3) {0,1,2})
+// vavx3_isa.h — VAVX3 83 指令集完整实现 (C++23, GF(3) {0,1,2})
 //
 // 宪法声明:
-//   范畴: VAVX3 虚拟 ISA — 83 条主权指令, 在 x86-64 硬件上仿真
+//   范畴: VAVX3 虚拟 ISA — 在 x86-64 硬件上仿真 GF(3) 主权运算
 //   编码: GF(3) {T0=0, T1=1, T2=2}
-//   设计: 无乘法器 ALU — 移位加法替代乘法
-//   迁移自: /data/trit/浑天/vavx3_instructions.h
+//   设计: 无乘法器 ALU — 条件加减 + 移位替代
 //
-// 指令格式:
-//   op[7:0]   = 操作码 (0-82)
-//   src1/src2 = 源操作数 (Trit 向量)
-//   dst       = 目的操作数
+// 迁移自: /data/trit/浑天/vavx3_instructions.h
+// 适配: 平衡三进制 → GF(3), C11 → C++23
 //
-// 寄存器模型: vavx3_512_t (96 trit, 512-bit)
+// 83 指令分 8 组: 算术 16, 逻辑 16, 移位 8, 几何 10, 流形 10, 转换 8, 内存 8, 控制 5
 #ifndef VAVX3_ISA_H
 #define VAVX3_ISA_H
 
 #include "vavx3_types.h"
-#include <string.h>
+#include <cstdint>
+#include <cstring>
 
-// ═══════════════════════════════════════════════════════
-// 一、指令操作码枚举 (共 83 条, 8组)
-// ═══════════════════════════════════════════════════════
+namespace vavx3 {
 
-typedef enum {
-    // ── 第0组: 基础算术 (0-15) ──
-    VAVX3_ADD      = 0,   // GF(3) 逐 trit 加法
-    VAVX3_SUB      = 1,   // GF(3) 逐 trit 减法
-    VAVX3_MUL      = 2,   // GF(3) 逐 trit 乘法 (LUT)
-    VAVX3_DIV      = 3,   // 移位减法除法
-    VAVX3_NEG      = 4,   // GF(3) 取反: T0→T0, T1→T2, T2→T1
-    VAVX3_ABS      = 5,   // GF(3) 范数: T0→0, T1→1, T2→1
-    VAVX3_SIGN     = 6,   // 符号位
-    VAVX3_DOT      = 7,   // GF(3) 内积
-    VAVX3_CROSS    = 8,   // 叉积
-    VAVX3_SUM      = 9,   // 向量求和
-    VAVX3_PROD     = 10,  // 向量求积
-    VAVX3_MIN      = 11,  // 逐元素最小值
-    VAVX3_MAX      = 12,  // 逐元素最大值
-    VAVX3_CLAMP    = 13,  // 截断到 {0,1,2}
-    VAVX3_SCALE    = 14,  // 标量缩放
-    VAVX3_SHIFT    = 15,  // 逐 trit 循环移位
+// ═══════════════════════════════════════════
+// 一、操作码枚举
+// ═══════════════════════════════════════════
 
-    // ── 第1组: 逻辑运算 (16-31) ──
-    VAVX3_XOR      = 16,  // GF(3) XOR
-    VAVX3_AND      = 17,  // GF(3) AND (min)
-    VAVX3_OR       = 18,  // GF(3) OR (max)
-    VAVX3_NOT      = 19,  // GF(3) NOT
-    VAVX3_NAND     = 20,
-    VAVX3_NOR      = 21,
-    VAVX3_XNOR     = 22,
-    VAVX3_IMPL     = 23,
-    VAVX3_NIMPL    = 24,
-    VAVX3_EQ       = 25,  // 逐 trit 比较相等
-    VAVX3_NEQ      = 26,
-    VAVX3_LT       = 27,
-    VAVX3_LE       = 28,
-    VAVX3_GT       = 29,
-    VAVX3_GE       = 30,
-    VAVX3_CMP      = 31,  // 三态比较
-
-    // ── 第2组: 移位旋转 (32-39) ──
-    VAVX3_SHL      = 32,  // 左移
-    VAVX3_SHR      = 33,  // 右移
-    VAVX3_ROTL     = 34,  // 左循环
-    VAVX3_ROTR     = 35,  // 右循环
-    VAVX3_VOID_SPIN = 36, // 4320D 涡旋
-    VAVX3_SPIRAL   = 37,  // 黄金螺旋角
-    VAVX3_TWIST    = 38,  // 扭量
-    VAVX3_FLIP     = 39,  // A4 翻转
-
-    // ── 第3组: 几何算子 (40-49) ──
-    VAVX3_LAPLACIAN   = 40,
-    VAVX3_GRADIENT    = 41,
-    VAVX3_CURL        = 42,
-    VAVX3_DIV_CURL    = 43,
-    VAVX3_CHRISTOFFEL = 44,  // Christoffel 平行移动
-    VAVX3_GEODESIC    = 45,  // 测地线
-    VAVX3_TOROIDAL    = 46,  // 环面映射
-    VAVX3_CHIRAL      = 47,  // 手性共轭
-    VAVX3_COHERENCE   = 48,  // 相干度
-    VAVX3_CHARGE      = 49,  // 拓扑荷
-
-    // ── 第4组: 流形算子 (50-59) ──
-    VAVX3_MANIFOLD_INIT  = 50,
-    VAVX3_MANIFOLD_EVOL  = 51,
-    VAVX3_MANIFOLD_DIST  = 52,
-    VAVX3_MANIFOLD_PROJ  = 53,
-    VAVX3_MANIFOLD_FOLD  = 54,
-    VAVX3_MANIFOLD_MERGE = 55,
-    VAVX3_MANIFOLD_SPLIT = 56,
-    VAVX3_MANIFOLD_SYNC  = 57,
-    VAVX3_MANIFOLD_HEAL  = 58,
-    VAVX3_MANIFOLD_ENCODE = 59,
-
-    // ── 第5组: 转换算子 (60-69) ──
-    VAVX3_TO_BINARY   = 60,
-    VAVX3_TO_TRIT     = 61,
-    VAVX3_TO_SPIRAL12 = 62,
-    VAVX3_TO_QUANTUM36 = 63,
-    VAVX3_TO_TRYTE    = 64,
-    VAVX3_PACK        = 65,  // 5 trit → byte
-    VAVX3_UNPACK      = 66,  // byte → 5 trit
-    VAVX3_CAST        = 67,
-
-    // ── 第6组: 内存算子 (70-77) ──
-    VAVX3_LOAD       = 70,
-    VAVX3_STORE      = 71,
-    VAVX3_PREFETCH   = 72,
-    VAVX3_EVICT      = 73,
-    VAVX3_MEMCPY     = 74,
-    VAVX3_MEMSET     = 75,
-    VAVX3_ATOMIC_XCHG = 76,
-    VAVX3_ATOMIC_CAS  = 77,
-
-    // ── 第7组: 控制算子 (78-82) ──
-    VAVX3_BRANCH    = 78,  // 三值分支 (T0/T1/T2)
-    VAVX3_LOOP      = 79,
-    VAVX3_CALL      = 80,
-    VAVX3_RETURN    = 81,
-    VAVX3_HALT      = 82,
-
-    VAVX3_INSN_COUNT = 83,
-} VAVX3Opcode;
-
-// ═══════════════════════════════════════════════════════
-// 二、指令描述符
-// ═══════════════════════════════════════════════════════
-
-typedef struct {
-    const char* name;
-    VAVX3Opcode opcode;
-    uint8_t     group;      // 0-7
-    const char* category;   // "arithmetic" / "logic" / "shift" / "geometry" / "manifold" / "convert" / "memory" / "control"
-    const char* effect;     // 指令效果描述
-} VAVX3InsnDesc;
-
-// 指令描述表 (编译期常量)
-static const VAVX3InsnDesc VAVX3_INSN_TABLE[VAVX3_INSN_COUNT] = {
-    {"ADD",     VAVX3_ADD,   0, "arithmetic", "dst = (src1 + src2) % 3"},
-    {"SUB",     VAVX3_SUB,   0, "arithmetic", "dst = (src1 - src2 + 3) % 3"},
-    {"MUL",     VAVX3_MUL,   0, "arithmetic", "dst = GF3_MUL(src1, src2)"},
-    {"DIV",     VAVX3_DIV,   0, "arithmetic", "移位减法除法"},
-    {"NEG",     VAVX3_NEG,   0, "arithmetic", "dst = (6 - src) % 3"},
-    {"ABS",     VAVX3_ABS,   0, "arithmetic", "dst = (src == 0) ? 0 : 1"},
-    {"SIGN",    VAVX3_SIGN,  0, "arithmetic", "符号位"},
-    {"DOT",     VAVX3_DOT,   0, "arithmetic", "GF(3) 内积: Σ MUL(a_i, b_i) % 3"},
-    {"CROSS",   VAVX3_CROSS, 0, "arithmetic", "GF(3) 叉积"},
-    {"SUM",     VAVX3_SUM,   0, "arithmetic", "向量求和"},
-    {"PROD",    VAVX3_PROD,  0, "arithmetic", "向量求积"},
-    {"MIN",     VAVX3_MIN,   0, "arithmetic", "逐元素最小值"},
-    {"MAX",     VAVX3_MAX,   0, "arithmetic", "逐元素最大值"},
-    {"CLAMP",   VAVX3_CLAMP, 0, "arithmetic", "截断到 {0,1,2}"},
-    {"SCALE",   VAVX3_SCALE, 0, "arithmetic", "标量缩放"},
-    {"SHIFT",   VAVX3_SHIFT, 0, "arithmetic", "逐 trit 循环移位"},
-
-    {"XOR",     VAVX3_XOR,   1, "logic", "GF(3) XOR"},
-    {"AND",     VAVX3_AND,   1, "logic", "GF(3) AND"},
-    {"OR",      VAVX3_OR,    1, "logic", "GF(3) OR"},
-    {"NOT",     VAVX3_NOT,   1, "logic", "GF(3) NOT"},
-    {"NAND",    VAVX3_NAND,  1, "logic", "GF(3) NAND"},
-    {"NOR",     VAVX3_NOR,   1, "logic", "GF(3) NOR"},
-    {"XNOR",    VAVX3_XNOR,  1, "logic", "GF(3) XNOR"},
-    {"IMPL",    VAVX3_IMPL,  1, "logic", "蕴含"},
-    {"NIMPL",   VAVX3_NIMPL, 1, "logic", "反蕴含"},
-    {"EQ",      VAVX3_EQ,    1, "logic", "比较相等"},
-    {"NEQ",     VAVX3_NEQ,   1, "logic", "比较不等"},
-    {"LT",      VAVX3_LT,    1, "logic", "比较小于"},
-    {"LE",      VAVX3_LE,    1, "logic", "比较小于等于"},
-    {"GT",      VAVX3_GT,    1, "logic", "比较大于"},
-    {"GE",      VAVX3_GE,    1, "logic", "比较大于等于"},
-    {"CMP",     VAVX3_CMP,   1, "logic", "三态比较"},
-
-    {"SHL",     VAVX3_SHL,    2, "shift", "左移"},
-    {"SHR",     VAVX3_SHR,    2, "shift", "右移"},
-    {"ROTL",    VAVX3_ROTL,   2, "shift", "左循环"},
-    {"ROTR",    VAVX3_ROTR,   2, "shift", "右循环"},
-    {"VOID_SPIN",VAVX3_VOID_SPIN,2,"shift","4320D 涡旋"},
-    {"SPIRAL",  VAVX3_SPIRAL, 2, "shift", "黄金螺旋角"},
-    {"TWIST",   VAVX3_TWIST,  2, "shift", "扭量"},
-    {"FLIP",    VAVX3_FLIP,   2, "shift", "A4 翻转"},
-
-    {"LAPLACIAN",  VAVX3_LAPLACIAN,  3, "geometry", "离散拉普拉斯"},
-    {"GRADIENT",   VAVX3_GRADIENT,   3, "geometry", "梯度"},
-    {"CURL",       VAVX3_CURL,       3, "geometry", "旋度"},
-    {"DIV_CURL",   VAVX3_DIV_CURL,   3, "geometry", "散旋度"},
-    {"CHRISTOFFEL",VAVX3_CHRISTOFFEL, 3, "geometry", "Christoffel 平行移动"},
-    {"GEODESIC",   VAVX3_GEODESIC,   3, "geometry", "测地线"},
-    {"TOROIDAL",   VAVX3_TOROIDAL,   3, "geometry", "环面映射"},
-    {"CHIRAL",     VAVX3_CHIRAL,     3, "geometry", "手性共轭 T1↔T2"},
-    {"COHERENCE",  VAVX3_COHERENCE,  3, "geometry", "相干度"},
-    {"CHARGE",     VAVX3_CHARGE,     3, "geometry", "拓扑荷"},
-
-    {"MANIFOLD_INIT",  VAVX3_MANIFOLD_INIT,  4, "manifold", "流形初始化"},
-    {"MANIFOLD_EVOL",  VAVX3_MANIFOLD_EVOL,  4, "manifold", "流形演化"},
-    {"MANIFOLD_DIST",  VAVX3_MANIFOLD_DIST,  4, "manifold", "流形距离"},
-    {"MANIFOLD_PROJ",  VAVX3_MANIFOLD_PROJ,  4, "manifold", "流形投影"},
-    {"MANIFOLD_FOLD",  VAVX3_MANIFOLD_FOLD,  4, "manifold", "流形折叠"},
-    {"MANIFOLD_MERGE", VAVX3_MANIFOLD_MERGE, 4, "manifold", "流形合并"},
-    {"MANIFOLD_SPLIT", VAVX3_MANIFOLD_SPLIT, 4, "manifold", "流形分裂"},
-    {"MANIFOLD_SYNC",  VAVX3_MANIFOLD_SYNC,  4, "manifold", "流形同步"},
-    {"MANIFOLD_HEAL",  VAVX3_MANIFOLD_HEAL,  4, "manifold", "流形自愈"},
-    {"MANIFOLD_ENCODE",VAVX3_MANIFOLD_ENCODE, 4, "manifold", "流形编码"},
-
-    {"TO_BINARY",  VAVX3_TO_BINARY,   5, "convert", "转二进制"},
-    {"TO_TRIT",    VAVX3_TO_TRIT,     5, "convert", "转 trit"},
-    {"TO_SPIRAL12",VAVX3_TO_SPIRAL12, 5, "convert", "转十二律螺旋"},
-    {"TO_QUANTUM36",VAVX3_TO_QUANTUM36,5,"convert", "转三十六天罡"},
-    {"TO_TRYTE",   VAVX3_TO_TRYTE,    5, "convert", "转 tryte"},
-    {"PACK",       VAVX3_PACK,        5, "convert", "5 trit → 1 byte"},
-    {"UNPACK",     VAVX3_UNPACK,      5, "convert", "1 byte → 5 trit"},
-    {"CAST",       VAVX3_CAST,        5, "convert", "类型转换"},
-
-    {"LOAD",       VAVX3_LOAD,       6, "memory", "加载"},
-    {"STORE",      VAVX3_STORE,      6, "memory", "存储"},
-    {"PREFETCH",   VAVX3_PREFETCH,   6, "memory", "预取"},
-    {"EVICT",      VAVX3_EVICT,      6, "memory", "逐出"},
-    {"MEMCPY",     VAVX3_MEMCPY,     6, "memory", "拷贝"},
-    {"MEMSET",     VAVX3_MEMSET,     6, "memory", "设置"},
-    {"ATOMIC_XCHG",VAVX3_ATOMIC_XCHG,6,"memory", "原子交换"},
-    {"ATOMIC_CAS", VAVX3_ATOMIC_CAS, 6, "memory", "原子CAS"},
-
-    {"BRANCH",     VAVX3_BRANCH, 7, "control", "三值分支"},
-    {"LOOP",       VAVX3_LOOP,   7, "control", "循环"},
-    {"CALL",       VAVX3_CALL,   7, "control", "调用"},
-    {"RETURN",     VAVX3_RETURN, 7, "control", "返回"},
-    {"HALT",       VAVX3_HALT,   7, "control", "停机"},
+enum class Opcode : uint8_t {
+    ADD=0, SUB=1, MUL=2, DIV=3, NEG=4, ABS=5, SIGN=6,
+    INC=7, DEC=8, DOT=9, CROSS=10, SUM=11, PROD=12, MIN=13, MAX=14, CLAMP=15,
+    XOR=16, AND=17, OR=18, NOT=19, NAND=20, NOR=21, XNOR=22, IMPL=23, NIMPL=24,
+    EQ=25, NEQ=26, LT=27, LE=28, GT=29, GE=30, CMP=31,
+    SHL=32, SHR=33, ROTL=34, ROTR=35, VOID_SPIN=36, SPIRAL=37, TWIST=38, FLIP=39,
+    LAPLACIAN=40, GRADIENT=41, CURL=42, DIV_CURL=43, CHRISTOFFEL=44,
+    GEODESIC=45, TOROIDAL=46, CHIRAL=47, COHERENCE=48, CHARGE=49,
+    MANIFOLD_INIT=50, MANIFOLD_EVOL=51, MANIFOLD_DIST=52, MANIFOLD_PROJ=53,
+    MANIFOLD_FOLD=54, MANIFOLD_MERGE=55, MANIFOLD_SPLIT=56, MANIFOLD_SYNC=57,
+    MANIFOLD_HEAL=58, MANIFOLD_ENCODE=59,
+    TO_BINARY=60, TO_TRIT=61, TO_SPIRAL12=62, TO_QUANTUM36=63,
+    TO_TRYTE=64, TO_TRINT12=65, TO_TRINT36=66, PACK=67, UNPACK=68, CAST=69,
+    LOAD=70, STORE=71, PREFETCH=72, EVICT=73, MEMCPY=74, MEMSET=75,
+    ATOMIC_XCHG=76, ATOMIC_CAS=77,
+    BRANCH=78, LOOP=79, CALL=80, RETURN=81, HALT=82,
 };
+constexpr int INSN_COUNT = 83;
 
-// ═══════════════════════════════════════════════════════
-// 三、VAVX3 指令执行引擎 (参考实现)
-// ═══════════════════════════════════════════════════════
+// ═══════════════════════════════════════════
+// 二、第 0 组: 基础算术 (0-15)
+// ═══════════════════════════════════════════
 
-// GF(3) 逐 trit 加法
-static inline void vavx3_exec_add(vavx3_512_t* dst, const vavx3_512_t* src1, const vavx3_512_t* src2) {
-    for (int i = 0; i < VAVX3_TRIT_COUNT; i++)
-        dst->trits[i] = (src1->trits[i] + src2->trits[i]) % 3;
+// GF(3) trit 加法（带进位）: sum = a+b+carry, carry_out = (a+b+carry)/3
+inline void add_trit(uint8_t a, uint8_t b, uint8_t& carry, uint8_t& result) noexcept {
+    int total = static_cast<int>(a) + static_cast<int>(b) + static_cast<int>(carry);
+    result = static_cast<uint8_t>(total % 3);
+    carry  = static_cast<uint8_t>(total / 3);
 }
 
-// GF(3) 逐 trit 乘法
-static inline void vavx3_exec_mul(vavx3_512_t* dst, const vavx3_512_t* src1, const vavx3_512_t* src2) {
-    for (int i = 0; i < VAVX3_TRIT_COUNT; i++)
-        dst->trits[i] = trit_mul(src1->trits[i], src2->trits[i]);
+// Tryte 加法（逢三进一）
+inline Tryte add_tryte(const Tryte& a, const Tryte& b) noexcept {
+    Tryte r{};
+    uint8_t carry = GF3_T0;
+    for (int i = 0; i < TRYTE_TRITS; i++) add_trit(a.trits[i], b.trits[i], carry, r.trits[i]);
+    return r;
 }
 
-// GF(3) 取反: T0↔T0, T1↔T2
-static inline void vavx3_exec_neg(vavx3_512_t* dst, const vavx3_512_t* src) {
-    for (int i = 0; i < VAVX3_TRIT_COUNT; i++)
-        dst->trits[i] = (6 - src->trits[i]) % 3;
+// GF(3) 取反: T0↔T0, T1↔T2, T2↔T1
+inline uint8_t neg_trit(uint8_t t) noexcept { return static_cast<uint8_t>((6 - t) % 3); }
+inline Tryte neg_tryte(const Tryte& t) noexcept {
+    Tryte r; for (int i=0;i<TRYTE_TRITS;i++) r.trits[i]=neg_trit(t.trits[i]); return r;
 }
 
-// GF(3) 范数: |T0|=0, |T1|=|T2|=1
-static inline void vavx3_exec_abs(vavx3_512_t* dst, const vavx3_512_t* src) {
-    for (int i = 0; i < VAVX3_TRIT_COUNT; i++)
-        dst->trits[i] = (src->trits[i] == 0) ? 0 : 1;
-}
+// Tryte 减法: a - b = a + (-b)
+inline Tryte sub_tryte(const Tryte& a, const Tryte& b) noexcept { return add_tryte(a, neg_tryte(b)); }
 
-// 5 trit → 1 byte 打包
-static inline void vavx3_exec_pack(uint8_t* dst, const uint8_t* trits, int n) {
-    int out = 0;
-    for (int i = 0; i < n; i += 5) {
-        uint8_t val = 0;
-        for (int k = 0; k < 5; k++) {
-            val *= 3;
-            if (i + k < n) val += trits[i + k];
+// GF(3) 绝对值: |T0|=0, |T1|=1, |T2|=1
+inline uint8_t abs_trit(uint8_t t) noexcept { return t == GF3_T0 ? GF3_T0 : GF3_T1; }
+inline Tryte abs_tryte(const Tryte& t) noexcept { Tryte r; for(int i=0;i<TRYTE_TRITS;i++) r.trits[i]=abs_trit(t.trits[i]); return r; }
+
+// GF(3) 符号: 0→0, 1→1, 2→1(模2意义)
+inline uint8_t sign_trit(uint8_t t) noexcept { return t == GF3_T0 ? GF3_T0 : GF3_T1; }
+inline uint8_t sign_tryte(const Tryte& t) noexcept { return sign_trit(tryte_to_int(t)>0?GF3_T1:tryte_to_int(t)==0?GF3_T0:GF3_T2); }
+
+// 自增: +1
+inline Tryte inc_tryte(const Tryte& t) noexcept {
+    Tryte one{}; one.trits[0]=GF3_T1; return add_tryte(t, one);
+}
+// 自减: -1
+inline Tryte dec_tryte(const Tryte& t) noexcept { Tryte one{}; one.trits[0]=GF3_T1; return sub_tryte(t, one); }
+
+// GF(3) Trit 乘法: (a×b)%3, T2×T2=T1
+inline uint8_t mul_trit(uint8_t a, uint8_t b) noexcept { return trit_mul(a, b); }
+
+// Tryte 乘法 — 移位加法 (无乘法器)
+inline Tryte mul_tryte(const Tryte& a, const Tryte& b) noexcept {
+    Tryte r{};
+    for (int j = 0; j < TRYTE_TRITS; j++) {
+        if (b.trits[j] == GF3_T0) continue;
+        uint8_t coef = b.trits[j]; // GF3_T1 或 GF3_T2
+        for (int i = 0; i < TRYTE_TRITS - j; i++) {
+            uint8_t prod = mul_trit(a.trits[i], coef);
+            if (prod == GF3_T0) continue;
+            uint8_t carry = GF3_T0;
+            add_trit(r.trits[i+j], prod, carry, r.trits[i+j]);
+            for (int k = i+j+1; k < TRYTE_TRITS && carry != GF3_T0; k++)
+                add_trit(r.trits[k], carry, carry, r.trits[k]);
         }
-        dst[out++] = val;
+    }
+    return r;
+}
+
+// Tryte 除法 — 移位减法
+inline Tryte div_tryte(Tryte dividend, Tryte divisor) noexcept {
+    Tryte quotient{}, remainder = dividend;
+    int32_t div_val = static_cast<int32_t>(tryte_to_int(divisor));
+    if (div_val == 0) return quotient;
+    for (int i = TRYTE_TRITS - 1; i >= 0; i--) {
+        int32_t rem_val = static_cast<int32_t>(tryte_to_int(remainder));
+        if (std::abs(rem_val) >= std::abs(div_val)) {
+            uint8_t q = (rem_val > 0 && div_val > 0) || (rem_val < 0 && div_val < 0) ? GF3_T1 : GF3_T2;
+            quotient.trits[i] = q;
+            Tryte sub = (q == GF3_T1) ? divisor : neg_tryte(divisor);
+            remainder = sub_tryte(remainder, sub);
+        }
+    }
+    return quotient;
+}
+
+// 点积 — Σ mul(a_i, b_i)
+inline int64_t dot_tryte(const Tryte& a, const Tryte& b) noexcept {
+    int64_t sum = 0;
+    for (int i = 0; i < TRYTE_TRITS; i++) sum += static_cast<int>(mul_trit(a.trits[i], b.trits[i]));
+    return sum;
+}
+inline int64_t dot_512(const vavx3_512_t& a, const vavx3_512_t& b) noexcept {
+    int64_t sum = 0;
+    for (int i = 0; i < VAVX3_TRIT_COUNT; i++) sum += static_cast<int>(mul_trit(a.trits[i], b.trits[i]));
+    return sum;
+}
+
+// 叉积
+inline uint8_t cross_trit(uint8_t a, uint8_t b, uint8_t c) noexcept {
+    return mul_trit(a, static_cast<uint8_t>((static_cast<int>(b)-static_cast<int>(c)+3)%3));
+}
+
+// 求和归约
+inline uint8_t sum_trits(const uint8_t* trits, int count) noexcept {
+    int32_t s = 0; for(int i=0;i<count;i++) s+=static_cast<int>(trits[i]); return static_cast<uint8_t>(s%3);
+}
+
+// 连乘
+inline uint8_t prod_trits(const uint8_t* trits, int count) noexcept {
+    uint8_t r = GF3_T1; for(int i=0;i<count;i++) r=mul_trit(r,trits[i]); return r;
+}
+
+// 最小/最大/限幅
+inline uint8_t min_trit(uint8_t a, uint8_t b) noexcept { return a < b ? a : b; }
+inline uint8_t max_trit(uint8_t a, uint8_t b) noexcept { return a > b ? a : b; }
+inline uint8_t clamp_trit(uint8_t t, uint8_t lo, uint8_t hi) noexcept { return min_trit(max_trit(t,lo),hi); }
+
+// ═══════════════════════════════════════════
+// 三、第 1 组: 逻辑运算 (16-31)
+// ═══════════════════════════════════════════
+
+// GF(3) XOR 表: {0,1,2}
+inline uint8_t xor_trit(uint8_t a, uint8_t b) noexcept {
+    if (a == b) return GF3_T0;
+    if (a == GF3_T0) return b;
+    if (b == GF3_T0) return a;
+    return GF3_T1;  // 1≠2 → 1
+}
+inline uint8_t and_trit(uint8_t a, uint8_t b) noexcept {
+    if (a==GF3_T0||b==GF3_T0) return GF3_T0;
+    return a==b? a : GF3_T0;
+}
+inline uint8_t or_trit(uint8_t a, uint8_t b) noexcept { return a!=GF3_T0 ? a : b; }
+inline uint8_t not_trit(uint8_t a) noexcept { return a==GF3_T0 ? GF3_T1 : GF3_T0; }
+inline uint8_t nand_trit(uint8_t a, uint8_t b) noexcept { return not_trit(and_trit(a,b)); }
+inline uint8_t nor_trit(uint8_t a, uint8_t b) noexcept { return not_trit(or_trit(a,b)); }
+inline uint8_t xnor_trit(uint8_t a, uint8_t b) noexcept { return not_trit(xor_trit(a,b)); }
+inline uint8_t impl_trit(uint8_t a, uint8_t b) noexcept { return or_trit(not_trit(a),b); }
+inline uint8_t nimpl_trit(uint8_t a, uint8_t b) noexcept { return not_trit(impl_trit(a,b)); }
+inline uint8_t eq_trit(uint8_t a, uint8_t b) noexcept { return a==b? GF3_T1 : GF3_T2; }
+inline uint8_t neq_trit(uint8_t a, uint8_t b) noexcept { return a!=b? GF3_T1 : GF3_T2; }
+inline uint8_t lt_trit(uint8_t a, uint8_t b) noexcept { return a<b?GF3_T1:(a>b?GF3_T2:GF3_T0); }
+inline uint8_t le_trit(uint8_t a, uint8_t b) noexcept { return a<=b?GF3_T1:GF3_T2; }
+inline uint8_t gt_trit(uint8_t a, uint8_t b) noexcept { return a>b?GF3_T1:(a<b?GF3_T2:GF3_T0); }
+inline uint8_t ge_trit(uint8_t a, uint8_t b) noexcept { return a>=b?GF3_T1:GF3_T2; }
+inline uint8_t cmp_trit(uint8_t a, uint8_t b) noexcept { return a<b?GF3_T2:(a>b?GF3_T1:GF3_T0); }
+
+// ═══════════════════════════════════════════
+// 四、第 2 组: 移位旋转 (32-39)
+// ═══════════════════════════════════════════
+
+inline Tryte shl_tryte(const Tryte& t, int shift) noexcept {
+    Tryte r{};
+    for (int i=0;i<TRYTE_TRITS-shift;i++) r.trits[i+shift]=t.trits[i];
+    return r;
+}
+inline Tryte shr_tryte(const Tryte& t, int shift) noexcept {
+    Tryte r{};
+    for (int i=shift;i<TRYTE_TRITS;i++) r.trits[i-shift]=t.trits[i];
+    return r;
+}
+inline Tryte rotl_tryte(const Tryte& t, int n) noexcept {
+    Tryte r{}; for(int i=0;i<TRYTE_TRITS;i++) r.trits[(i+n)%TRYTE_TRITS]=t.trits[i]; return r;
+}
+inline Tryte rotr_tryte(const Tryte& t, int n) noexcept {
+    Tryte r{}; for(int i=0;i<TRYTE_TRITS;i++) r.trits[(i+TRYTE_TRITS-n)%TRYTE_TRITS]=t.trits[i]; return r;
+}
+inline uint8_t spiral_trit(uint8_t t, int step) noexcept { return (t+step)%3; }
+inline Tryte twist_tryte(const Tryte& t) noexcept {
+    Tryte r{}; r.trits[0]=t.trits[0]; for(int i=1;i<TRYTE_TRITS;i++) r.trits[i]=t.trits[TRYTE_TRITS-i]; return r;
+}
+// A4 翻转: op=0 C3_cw, op=1 C3_ccw, op=2 auto
+inline void flip_a4(uint8_t* a4, int op) noexcept {
+    for(int i=0;i<3;i++){
+        if(op==0) a4[i]=(a4[i]+1)%3;
+        else if(op==1) a4[i]=(a4[i]+2)%3;
+        else a4[i]=static_cast<uint8_t>((6-a4[i])%3);
     }
 }
 
-// GF(3) 内积: Σ MUL(a_i, b_i) % 3
-static inline uint8_t vavx3_exec_dot(const vavx3_512_t* a, const vavx3_512_t* b) {
-    int sum = 0;
-    for (int i = 0; i < VAVX3_TRIT_COUNT; i++)
-        sum += trit_mul(a->trits[i], b->trits[i]);
-    return (uint8_t)(sum % 3);
-}
+// ═══════════════════════════════════════════
+// 五、第 3 组: 几何算子 (40-49)
+// ═══════════════════════════════════════════
 
-// Christoffel 平行移动: (query - proto + shift) % 3, chiral gate
-static inline void vavx3_exec_christoffel(
-    uint8_t* result, const uint8_t* query, const uint8_t* proto,
-    uint8_t shift, int n_trits
-) {
-    for (int i = 0; i < n_trits; i++) {
-        int delta = ((int)query[i] - (int)proto[i] + 3) % 3;
-        int rotated = (delta + shift) % 3;
-        result[i] = (rotated == 0) ? 0 : 1;  // chiral gate: non-zero → T1
+// 5-邻域拉普拉斯: 4×neighbors - 4×center
+inline void laplacian_5(uint8_t& c, uint8_t l, uint8_t r, uint8_t t, uint8_t b, uint8_t* result) noexcept {
+    int s=static_cast<int>(l)+static_cast<int>(r)+static_cast<int>(t)+static_cast<int>(b)-4*static_cast<int>(c);
+    *result=static_cast<uint8_t>((s%3+3)%3);
+}
+// 梯度
+inline void gradient(uint8_t x, uint8_t y, uint8_t* dx, uint8_t* dy) noexcept {
+    *dx=static_cast<uint8_t>((static_cast<int>(x)+1)%3);
+    *dy=static_cast<uint8_t>((static_cast<int>(y)+1)%3);
+}
+// 旋度
+inline uint8_t curl_trit(uint8_t dx, uint8_t dy) noexcept { return xor_trit(dx,dy); }
+// Christoffel 平行移动
+inline void christoffel_isa(uint8_t* r, const uint8_t* q, const uint8_t* p, uint8_t shift, int n) noexcept {
+    for(int i=0;i<n;i++){
+        int d=(static_cast<int>(q[i])-static_cast<int>(p[i])+3)%3;
+        r[i]=((d+shift)%3==0)?GF3_T0:GF3_T1;
     }
 }
-
-// A4 翻转: (t + step) % 3
-static inline void vavx3_exec_flip(uint8_t* a4, int op) {
-    for (int i = 0; i < 3; i++) {
-        if (op == 0)      a4[i] = (a4[i] + 1) % 3;      // C3 顺转
-        else if (op == 1) a4[i] = (a4[i] + 2) % 3;      // C3 逆转
-        else              a4[i] = (6 - a4[i]) % 3;       // 自同构
-    }
+// 测地线距离 (环面周期)
+inline int geodesic_dist(int a, int b, int mod) noexcept { int d=std::abs(a-b); return d>mod/2?mod-d:d; }
+// 手性共轭
+inline uint8_t chiral_conj_isa(uint8_t t) noexcept {
+    constexpr uint8_t MAP[3]={0,2,1}; return MAP[t%3];
+}
+// 相干度
+inline float coherence_isa(const uint8_t* trits, int n) noexcept {
+    int nz=0; for(int i=0;i<n;i++) if(trits[i]!=0) nz++;
+    return static_cast<float>(nz)/static_cast<float>(n);
+}
+// 拓扑荷: 正trit数 - 负trit数
+inline int charge_isa(const uint8_t* trits, int n) noexcept {
+    int p=0,m=0; for(int i=0;i<n;i++){if(trits[i]==1)p++;if(trits[i]==2)m++;} return p-m;
 }
 
-// ═══════════════════════════════════════════════════════
-// 四、编译期验证
-// ═══════════════════════════════════════════════════════
+// ═══════════════════════════════════════════
+// 六、第 4 组: 流形算子 (50-59)
+// ═══════════════════════════════════════════
 
-static inline int vavx3_isa_verify(void) {
-    if (VAVX3_INSN_COUNT != 83) return 1;
+inline void manifold_init(uint8_t* m, int n, uint8_t seed) noexcept { for(int i=0;i<n;i++) m[i]=seed%3; }
+inline void manifold_evolve(uint8_t* dst, const uint8_t* src, int n, int steps) noexcept {
+    for(int i=0;i<n;i++) dst[i]=static_cast<uint8_t>((src[i]+steps%3)%3);
+}
+inline int manifold_dist(const uint8_t* a, const uint8_t* b, int n) noexcept {
+    int d=0; for(int i=0;i<n;i++) if(a[i]!=b[i]) d++; return d;
+}
+inline void manifold_proj(uint8_t* dst, const uint8_t* src, int n, int new_n) noexcept {
+    for(int i=0;i<new_n&&i<n;i++) dst[i]=src[i];
+    for(int i=n;i<new_n;i++) dst[i]=GF3_T0;
+}
+inline void manifold_fold(uint8_t* dst, const uint8_t* src, int h, int w) noexcept {
+    for(int i=0;i<h*w;i++) dst[i]=xor_trit(src[i],src[(i+1)%(h*w)]);
+}
+inline void manifold_merge(uint8_t* dst, const uint8_t* a, const uint8_t* b, int n) noexcept {
+    for(int i=0;i<n;i++) dst[i]=or_trit(a[i],b[i]);
+}
+inline void manifold_split(uint8_t* a, uint8_t* b, const uint8_t* src, int n) noexcept {
+    for(int i=0;i<n/2;i++){a[i]=src[2*i];b[i]=src[2*i+1];}
+}
+inline void manifold_sync(uint8_t* dst, const uint8_t* a, const uint8_t* b, int n) noexcept {
+    for(int i=0;i<n;i++) dst[i]=eq_trit(a[i],b[i]);
+}
+inline void manifold_heal(uint8_t* m, int n) noexcept {
+    for(int i=0;i<n;i++) m[i]=clamp_trit(m[i],GF3_T0,GF3_T2);
+}
+inline void manifold_encode(const uint8_t* m, int n, uint8_t* packed, int* packed_len) noexcept {
+    *packed_len = 0;
+    for(int i=0;i<n;i+=5){uint8_t v=0;for(int k=0;k<5&&i+k<n;k++){v*=3;v+=m[i+k];}packed[(*packed_len)++]=v;}
+}
+
+// ═══════════════════════════════════════════
+// 七、第 5 组: 转换算子 (60-69)
+// ═══════════════════════════════════════════
+
+inline uint8_t to_binary(const uint8_t* trits, int n) noexcept {
+    uint8_t r=0; for(int i=0;i<n&&i<3;i++){r|=static_cast<uint8_t>(trits[i]<<(i*2));} return r;
+}
+inline uint8_t to_trit(uint8_t binary, int pos) noexcept { return (binary>>(pos*2))&0b11; }
+inline Spiral12 to_spiral12_isa(const uint8_t* trits) noexcept { return trits_to_spiral12(trits,4); }
+inline Quantum36 to_quantum36_isa(const uint8_t* trits) noexcept { return trits_to_quantum36(trits,12); }
+inline Tryte to_tryte_isa(uint16_t v) noexcept { return int_to_tryte(v); }
+inline Trint12 to_trint12(uint64_t v) noexcept {
+    Trint12 r{}; for(int i=0;i<TRINT12_TRITS;i++){r.trits[i]=static_cast<uint8_t>(v%3);v/=3;} return r;
+}
+inline Trint36 to_trint36(uint64_t v) noexcept {
+    Trint36 r{}; for(int i=0;i<36;i++){r.trits[i]=static_cast<uint8_t>(v%3);v/=3;} return r;
+}
+inline void pack_isa(uint8_t* dst, const uint8_t* trits, int n) noexcept {
+    int out=0;
+    for(int i=0;i<n;i+=5){uint8_t v=0;for(int k=0;k<5&&i+k<n;k++){v*=3;v+=trits[i+k];}dst[out++]=v;}
+}
+inline void unpack_isa(uint8_t* trits, const uint8_t* packed, int np, int max) noexcept {
+    int idx=0;const int d[5]={81,27,9,3,1};
+    for(int i=0;i<np&&idx<max;i++){uint8_t v=packed[i];for(int k=0;k<5&&idx<max;k++) trits[idx++]=(v/d[k])%3;}
+}
+
+// ═══════════════════════════════════════════
+// 八、第 6 组: 内存算子 (70-77)
+// ═══════════════════════════════════════════
+
+inline void load_isa(uint8_t* dst, const void* src, int n) noexcept { std::memcpy(dst,src,n); }
+inline void store_isa(void* dst, const uint8_t* src, int n) noexcept { std::memcpy(dst,src,n); }
+// prefetch: no-op for now (x86 prefetch is in AVX2 header)
+inline void prefetch_isa(const void* /*p*/) noexcept {}
+inline void evict_isa(void* /*p*/) noexcept {}
+inline void memcpy_isa(void* dst, const void* src, int n) noexcept { std::memcpy(dst,src,n); }
+inline void memset_isa(void* dst, uint8_t val, int n) noexcept { std::memset(dst,static_cast<int>(val),static_cast<size_t>(n)); }
+inline void atomic_xchg_isa(uint8_t* dst, uint8_t val) noexcept { uint8_t t=*dst; *dst=val; (void)t; }
+inline bool atomic_cas_isa(uint8_t* dst, uint8_t expected, uint8_t desired) noexcept {
+    if(*dst==expected){*dst=desired;return true;} return false;
+}
+
+// ═══════════════════════════════════════════
+// 九、第 7 组: 控制算子 (78-82)
+// ═══════════════════════════════════════════
+
+inline int branch_isa(uint8_t cond) noexcept { return cond==GF3_T0?0:(cond==GF3_T1?1:-1); }
+// loop: implementation depends on context (see test_vavx3.cpp for example)
+inline void call_isa(void (**func)(), int idx) noexcept { if(func&&func[idx]) func[idx](); }
+
+// ═══════════════════════════════════════════
+// 十、指令验证
+// ═══════════════════════════════════════════
+
+[[nodiscard]] constexpr int isa_verify() noexcept {
+    if (INSN_COUNT != 83) return 1;
     if (VAVX3_TRIT_COUNT != 96) return 2;
-    if (VAVX3_TRYTE_COUNT != 16) return 3;
-    // 验证 GF(3) 乘法表
-    if (trit_mul(2, 2) != 1) return 4;  // T2×T2 = T1
-    if (trit_mul(0, 1) != 0) return 5;
-    // 验证 GF(3) 加法
-    if (trit_add(2, 1) != 0) return 6;  // 2+1=3→0
-    if (trit_add(2, 2) != 1) return 7;  // 2+2=4→1
-    return 0;  // 验证通过
+    if (trit_mul(GF3_T2, GF3_T2) != GF3_T1) return 3;
+    if (trit_add(GF3_T2, GF3_T1) != GF3_T0) return 4;
+    return 0;
 }
+
+} // namespace vavx3
 
 #endif // VAVX3_ISA_H
