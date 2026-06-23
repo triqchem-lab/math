@@ -23,6 +23,7 @@
 #include "vavx3_isa.h"
 #include "vavx3_alu.h"
 #include "vavx3_cpu_impl.h"
+#include "vavx3_memory.h"
 
 namespace vavx3 {
 
