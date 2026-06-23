@@ -142,17 +142,23 @@ inline Tryte vavx3_neg_tryte(Tryte t) noexcept;
  * 2 | 2 | 0 | 1 → 需要进位处理
  */
 
-/* 00: 三进制加法（带进位） */
+/* 00: 三进制加法（带进位） — 有符号域运算, GF(3) 编码输入输出 */
 inline uint8_t vavx3_add_trit(uint8_t a, uint8_t b, uint8_t& carry) noexcept {
-    int sum = (int)a + (int)b + (int)carry;
+    int sa = gf3_to_signed(a);
+    int sb = gf3_to_signed(b);
+    int sc = gf3_to_signed(carry);
+    int sum = sa + sb + sc;
     uint8_t result;
 
-    /* 进位处理：GF(3)逢三进一 */
-    if (sum >= 3) {
-        result = (uint8_t)(sum - 3);  /* GF(3): ≥3 → 进位1, 本位sum-3 */
-        carry  = GF3_T1;
+    /* 进位处理：有符号域, |digit| > 1 → 进位 */
+    if (sum >= 2) {
+        result = GF3_T2;  /* -1 in signed → GF3_T2 */
+        carry  = GF3_T1;  /* +1 carry → GF3_T1 */
+    } else if (sum <= -2) {
+        result = GF3_T1;  /* +1 in signed → GF3_T1 */
+        carry  = GF3_T2;  /* -1 carry → GF3_T2 */
     } else {
-        result = (uint8_t)sum;
+        result = (sum == -1) ? GF3_T2 : (sum == 1) ? GF3_T1 : GF3_T0;
         carry  = GF3_T0;
     }
 
