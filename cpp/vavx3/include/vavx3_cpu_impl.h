@@ -31,9 +31,7 @@
 
 namespace vavx3 {
 
-constexpr uint8_t GF3_T0 = 0;  /* 零态 — wave cancellation (原 TRIT_ZERO) */
-constexpr uint8_t GF3_T1 = 1;  /* 正手性 — 木/火 生发 (原 TRIT_POS)  */
-constexpr uint8_t GF3_T2 = 2;  /* 负手性 — 金/水 收敛 (原 TRIT_NEG)  */
+// GF3_T0/T1/T2 from vavx3_types.h
 
 /* 512位向量类型：流形拓扑态载体 */
 union __attribute__((aligned(64))) vavx3_512i {

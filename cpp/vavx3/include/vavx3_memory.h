@@ -36,11 +36,7 @@ namespace vavx3 {
  *   GF3_MUL: 0×*=0, 1×*=*, 2×2=1 (非线性干涉)
  */
 
-inline constexpr uint8_t GF3_T0 = 0;   /* 曾为 TRIT_ZERO — 中性态 / 零相位 / 拓扑平衡点 */
-inline constexpr uint8_t GF3_T1 = 1;   /* 曾为 TRIT_POS  — 正手性态 / 阳态 / 正相位 */
-inline constexpr uint8_t GF3_T2 = 2;   /* 曾为 TRIT_NEG  — 反手性态 / 阴态 / 负相位 (GF(3) 值=2) */
-
-/* Trit 别名命名（高维视角） */
+// GF(3) constants and aliases from vavx3_types.h
 inline constexpr uint8_t GF3_YIN     = GF3_T2;  /* 阴态 */
 inline constexpr uint8_t GF3_NEUTRAL = GF3_T0;  /* 中性态 */
 inline constexpr uint8_t GF3_YANG    = GF3_T1;  /* 阳态 */
@@ -63,56 +59,16 @@ inline constexpr uint8_t GF3_YANG    = GF3_T1;  /* 阳态 */
  * 高维视角：
  * - 不是"数据容器"，是"拓扑态组合"
  * - 6 Trit = 3⁶ = 729 种状态
- * - 信息量：6 × 1.585 = 9.51 bit（约等于1个二进制字节）
+ * - 信息量：6 × 1.585 = 9.51 bit
  */
-inline constexpr int TRYTE_TRITS  = 6;
-inline constexpr int TRYTE_STATES = 729;  /* 3⁶ */
 
-/* Tryte 结构：GF(3) 态组合 */
-struct Tryte {
-    uint8_t trits[TRYTE_TRITS];
-};
+// (TRYTE_TRITS, TRYTE_STATES, Tryte struct from vavx3_types.h)
+// GF(3) value range: unsigned 0..728, signed via gf3_to_signed
 
-/* Tryte 数值范围：0 到 728 (GF(3) 无符号)
- *
- * 编码公式：
- * value = Σ(trit[i] × 3^i)，i = 0..5
- *
- * 最大值：2×3⁰ + 2×3¹ + ... + 2×3⁵ = 3⁶ - 1 = 728
- */
 inline constexpr int32_t TRYTE_MAX_VALUE_GF3 = 728;   /* 3⁶ - 1 */
 inline constexpr int32_t TRYTE_MIN_VALUE_GF3 = 0;
 
-/* Tryte 转 整数（GF(3) 权重展开） */
-inline constexpr int32_t tryte_to_int(const Tryte& t) noexcept {
-    int32_t value = 0;
-    int32_t power = 1;
-    for (int i = 0; i < TRYTE_TRITS; i++) {
-        value += static_cast<int32_t>(t.trits[i]) * power;
-        power *= 3;
-    }
-    return value;
-}
-
-/* 整数 转 Tryte（GF(3) 分解） */
-inline constexpr Tryte int_to_tryte(int32_t value) noexcept {
-    Tryte result{};
-
-    /* GF(3) 无符号范围钳制 */
-    if (value < 0) {
-        value = 0;
-    } else if (value > TRYTE_MAX_VALUE_GF3) {
-        value = TRYTE_MAX_VALUE_GF3;
-    }
-
-    /* GF(3) 进制分解 */
-    for (int i = 0; i < TRYTE_TRITS; i++) {
-        result.trits[i] = static_cast<uint8_t>(value % 3);  /* 0, 1, or 2 */
-        value /= 3;
-    }
-
-    return result;
-}
+// (tryte_to_int, int_to_tryte — from vavx3_types.h, signed semantics)
 
 /* ══════════════════════════════════════════════════════════════════════
  * 0c. Base12 / Base36 分层进制类型（内联定义，自包含）

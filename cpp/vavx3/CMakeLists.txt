@@ -43,3 +43,8 @@ target_include_directories(test_manifold PRIVATE include)
 target_compile_features(test_manifold PRIVATE cxx_std_23)
 target_compile_options(test_manifold PRIVATE -mavx2)
 add_test(NAME vavx3_manifold COMMAND test_manifold)
+
+add_executable(test_api_full tests/test_api_full.cpp)
+target_include_directories(test_api_full PRIVATE include)
+target_compile_features(test_api_full PRIVATE cxx_std_23)
+add_test(NAME api_full COMMAND test_api_full)
