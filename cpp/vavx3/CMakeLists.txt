@@ -30,3 +30,16 @@ add_executable(vavx3_test test_vavx3.cpp)
 target_include_directories(vavx3_test PRIVATE include)
 target_compile_features(vavx3_test PRIVATE cxx_std_23)
 add_test(NAME vavx3_isa COMMAND vavx3_test)
+
+# ── Test: Full ternary system test ──
+add_executable(test_ternary_system tests/test_ternary_system.cpp)
+target_include_directories(test_ternary_system PRIVATE include)
+target_compile_features(test_ternary_system PRIVATE cxx_std_23)
+add_test(NAME ternary_system COMMAND test_ternary_system)
+
+# ── Test: 4320D manifold test (AVX2) ──
+add_executable(test_manifold tests/test_vavx3_manifold.cpp)
+target_include_directories(test_manifold PRIVATE include)
+target_compile_features(test_manifold PRIVATE cxx_std_23)
+target_compile_options(test_manifold PRIVATE -mavx2)
+add_test(NAME vavx3_manifold COMMAND test_manifold)
