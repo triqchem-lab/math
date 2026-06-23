@@ -536,14 +536,14 @@ inline Tryte alu_execute(ALUOpcode op, const Tryte& a, const Tryte& b, ALUStatus
         case ALU_OP_ROTL:
             {
                 int n = static_cast<int>(tryte_to_int(b)) % TRYTE_TRITS;
-                result = rotl_tryte(a, n);
+                result = rotl_tryte_n(a, n);
             }
             break;
 
         case ALU_OP_ROTR:
             {
                 int n = static_cast<int>(tryte_to_int(b)) % TRYTE_TRITS;
-                result = rotr_tryte(a, n);
+                result = rotr_tryte_n(a, n);
             }
             break;
 
