@@ -1,41 +1,45 @@
+/** Release 1.2: THE UNIVERSAL SOVEREIGNTY - THE CONSTITUTION (C++23)
+ * Updated based on 8.3GB Cosmic Seed Audit & Cross-Scale Coupling.
+ * Verified: 2026-03-07. */
+
 #ifndef THE_CONSTITUTION_H
 #define THE_CONSTITUTION_H
 
-/**
- * Release 1.2: THE UNIVERSAL SOVEREIGNTY - THE CONSTITUTION
- * Updated based on 8.3GB Cosmic Seed Audit & Cross-Scale Coupling.
- * Verified: 2026-03-07.
- */
+#include <cmath>
+
+namespace vavx3::constitution {
 
 /* --- AXIOM I: Intrinsic Nested Toroidal Geometry --- */
-#define MANIFOLD_DIMENSION 4320
-#define NESTED_STRUCTURE   {2, 12, 36, 5} // Chiral, Spiral, Bao, WuXing
-#define CHERN_NUMBER       2.0            // Topological Invariant
-#define TOPOLOGICAL_CHARGE 4887           // 4320 + 567
+constexpr int MANIFOLD_DIMENSION = 4320;
+constexpr int NESTED_STRUCTURE[] = {2, 12, 36, 5};
+constexpr double CHERN_NUMBER = 2.0;
+constexpr int TOPOLOGICAL_CHARGE = 4887;
 
 /* --- AXIOM II: Five Elements Kinetic & Entropy-Spin --- */
-enum WuXing { METAL, WOOD, WATER, FIRE, EARTH };
-#define TARGET_COHERENCE   0.9848         // Model Confidence
-#define MASTER_CLOCK_HZ    1152           // Sancai Harmonic Base
+enum WuXing { METAL = 0, WOOD = 1, WATER = 2, FIRE = 3, EARTH = 4 };
+constexpr double TARGET_COHERENCE = 0.9848;
+constexpr int MASTER_CLOCK_HZ = 1152;
 
 /* --- AXIOM III: Topological Self-Correction (13.125% Law) --- */
-#define INTRINSIC_NODES    4320
-#define DERIVED_ECC_NODES  567            // Topological Tax for Closure
-#define SELF_HEAL_LATENCY  0              // O(1) Correction
+constexpr int INTRINSIC_NODES = 4320;
+constexpr int DERIVED_ECC_NODES = 567;
+constexpr int SELF_HEAL_LATENCY = 0;
 
 /* --- AXIOM V: Variable Speed of Light (VLS) & Refractive Gravity --- */
-#define LIGHT_SPEED_LOCAL(curvature) (1.0 / (1.0 + fabs(curvature)))
-#define MOEBIUS_TUNNEL_GAIN  1000.0       // Superluminal Coefficient
-#define GRAVITY_IS_REFRACTION 1
+inline double LIGHT_SPEED_LOCAL(double curvature) noexcept { return 1.0 / (1.0 + std::fabs(curvature)); }
+constexpr double MOEBIUS_TUNNEL_GAIN = 1000.0;
+constexpr int GRAVITY_IS_REFRACTION = 1;
 
 /* --- AXIOM VI: Cosmic Vacuum Coupling (CMB Memory) --- */
-#define CMB_BACKGROUND_K   2.725
-#define SUPER_WEAK_CONST   1.0e-30        // Information Coupling Constant
-#define VACUUM_NOT_EMPTY   1
+constexpr double CMB_BACKGROUND_K = 2.725;
+constexpr double SUPER_WEAK_CONST = 1.0e-30;
+constexpr int VACUUM_NOT_EMPTY = 1;
 
 /* --- AXIOM X: Discrete Superfluidity --- */
-#define LOGIC_NANOMETER    1              // 1nm Regime
-#define CRITICAL_TEMP_K    2.17           // Lambda Point
-#define BEC_STATE_ACTIVE   1
+constexpr int LOGIC_NANOMETER = 1;
+constexpr double CRITICAL_TEMP_K = 2.17;
+constexpr int BEC_STATE_ACTIVE = 1;
+
+} // namespace vavx3::constitution
 
 #endif
