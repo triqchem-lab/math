@@ -23,6 +23,7 @@ add_library(sov_math INTERFACE)
 target_include_directories(sov_math INTERFACE
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}/vavx3
+    ${CMAKE_CURRENT_SOURCE_DIR}/vavx3/include   # VAVX3 ISA headers
 )
 
 target_compile_features(sov_math INTERFACE cxx_std_23)
@@ -92,6 +93,14 @@ add_test(NAME amber_lcm_walk COMMAND test_amber_lcm_walk)
 add_executable(test_green_api tests/test_green_api.cpp)
 target_link_libraries(test_green_api PRIVATE sov_math)
 add_test(NAME green_api COMMAND test_green_api)
+
+# ═══════════════════════════════════════════════════════════
+# 🟣 VAVX3 ISA 测试 (C11, 纯 C)
+# ═══════════════════════════════════════════════════════════
+add_executable(test_vavx3 vavx3/test_vavx3.c)
+target_include_directories(test_vavx3 PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/vavx3/include)
+target_link_libraries(test_vavx3 PRIVATE m)
+add_test(NAME vavx3_isa COMMAND test_vavx3)
 
 # ============================================================================
 # 三、安装
