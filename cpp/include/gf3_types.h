@@ -9,7 +9,8 @@
 #define SOV_MATH_GF3_TYPES_H
 
 #include "lcm_constants.h"
-#include "sov_format.h"  // [v2.6] LayerTag, SovTQT0Block128, SovBlockDescriptor
+#include "sov_format.h"
+#include "../vavx3/include/vavx3_types.h"  // VAVX3 ISA 底层类型
 #include <cstdint>
 #include <array>
 #include <utility>
@@ -24,28 +25,18 @@ namespace sov::math {
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 层1: GF(3) 有限域 — 模3, 3≡0
+// [v2.7] Trit 类型统一为 VAVX3 底层 — uint8_t 别名
 // ═══════════════════════════════════════════════════════════════════════════
 
-// [层1] [GF(3)模3] 三值枚举, uint8底层存储
-enum class Trit : uint8_t {
-    T0 = 0,  // [层1] [GF(3)] 加法单位元, 乘法吸收元
-    T1 = 1,  // [层1] [GF(3)] 乘法单位元, 恒等元
-    T2 = 2,  // [层1] [GF(3)] T2⊗T2=T1 (2×2≡1 mod 3)
-};
-
-// [层1] [GF(3)] 安全转换: 枚举→uint8
-[[nodiscard]] constexpr uint8_t trit_val(Trit t) noexcept {
-    return std::to_underlying(t);
-}
-
-// [层1] [GF(3)] 安全转换: uint8→枚举
-[[nodiscard]] constexpr Trit trit_from_val(uint8_t v) noexcept {
-    return static_cast<Trit>(v);
-}
+using Trit = uint8_t;                          // 别名 VAVX3 底层类型
+using vavx3::GF3_T0;                           // 0 — 中性态
+using vavx3::GF3_T1;                           // 1 — 正手性态
+using vavx3::GF3_T2;                           // 2 — 反手性态
+using vavx3::trit_valid;                       // 编译期合法性检查
+using vavx3::gf3_to_signed;                    // 有符号转换
 
 // [层1] [GF(3)] 编译期合法性检查
-consteval bool is_valid_trit(uint8_t v) { return v <= 2; }
-static_assert(is_valid_trit(0) && is_valid_trit(1) && is_valid_trit(2));
+static_assert(trit_valid(GF3_T0) && trit_valid(GF3_T1) && trit_valid(GF3_T2));
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 层1 GF(3) 预编译LUT — consteval, 编译期生成, 零运行时开销
@@ -256,12 +247,12 @@ struct TryteValue {
 inline constexpr TryteValue SovBlock128::get_tryte_value() const noexcept {
     auto t = get_trits();
     return TryteValue{(uint16_t)(
-        trit_val(t[0]) * 1      // [层2] 3⁰位
-      + trit_val(t[1]) * 3      // [层2] 3¹位
-      + trit_val(t[2]) * 9      // [层2] 3²位
-      + trit_val(t[3]) * 27     // [层2] 3³位
-      + trit_val(t[4]) * 81     // [层2] 3⁴位
-      + trit_val(t[5]) * 243    // [层2] 3⁵位
+        t[0] * 1      // [层2] 3⁰位
+      + t[1] * 3      // [层2] 3¹位
+      + t[2] * 9      // [层2] 3²位
+      + t[3] * 27     // [层2] 3³位
+      + t[4] * 81     // [层2] 3⁴位
+      + t[5] * 243    // [层2] 3⁵位
     )};
 }
 
@@ -335,9 +326,9 @@ struct SovTensor {
 // ═══════════════════════════════════════════════════════════════════════════
 
 // [层1] [GF(3)] Trit枚举值
-static_assert(trit_val(Trit::T0) == 0);
-static_assert(trit_val(Trit::T1) == 1);
-static_assert(trit_val(Trit::T2) == 2);
+static_assert(GF3_T0 == 0, "GF3_T0 must be 0");
+static_assert(GF3_T1 == 1, "GF3_T1 must be 1");
+static_assert(GF3_T2 == 2, "GF3_T2 must be 2");
 
 // [层1] [GF(3)模3] 加法进位
 static_assert(TRIT_ADD_SUM[2][1] == 0);     // 2+1=3→本位0

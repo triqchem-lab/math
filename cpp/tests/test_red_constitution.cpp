@@ -313,7 +313,7 @@ void test_A2_block_structure() {
     SovBlock128 zero_block{};
     auto trits = zero_block.get_trits();
     for (auto t : trits) {
-        if (trit_val(t) != 0)
+        if (t != 0)
             AMBER_WARN("A2.3 零块", "初始trit非零");
     }
 

@@ -94,9 +94,9 @@ static_assert(TRYTE_MAX_VALUE == 729,
 namespace layer2_asserts {
 
 // Trit 枚举值合法
-static_assert(trit_val(Trit::T0) == 0, "T₀ = 0");
-static_assert(trit_val(Trit::T1) == 1, "T₁ = 1");
-static_assert(trit_val(Trit::T2) == 2, "T₂ = 2");
+static_assert(GF3_T0 == 0, "T0 = 0");
+static_assert(GF3_T1 == 1, "T1 = 1");
+static_assert(GF3_T2 == 2, "T2 = 2");
 
 // GF(3) 乘法表: T₂⊗T₂ = T₁ (2×2=4≡1 mod 3, 非4)
 static_assert(TRIT_MUL_LUT[0][0] == 0, "T₀⊗T₀ = T₀");

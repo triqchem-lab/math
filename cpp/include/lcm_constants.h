@@ -34,10 +34,8 @@ inline constexpr size_t   ADC_LIMB_COUNT   = 6;
 // 存储: 2-bit/trit, uint8容器
 // ═══════════════════════════════════════════════════════════════════════════
 
-// [层1] [GF(3)模3] trit硬件编码: 00→0, 01→1, 10→2, 11非法
-inline constexpr uint8_t GF3_T0 = 0b00;
-inline constexpr uint8_t GF3_T1 = 0b01;
-inline constexpr uint8_t GF3_T2 = 0b10;
+// [层1] [GF(3)模3] trit常量 — 来自 VAVX3 ISA 底层类型
+// GF3_T0/1/2 定义于 vavx3_types.h (通过 gf3_types.h 导入)
 inline constexpr uint8_t GF3_MASK = 0b11;
 
 // [层1] [GF(3)模3] 5 trit打包为1字节 (3^5=243 ≤ 255)

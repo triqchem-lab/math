@@ -192,9 +192,9 @@ void test_layer_tag_exclusivity() {
 
 void test_enum_coverage() {
     // Trit 枚举: 3 个值
-    GREEN_CHECK(trit_val(Trit::T0) == 0, "G6.1 Trit::T0=0");
-    GREEN_CHECK(trit_val(Trit::T1) == 1, "G6.2 Trit::T1=1");
-    GREEN_CHECK(trit_val(Trit::T2) == 2, "G6.3 Trit::T2=2");
+    GREEN_CHECK(GF3_T0 == 0, "G6.1 GF3_T0=0");
+    GREEN_CHECK(GF3_T1 == 1, "G6.2 GF3_T1=1");
+    GREEN_CHECK(GF3_T2 == 2, "G6.3 GF3_T2=2");
 
     // BridgeState: 4 个值
     GREEN_CHECK(static_cast<int>(sov::math::BridgeState::L1_READY) == 0, "G6.4 BridgeState L1_READY");
