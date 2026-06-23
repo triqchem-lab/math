@@ -1,0 +1,1 @@
+# VAVX3 SIMD kernels — Python ctypes bridge for S2Sovereign
