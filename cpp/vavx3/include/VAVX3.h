@@ -14,5 +14,9 @@
 
 #include "vavx3_types.h"
 #include "vavx3_isa.h"
+#include "vavx3_alu.h"
+#include "vavx3_memory.h"
+#include "vavx3_cpu_impl.h"
+#include "vavx3_layered_base.h"
 
 #endif // VAVX3_H
