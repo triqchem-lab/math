@@ -1,0 +1,9 @@
+[package]
+name = "sov-chiral"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Sovereign chiral geometry — L3 Q16 fixed-point, ω=e^{2πi/3}, wuxing amplitudes, clutch states"
+
+[dependencies]
+sov-core = { path = "../sov-core" }

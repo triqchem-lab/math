@@ -1,0 +1,15 @@
+[package]
+name = "sov-guard"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Sovereign guard — L7 chern guard, L8 holographic, SOV v2.6 I/O, NSE solver, constitutional audit"
+
+[dependencies]
+sov-core = { path = "../sov-core" }
+sov-topology = { path = "../sov-topology" }
+
+[dev-dependencies]
+sov-core = { path = "../sov-core" }
+sov-chiral = { path = "../sov-chiral" }
+sov-topology = { path = "../sov-topology" }

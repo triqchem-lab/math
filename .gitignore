@@ -1,5 +1,5 @@
-# Build artifacts
-build/
+# Build artifacts (C++)
+cpp/build/
 
 # Object files
 *.o
@@ -12,8 +12,8 @@ build/
 *.swp
 *.swo
 
-# Compiled test binaries (in build/)
-test_*
+# Rust
+rust/sov-math/target/
 
 # Python cache
 __pycache__/

@@ -1,0 +1,18 @@
+[workspace]
+resolver = "2"
+members = [
+    "sov-core",
+    "sov-chiral",
+    "sov-topology",
+    "sov-guard",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/kyegomez/sov-math"
+authors = ["Eternal Reclaimer"]
+
+[workspace.dependencies]
+# Internal crate deps will be referenced by relative path

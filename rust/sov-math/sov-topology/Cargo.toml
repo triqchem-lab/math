@@ -1,0 +1,10 @@
+[package]
+name = "sov-topology"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Sovereign topology — L4 T⁶ torus, L5 nayin soliton, L6 zhonglv multiplier, time crystal, tetration"
+
+[dependencies]
+sov-core = { path = "../sov-core" }
+sov-chiral = { path = "../sov-chiral" }

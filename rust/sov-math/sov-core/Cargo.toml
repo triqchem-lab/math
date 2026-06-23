@@ -1,0 +1,17 @@
+[package]
+name = "sov-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Sovereign math core — L0 binary, L1 GF(3), L2 Z/3¹¹Z, LCM bridge, SIMD kernels"
+
+[features]
+default = ["rayon"]
+nightly = []  # Enables AVX2 SIMD intrinsics (requires nightly toolchain)
+rayon = ["dep:rayon"]  # Parallel batch operations (on by default)
+
+[dependencies]
+rayon = { version = "1", optional = true }
+
+[target.'cfg(target_arch = "x86_64")'.dependencies]
+# AVX2 intrinsics available via std::arch on nightly

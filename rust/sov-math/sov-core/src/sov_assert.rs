@@ -1,0 +1,1 @@
+// sov_assert — stub
