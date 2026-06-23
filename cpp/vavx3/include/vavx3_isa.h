@@ -151,9 +151,6 @@ inline uint8_t vavx3_add_trit(uint8_t a, uint8_t b, uint8_t& carry) noexcept {
     if (sum >= 3) {
         result = (uint8_t)(sum - 3);  /* GF(3): ≥3 → 进位1, 本位sum-3 */
         carry  = GF3_T1;
-    } else if (sum <= -1) {
-        result = (uint8_t)(sum + 3);  /* GF(3): <0 → 借位1, 本位sum+3 */
-        carry  = GF3_T2;
     } else {
         result = (uint8_t)sum;
         carry  = GF3_T0;
@@ -320,7 +317,7 @@ inline Tryte vavx3_dec_tryte(Tryte t) noexcept {
 inline int32_t vavx3_dot_tryte(Tryte a, Tryte b) noexcept {
     int32_t sum = 0;
     for (int i = 0; i < TRYTE_TRITS; i++) {
-        sum += vavx3_mul_trit(a.trits[i], b.trits[i]);  /* 无乘法实现 */
+        sum += gf3_to_signed(vavx3_mul_trit(a.trits[i], b.trits[i]));  /* 无乘法实现 */
     }
     return sum;
 }
@@ -329,7 +326,7 @@ inline int32_t vavx3_dot_tryte(Tryte a, Tryte b) noexcept {
 inline int64_t vavx3_dot_512(vavx3_512_t& a, vavx3_512_t& b) noexcept {
     int64_t sum = 0;
     for (int i = 0; i < VAVX3_TRIT_COUNT; i++) {
-        sum += vavx3_mul_trit(a.trits[i], b.trits[i]);
+        sum += gf3_to_signed(vavx3_mul_trit(a.trits[i], b.trits[i]));
     }
     return sum;
 }
@@ -346,7 +343,7 @@ inline uint8_t vavx3_cross_trit(uint8_t a, uint8_t b, uint8_t c) noexcept {
 inline uint8_t vavx3_sum_trits(uint8_t* trits, int count) noexcept {
     int32_t sum = 0;
     for (int i = 0; i < count; i++) {
-        sum += trits[i];
+        sum += gf3_to_signed(trits[i]);
     }
     /* 归一化 */
     if (sum > 0) return GF3_T1;
@@ -569,7 +566,7 @@ inline int32_t vavx3_laplacian_trit(uint8_t center, uint8_t neighbors[4]) noexce
     /* Δf = Σ(neighbors - center) */
     int32_t lap = 0;
     for (int i = 0; i < 4; i++) {
-        lap += neighbors[i] - center;
+        lap += gf3_to_signed(neighbors[i]) - gf3_to_signed(center);
     }
     return lap;
 }
@@ -577,7 +574,7 @@ inline int32_t vavx3_laplacian_trit(uint8_t center, uint8_t neighbors[4]) noexce
 /* 41: 梯度算子 */
 inline uint8_t vavx3_gradient_trit(uint8_t left, uint8_t right) noexcept {
     /* ∂f/∂x ≈ (right - left) / 2 */
-    int grad = (right - left) / 2;
+    int grad = (gf3_to_signed(right) - gf3_to_signed(left)) / 2;
     return vavx3_clamp_trit((uint8_t)grad, GF3_T0, GF3_T2);
 }
 
@@ -590,13 +587,13 @@ inline uint8_t vavx3_curl_trit(uint8_t dx, uint8_t dy) noexcept {
 
 /* 43: 散度算子 */
 inline int32_t vavx3_divergence_trit(uint8_t dx, uint8_t dy, uint8_t dz) noexcept {
-    return dx + dy + dz;
+    return gf3_to_signed(dx) + gf3_to_signed(dy) + gf3_to_signed(dz);
 }
 
 /* 44: 克里斯托费尔符号 */
 inline int32_t vavx3_christoffel(uint8_t velocity, uint8_t gamma) noexcept {
     /* Γ(v,v) = γ × v² */
-    return (int)gamma * ((int)velocity * (int)velocity);
+    return gf3_to_signed(gamma) * (gf3_to_signed(velocity) * gf3_to_signed(velocity));
 }
 
 /* 45: 测地线演化一步 */
@@ -617,7 +614,7 @@ inline uint8_t vavx3_toroidal_inversion(uint8_t t) noexcept {
 
 /* 47: 手性算子 */
 inline int vavx3_chirality(uint8_t t) noexcept {
-    return (int)t;  /* 返回手性值 */
+    return gf3_to_signed(t);  /* 返回手性值 */
 }
 
 /* 48: 相干因子计算 */
@@ -708,10 +705,10 @@ inline void vavx3_manifold_merge(vavx3_512_t& a, vavx3_512_t& b) noexcept {
 inline void vavx3_manifold_split(vavx3_512_t& src, vavx3_512_t& dst) noexcept {
     /* 手性分裂 */
     for (int i = 0; i < VAVX3_TRIT_COUNT; i++) {
-        if ((int)src.trits[i] > 0) {
+        if (src.trits[i] == GF3_T1) {
             dst.trits[i] = GF3_T1;
             src.trits[i] = GF3_T0;
-        } else if ((int)src.trits[i] < 0) {
+        } else if (src.trits[i] == GF3_T2) {
             dst.trits[i] = GF3_T2;
             src.trits[i] = GF3_T0;
         }

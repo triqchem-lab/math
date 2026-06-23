@@ -43,10 +43,10 @@ constexpr double  TRIT_INFO_BITS = 1.584962500721156;  // log₂(3)
 // GF(3) 加法: (a+b) % 3
 [[nodiscard]] constexpr uint8_t trit_add(uint8_t a, uint8_t b) noexcept { return (a + b) % 3; }
 
-// GF(3) 乘法: (a×b) % 3 — T2×T2=T1 (2×2≡1 mod 3)
-[[nodiscard]] constexpr uint8_t trit_mul(uint8_t a, uint8_t b) noexcept {
-    constexpr uint8_t MUL[3][3] = {{0,0,0},{0,1,2},{0,2,1}};
-    return MUL[a % 3][b % 3];
+// GF(3) Trit 到有符号整数: {0,1,2} → {0,+1,-1}
+// 用于几何算子中 raw trit 值的算术计算
+[[nodiscard]] constexpr int gf3_to_signed(uint8_t t) noexcept {
+    return t == GF3_T2 ? -1 : (int)t;
 }
 
 // Trit 字符编码
