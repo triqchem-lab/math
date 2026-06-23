@@ -56,10 +56,7 @@ inline void bitnet_alu_init(BitNetStyleALU& alu, uint8_t init_weight) noexcept {
     alu.sign = GF3_T1;
 }
 
-/* 辅助: GF(3) trit → 带符号整数值 (0→0, 1→+1, 2→−1) */
-inline constexpr int gf3_trit_to_signed(uint8_t t) noexcept {
-    return (t == GF3_T1) ? 1 : (t == GF3_T2) ? -1 : 0;
-}
+// gf3_to_signed 定义于 vavx3_types.h
 
 /* 无乘法点积（核心算子） */
 inline int64_t bitnet_alu_dot(BitNetStyleALU& alu, const uint8_t* input) noexcept {
@@ -83,9 +80,9 @@ inline int64_t bitnet_alu_dot(BitNetStyleALU& alu, const uint8_t* input) noexcep
 
         /* 条件加减（无乘法） */
         if (w == GF3_T1) {
-            alu.dot_result += gf3_trit_to_signed(x);
+            alu.dot_result += gf3_to_signed(x);
         } else if (w == GF3_T2) {
-            alu.dot_result -= gf3_trit_to_signed(x);
+            alu.dot_result -= gf3_to_signed(x);
         }
         /* weight = GF3_T0 → 不操作 */
     }
@@ -194,9 +191,9 @@ inline int64_t chiral_weighted_sum(const vavx3_512_t& data, uint8_t sign) noexce
 
     for (int i = 0; i < VAVX3_TRIT_COUNT; i++) {
         if (sign == GF3_T1) {
-            sum += gf3_trit_to_signed(data.trits[i]);
+            sum += gf3_to_signed(data.trits[i]);
         } else {
-            sum -= gf3_trit_to_signed(data.trits[i]);
+            sum -= gf3_to_signed(data.trits[i]);
         }
     }
 
