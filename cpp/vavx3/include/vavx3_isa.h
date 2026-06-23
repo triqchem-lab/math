@@ -142,7 +142,9 @@ inline uint8_t cmp_trit(uint8_t a, uint8_t b) noexcept { if(a<b)return GF3_T2; i
 inline Tryte shl_tryte(const Tryte& t, int shift) noexcept { Tryte r{}; for(int i=0;i<TRYTE_TRITS-shift;i++) r.trits[i+shift]=t.trits[i]; return r; }
 inline Tryte shr_tryte(const Tryte& t, int shift) noexcept { Tryte r{}; for(int i=shift;i<TRYTE_TRITS;i++) r.trits[i-shift]=t.trits[i]; return r; }
 inline Tryte rotl_tryte(const Tryte& t) noexcept { Tryte r{}; uint8_t f=t.trits[0]; for(int i=1;i<TRYTE_TRITS;i++) r.trits[i-1]=t.trits[i]; r.trits[TRYTE_TRITS-1]=f; return r; }
+inline Tryte rotl_tryte(const Tryte& t, int n) noexcept { Tryte r=t; for(int i=0;i<n%TRYTE_TRITS;i++) r=rotl_tryte(r); return r; }
 inline Tryte rotr_tryte(const Tryte& t) noexcept { Tryte r{}; uint8_t l=t.trits[TRYTE_TRITS-1]; r.trits[0]=l; for(int i=0;i<TRYTE_TRITS-1;i++) r.trits[i+1]=t.trits[i]; return r; }
+inline Tryte rotr_tryte(const Tryte& t, int n) noexcept { Tryte r=t; for(int i=0;i<n%TRYTE_TRITS;i++) r=rotr_tryte(r); return r; }
 inline void void_spin_4320_isr(uint64_t* state) noexcept { *state=(*state>>12)|(*state<<52); *state&=0x3FFFFFFFFFFFFFFFULL; }
 inline int32_t spiral_map_isa(int i) noexcept { double r=std::sqrt((double)i); return (int32_t)(r*PHI_GOLDEN*1000); }
 inline uint8_t twist_trit_isa(uint8_t t, int phase) noexcept { int tw=(int)t+phase; if(tw>2)return GF3_T2; if(tw<0)return GF3_T0; return (uint8_t)tw; }

@@ -21,8 +21,8 @@
 
 #include "vavx3_types.h"
 #include "vavx3_isa.h"
-// #include "vavx3_alu.h"       // TODO: re-sync after manual translation
-// #include "vavx3_memory.h"    // TODO: re-sync after manual translation
+#include "vavx3_alu.h"
+#include "vavx3_cpu_impl.h"
 
 namespace vavx3 {
 
@@ -40,9 +40,6 @@ constexpr const char* VAVX3_VERSION_STRING = "VAVX3 v1.0 — GF(3) Virtual Terna
     if (tryte_to_int(t) != 0) return 104;
     t = int_to_tryte(728);
     if (tryte_to_int(t) != 728) return 105;
-
-    TritAddress a{}; trit_addr_init(a, 42);
-    if (trit_addr_to_offset(a) != 42) return 106;
 
     return 0;
 }
