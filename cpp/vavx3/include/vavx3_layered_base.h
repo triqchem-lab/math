@@ -49,6 +49,10 @@ inline void layered_base_mul(LayeredBaseNumber* a, LayeredBaseNumber* b, Layered
 constexpr int BASE3_MAX_DIGITS = 36;
 constexpr int BASE3_MAX_VALUE  = 106869186;  /* (3^36-1)/2 */
 
+// encoding aliases (gf3_to_signed defined in vavx3_types.h)
+inline int gf3_to_balanced(uint8_t t) noexcept { return gf3_to_signed(t); }
+inline uint8_t balanced_to_gf3(int8_t val) noexcept { return (uint8_t)((val + 3) % 3); }
+
 // 三进制数结构
 struct Base3Number {
     uint8_t digits[BASE3_MAX_DIGITS];

@@ -886,6 +886,25 @@ inline void vavx3_loop(vavx3_512_t& state, int iterations,
 /* 指令统计 */
 constexpr int VAVX3_INSTRUCTION_COUNT = 83;
 
+// API compatibility aliases (unprefixed for Agent-generated headers)
+inline Tryte add_tryte(const Tryte& a, const Tryte& b) noexcept { return vavx3_add_tryte(a, b); }
+inline Tryte sub_tryte(const Tryte& a, const Tryte& b) noexcept { return vavx3_sub_tryte(a, b); }
+inline Tryte mul_tryte(const Tryte& a, const Tryte& b) noexcept { return vavx3_mul_tryte(a, b); }
+inline Tryte div_tryte(Tryte a, Tryte b) noexcept { return vavx3_div_tryte(a, b); }
+inline Tryte neg_tryte(const Tryte& t) noexcept { return vavx3_neg_tryte(t); }
+inline Tryte abs_tryte(const Tryte& t) noexcept { return vavx3_abs_tryte(t); }
+inline uint8_t sign_tryte(const Tryte& t) noexcept { return vavx3_sign_tryte(t); }
+inline int32_t dot_tryte(const Tryte& a, const Tryte& b) noexcept { return vavx3_dot_tryte(a, b); }
+inline int64_t dot_512(vavx3_512_t& a, vavx3_512_t& b) noexcept { return vavx3_dot_512(a, b); }
+inline Tryte rotl_tryte_n(Tryte t, int n) noexcept { Tryte r=t; for(int i=0;i<n%TRYTE_TRITS;i++) r=vavx3_rotl_tryte(r); return r; }
+inline Tryte rotr_tryte_n(Tryte t, int n) noexcept { Tryte r=t; for(int i=0;i<n%TRYTE_TRITS;i++) r=vavx3_rotr_tryte(r); return r; }
+inline uint8_t xor_trit(uint8_t a, uint8_t b) noexcept { return vavx3_xor_trit(a, b); }
+inline uint8_t and_trit(uint8_t a, uint8_t b) noexcept { return vavx3_and_trit(a, b); }
+inline uint8_t or_trit(uint8_t a, uint8_t b) noexcept { return vavx3_or_trit(a, b); }
+inline uint8_t not_trit(uint8_t a) noexcept { return vavx3_not_trit(a); }
+inline Tryte shl_tryte(const Tryte& t, int shift) noexcept { return vavx3_shl_tryte(t, shift); }
+inline Tryte shr_tryte(const Tryte& t, int shift) noexcept { return vavx3_shr_tryte(t, shift); }
+
 } // namespace vavx3
 
 #endif /* VAVX3_INSTRUCTIONS_H */

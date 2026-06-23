@@ -31,6 +31,13 @@ constexpr uint8_t GF3_T2 = 2;   /* 反手性态 / 阴态 / 负相位 (原 TRIT_N
     return t == GF3_T2 ? -1 : (int)t;
 }
 
+/* GF(3) 域算术 (模3, 无进位) */
+[[nodiscard]] constexpr uint8_t trit_add(uint8_t a, uint8_t b) noexcept { return (a + b) % 3; }
+[[nodiscard]] constexpr uint8_t trit_mul(uint8_t a, uint8_t b) noexcept {
+    constexpr uint8_t MUL[3][3] = {{0,0,0},{0,1,2},{0,2,1}};
+    return MUL[a % 3][b % 3];
+}
+
 /* Trit 有效值检查 */
 constexpr bool trit_valid(uint8_t t) noexcept { return t <= GF3_T2; }
 
@@ -66,6 +73,7 @@ struct Tryte {
  */
 constexpr int32_t TRYTE_MAX_VALUE = 364;
 constexpr int32_t TRYTE_MIN_VALUE = -364;
+constexpr int32_t TRYTE_MAX_VAL   = 364;  /* alias for Agent compatibility */
 
 /* Tryte 转 整数（3进制权重展开, GF(3) 有符号解释） */
 inline int32_t tryte_to_int(Tryte t) noexcept {
