@@ -21,8 +21,8 @@
 
 #include "vavx3_types.h"
 #include "vavx3_isa.h"
-#include "vavx3_alu.h"
-#include "vavx3_memory.h"
+// #include "vavx3_alu.h"       // TODO: re-sync after manual translation
+// #include "vavx3_memory.h"    // TODO: re-sync after manual translation
 
 namespace vavx3 {
 
