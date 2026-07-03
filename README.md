@@ -148,6 +148,15 @@ side effects in the LCM accumulator and Chern guard.
 | `{-1,0,1}` encoding | Only {0,1,2} is legal |
 | Direct cross-layer operations | Must pass through LCM bridge |
 
-## License
+## License 许可证
 
 MIT License — see [LICENSE](LICENSE)
+
+---
+
+## Related Repositories 关联仓库
+
+| 仓库 Repository | 内容 Content |
+|------|------|
+| [discrete-mathematics](https://github.com/triqchem-lab/discrete-mathematics) | Agda 形式化验证 Formal verification |
+| [scholar-loop](https://github.com/triqchem-lab/scholar-loop) | Scholar Loop 实验引擎 Experimental engine |
