@@ -53,7 +53,8 @@ impl ops::Mul for RingElement {
         for j in 0..11 {
             let bj = o.trits[j]; if bj == 0 { continue; }
             for i in 0..(11 - j) {
-                let prod = luts::MUL[self.trits[i] as usize][bj as usize];
+                // 系数乘积 aᵢ·bⱼ ∈ {0..4} 含本征进位: 2×2=4 → 本位1 + 进位1
+                let prod = self.trits[i] as u16 * bj as u16;
                 if prod == 0 { continue; }
                 let pos = i + j;
                 let mut tot = r.trits[pos] as u16 + prod as u16;
@@ -81,4 +82,11 @@ mod tests {
     #[test] fn test_mul_zero() { assert!( (RingElement::t1()*RingElement::zero()).is_zero() ); }
     #[test] fn test_t1_pow11_zero() { let mut a = RingElement::t0(); let t = RingElement::t1(); for _ in 0..11 { a = a*t; } assert!(a.is_zero()); }
     #[test] fn test_tryte_proj() { assert_eq!(RingElement::zero().to_tryte().value, 0); }
+    #[test] fn test_mul_coeff_carry() {
+        // 2·T₀ × 2·T₀ = 4 = 1·T₀ + 1·T₁ (2×2=4 本征进位必须传播, 交叉验证回归)
+        let p = RingElement::from_t0(2) * RingElement::from_t0(2);
+        assert_eq!(p.digit(0), 1);
+        assert_eq!(p.digit(1), 1);
+        assert!(p.trits[2..].iter().all(|&d| d == 0));
+    }
 }

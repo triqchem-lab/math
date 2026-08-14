@@ -134,11 +134,13 @@ public:
             if (bj == 0) continue;
             // 计算 a × bj × Tⱼ: 每位 trit_i × bj (GF(3)乘), 结果放在 i+j 位
             for (int i = 0; i < 11 - j; ++i) {
-                uint8_t prod = TRIT_MUL_LUT[trits_[i]][bj];  // [层1] GF(3)乘
+                // [层2] 系数乘积 aᵢ·bⱼ ∈ {0..4} 含本征进位:
+                //   2×2=4 → 本位 1 + 进位 1 (必须传播到 i+j+1 位)
+                int prod = (int)trits_[i] * (int)bj;
                 if (prod == 0) continue;
-                // [层2] 累加到 i+j 位, 逢三进一
+                // [层2] 累加到 i+j 位, 逢三进一 (while 循环传播进位)
                 int pos = i + j;
-                int total = (int)result.trits_[pos] + (int)prod;
+                int total = (int)result.trits_[pos] + prod;
                 while (total >= 3 && pos < 11) {
                     result.trits_[pos] = (uint8_t)(total % 3);
                     if (pos + 1 < 11) {

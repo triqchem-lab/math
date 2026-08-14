@@ -181,6 +181,20 @@ void test_category_boundary() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
+// 六、系数进位回归 (交叉验证发现: 2×2=4 的本征进位曾丢失)
+// ═══════════════════════════════════════════════════════════════════════
+
+void test_coeff_carry() {
+    using namespace sov::math::z3r;
+    // 2·T₀ × 2·T₀ = 4 = 1·T₀ + 1·T₁ → trits [1,1,0,...]
+    RingElement two = RingElement(uint8_t{2});
+    RingElement p = two * two;
+    bool ok = (p[0] == 1) && (p[1] == 1);
+    for (int i = 2; i < 11; ++i) ok = ok && (p[i] == 0);
+    AMBER_CHECK(ok, "M1: 系数本征进位 (2·T₀)² = T₀ + T₁", "");
+}
+
+// ═══════════════════════════════════════════════════════════════════════
 
 int main() {
     std::cout << "\n╔══════════════════════════════════════════════════╗\n";
@@ -197,6 +211,8 @@ int main() {
     test_vector_operations();
     std::cout << "\n── 范畴边界 ──\n";
     test_category_boundary();
+    std::cout << "\n── 系数进位回归 ──\n";
+    test_coeff_carry();
 
     std::cout << "\n══════════════════════════════════════════════════\n";
     if (fails > 0) {
