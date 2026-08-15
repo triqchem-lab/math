@@ -3,6 +3,7 @@
 
 pub mod constants;
 pub mod eis;
+pub mod fixed_complex;
 pub mod error;
 pub mod traits;
 pub mod types;
