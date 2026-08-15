@@ -1158,6 +1158,11 @@ enum class TowerLevel : uint8_t {
 //   88 = 11×8 = 仲吕×8级倍增
 //   128 = 16×8 = 2^16位宽×8级
 
+/* ── 精确性分层 ──
+ * 精确状态: zhonglv_count / exp_3 / exp_2 (整数指数对, 零误差);
+ * 派生投影: freq_log10_q16 / tower_height_q16 (Q16 查表, 误差 ≤10 lsb,
+ *   仅用于人类可读层级判定与到达估算, 不参与状态演化)。
+ */
 struct Gf3TowerState {
     uint64_t zhonglv_count;   // 仲吕闭合次数
     int64_t  exp_3;           // 3的指数 (正)
