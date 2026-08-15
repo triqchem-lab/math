@@ -3,6 +3,7 @@ pub use sov_core;
 pub use sov_topology;
 pub mod chern;
 pub use chern::{Proto, ChernExact, compute_chern_exact, detect_chern};
+pub mod chern_ffi;
 use sov_core::constants::*;
 use sov_topology::*;
 

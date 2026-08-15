@@ -45,7 +45,7 @@ impl Proto {
         &self.trits[h][c]
     }
 
-    fn set_cell(&mut self, h: usize, c: usize, t: [u8; 6]) {
+    pub(crate) fn set_cell(&mut self, h: usize, c: usize, t: [u8; 6]) {
         self.trits[h][c] = t;
     }
 
