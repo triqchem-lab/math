@@ -31,3 +31,20 @@ fn per_cell_curvature_is_exact() {
     let (n, d) = compute_chern_exact(&p);
     assert_eq!(n / d, -2);
 }
+
+#[test]
+fn wilson_holonomy_is_a_unit() {
+    // Wilson 回路和乐 ∈ 6 个单位 (范数 1) — Z[ω] 拓扑不变量
+    let mut p = Proto::new();
+    p.inject_c2_monopole();
+    for cell in 0..sov_guard::chern::S2_CELLS {
+        let u = sov_guard::chern::cell_wilson_holonomy(&p, 0, cell);
+        assert_eq!(u.norm(), 1, "cell {} 和乐非单位: {:?}", cell, u);
+        assert!(u.unit_index().is_some());
+    }
+    // 语义界限: 和乐 = 单位乘积 (mod 3), 缠绕数 = 指数和 (不取模) — 陈数用缠绕数
+    // 注入胞腔 cell0: 6 trit × ω² → 和乐 = ω^12 = 1 (mod 3 平凡), 但缠绕 = −6 (贡献 −2π/3)
+    assert_eq!(sov_guard::chern::cell_wilson_holonomy(&p, 0, 0).unit_index(), Some(0)); // 和乐=1
+    assert_eq!(sov_guard::chern::cell_wilson_holonomy(&p, 0, 2).unit_index(), Some(0)); // 零胞腔和乐=1
+    // 缠绕数承载拓扑: 总符号和 -432 → C = -432/216 = -2 精确 (由 compute_chern_exact 覆盖)
+}

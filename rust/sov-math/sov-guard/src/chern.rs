@@ -1,14 +1,19 @@
-//! S² 12 胞腔 C=2 陈数构造器 — 精确整数版 (零浮点)
+//! S² 12 胞腔 C=2 陈数构造器 — Z[ω] 精确整数版 (零浮点)
 //!
-//! 对应 pyBitNet `bitnet/gf3/chern2_constructor.py` 的整数化移植。
+//! 对应 pyBitNet `bitnet/gf3/chern2_constructor.py` 的 Eisenstein 整数化移植。
 //!
-//! 关键事实: 原浮点版 C = -1.9999999999999998 (cos/sin/atan2 舍入),
-//! 精确版 C = -432/216 = **-2 精确有理数** — 无误差。
+//! 代数同构: 相位 ∈ {0, +2π/3, -2π/3} = 3 次单位根 {1, ω, ω²} ⊂ Z[ω] 单位群,
+//! Wilson loop 连乘 = Z[ω] 乘法 (sov_core::eis::Eis), 无需 cos/sin/atan2。
 //!
-//! 数学: 每条边的 trit 相位差 ∈ {0, +2π/3, -2π/3} (3 次单位根幂),
-//! 循环相位 = (Σ 18 个符号差) × 2π/3 / 6; C = Σ_cells avg_heads 循环相位 / 2π
-//!      = TOTAL_SIGNED / (12 × 18) = TOTAL_SIGNED / 216
-//! 全程整数加法, 不存在浮点通道 — 与 lattice_core/state_machine.py 同域。
+//! 缠绕数 W = 净旋转圈数: 每 trit 链接 Δθ ∈ {0, ±2π/3} → 单位指数 ±1,
+//! 循环相位 = (Σ 18 符号指数) × 2π/3 / 6; C = Σ_cells avg_heads 循环相位 / 2π
+//!          = TOTAL_SIGNED / (12 × 18) = TOTAL_SIGNED / 216
+//!
+//! 关键事实: 原浮点版 C = -1.9999999999999998, 精确版 C = -432/216 = **-2 精确**。
+//! 与 Agda Sovereign.RootMath.Eisenstein 对齐: 单位群 6 循环 (unitGen=1+ω),
+//! 乘法 (ac−bd, ad+bc−bd), 范数 a²−ab+b² — 每步乘法均可形式化对照。
+
+use sov_core::eis::Eis;
 
 pub const S2_CELLS: usize = 12;
 pub const HEADS: usize = 12;
@@ -62,29 +67,48 @@ impl Proto {
     }
 }
 
-/// trit 相位差符号和: (a−b) mod 3 → {0→0, 1→+1, 2→−1}
+/// trit 相位差 → Z[ω] 单位: (a−b) mod 3 → {0→1, 1→ω, 2→ω²}
+/// 同时给出缠绕指数: 0→0, 1→+1, 2→−1 (ω² = −2π/3 方向)
 #[inline]
-fn signed_diff(a: &[u8; 6], b: &[u8; 6]) -> i32 {
-    let mut s = 0i32;
-    for i in 0..6 {
-        match (a[i] + 3 - b[i]) % 3 {
-            1 => s += 1,
-            2 => s -= 1,
-            _ => {}
-        }
+fn trit_link(a: u8, b: u8) -> (Eis, i64) {
+    match (a + 3 - b) % 3 {
+        1 => (Eis::OMEGA, 1),
+        2 => (Eis::OMEGA2, -1),
+        _ => (Eis::ONE, 0),
     }
-    s
 }
 
-/// 单胞腔循环符号和: cell → c3cw → c3cw² → cell 的 Wilson 回路
+/// 边 (6-trit) 的和乐与缠绕指数: Π ω^(±1), Σ(±1)
 #[inline]
-fn cell_loop_signed(proto: &Proto, h: usize, cell: usize) -> i32 {
+fn edge_holonomy(a: &[u8; 6], b: &[u8; 6]) -> (Eis, i64) {
+    let mut u = Eis::ONE;
+    let mut w = 0i64;
+    for i in 0..6 {
+        let (link, s) = trit_link(a[i], b[i]);
+        u = u * link;
+        w += s;
+    }
+    (u, w)
+}
+
+/// 单胞腔 Wilson 回路: cell → c3cw → c3cw² → cell
+/// 返回 (和乐 Z[ω] 单位, 缠绕指数和)
+#[inline]
+fn cell_loop(proto: &Proto, h: usize, cell: usize) -> (Eis, i64) {
     let c1 = CELL_ADJACENCY[cell][0];
     let c2 = CELL_ADJACENCY[c1][0];
     let p0 = proto.cell_proto(h, cell);
     let p1 = proto.cell_proto(h, c1);
     let p2 = proto.cell_proto(h, c2);
-    signed_diff(p0, p1) + signed_diff(p1, p2) + signed_diff(p2, p0)
+    let (u1, w1) = edge_holonomy(p0, p1);
+    let (u2, w2) = edge_holonomy(p1, p2);
+    let (u3, w3) = edge_holonomy(p2, p0);
+    (u1 * u2 * u3, w1 + w2 + w3)
+}
+
+/// 单胞腔 Wilson 和乐 (Z[ω] 单位) — 拓扑不变量载体
+pub fn cell_wilson_holonomy(proto: &Proto, h: usize, cell: usize) -> Eis {
+    cell_loop(proto, h, cell).0
 }
 
 /// 精确有理陈数 C = (num, den), 分母恒为 216 = 12 heads × 18 trit
@@ -92,7 +116,7 @@ pub fn compute_chern_exact(proto: &Proto) -> (i64, i64) {
     let mut s: i64 = 0;
     for cell in 0..S2_CELLS {
         for h in 0..HEADS {
-            s += cell_loop_signed(proto, h, cell) as i64;
+            s += cell_loop(proto, h, cell).1;
         }
     }
     (s, (HEADS * 18) as i64)

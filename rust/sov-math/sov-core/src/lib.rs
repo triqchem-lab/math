@@ -2,6 +2,7 @@
 // 主权律算核心库
 
 pub mod constants;
+pub mod eis;
 pub mod error;
 pub mod traits;
 pub mod types;
