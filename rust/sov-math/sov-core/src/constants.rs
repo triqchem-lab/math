@@ -32,7 +32,7 @@ pub const POLAR_WINDING: usize = 144;
 pub const TOROIDAL_WINDING: usize = 46;
 
 /// 陈数
-pub const CHERN_TARGET: f64 = 2.0;
+pub const CHERN_TARGET: i32 = 2;      // 与 C++ lcm_constants.h int CHERN_TARGET=2 对齐 (整型, 禁浮点)
 pub const CHERN_TARGET_Q16: i32 = 131072; // 2.0 × 65536
 pub const DELTA_Q16: i32 = 113506;         // √3 × 65536
 
