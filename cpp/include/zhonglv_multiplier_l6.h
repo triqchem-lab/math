@@ -22,12 +22,11 @@
 #include <cstdint>
 
 /* ═══════════════════════════════════════════════════════════════
- * ⚠️ [宪法违例标注] 本层含浮点常量/函数 (double / std::log10 / std::pow)。
- *    违反律算合一宪法「禁浮点」条款 — 层5-8 属宏观观测参考层,
- *    其数值经 2026-08-16 验证战役与 Python IEEE double 位级一致 (计算正确),
- *    但不混入 L0-L4 纯整数计算 (GF3 / Z/3¹¹ / Q16 / LCM 桥)。
- *    隔离策略: 本层仅作跨范畴宏观量参考, 禁止其值回灌层0-4。
- * ═══════════════════════════════════════════════════════════════════ */
+ * [Q16 化 2026-08-16] 原 double 常量改为 Q16.16 定点:
+ *   乘子 = (3¹¹/2¹⁶)⁸ = 2849.908852... → Q16 186771626
+ *   log10(乘子) = 3.454831... → Q16 226415
+ * 频率投影/八度/泛音分析全部改整数 (wraps×LCM, 左移, 整数倍增)。
+ * ═══════════════════════════════════════════════════════════════ */
 
 namespace sov::math::l6 {
 
@@ -38,8 +37,11 @@ inline constexpr int ZHONGLV_PERIOD        = 12;       // 仲吕周期 (步)
 inline constexpr int ZHONGLV_MULTI_STEPS   = 8;        // 每次闭合的倍增次数
 inline constexpr int64_t ZHONGLV_P3        = 177147;   // 3^11
 inline constexpr int64_t ZHONGLV_P2        = 65536;    // 2^16
-inline constexpr double ZHONGLV_MULTIPLIER = 2850.0;   // (P3/P2)^8 ≈ 单次闭合倍增量
-inline constexpr double ZHONGLV_LOG10      = 3.45;     // log10(2850)
+inline constexpr int64_t ZHONGLV_MULTIPLIER_Q16 = 186771626; // (3¹¹/2¹⁶)⁸ = 2849.908852 × 2¹⁶
+inline constexpr int32_t ZHONGLV_LOG10_Q16      = 226415;    // log10(乘子) = 3.454831 × 2¹⁶
+// 兼容别名 (double 版遗留, 新代码禁用)
+inline constexpr int64_t ZHONGLV_MULTIPLIER = ZHONGLV_MULTIPLIER_Q16;
+inline constexpr int32_t ZHONGLV_LOG10      = ZHONGLV_LOG10_Q16;
 
 // 实测数据
 inline constexpr int ZHONGLV_TOTAL_31000   = 2583;     // 31000步内闭合次数
@@ -53,7 +55,7 @@ struct FrequencyCascadeState {
     int64_t total_wraps;        // 总绕圈次数
     int zhonglv_count;          // 仲吕闭合累计
     int frequency_multiplies;   // 频率倍增次数 (zhonglv×8)
-    double current_freq_hz;     // 当前等效频率
+    int64_t current_freq_q16;   // 当前等效频率 (Q16)
 };
 
 // ═══════════════════════════════════════════════════════
@@ -70,13 +72,14 @@ struct FrequencyCascadeState {
     return acc;
 }
 
-// 项目频率: 基于绕圈次数和仲吕闭合的累积
-[[nodiscard]] constexpr double project_frequency(
+// 项目频率: 基于绕圈次数和仲吕闭合的累积 (整数精确: wraps × LCM)
+[[nodiscard]] constexpr int64_t project_frequency(
     int current_step, int current_wraps, int target_step
 ) noexcept {
-    double wraps_per_step = static_cast<double>(current_wraps) / current_step;
-    int new_wraps = static_cast<int>(current_wraps + wraps_per_step * (target_step - current_step));
-    return static_cast<double>(new_wraps) * 11609505792.0; // wraps × LCM
+    // wraps_per_step = current_wraps/current_step (整数截断 — 与 double 版语义一致)
+    int64_t new_wraps = (int64_t)current_wraps
+        + ((int64_t)current_wraps * (target_step - current_step)) / current_step;
+    return new_wraps * 11609505792LL; // wraps × LCM
 }
 
 // 频域指纹: C3/仲吕比 = 5³ = 125
@@ -94,30 +97,28 @@ struct FrequencyCascadeState {
     return acc % lcm;
 }
 
-// 纯八度倍增: freq × 2^n
-[[nodiscard]] constexpr double frequency_octave(double base_hz, int n_octaves) noexcept {
-    double result = base_hz;
-    for (int i = 0; i < n_octaves; ++i) result *= 2.0;
-    return result;
+// 纯八度倍增: freq × 2^n (Q16: 左移精确)
+[[nodiscard]] constexpr int64_t frequency_octave(int64_t base_hz_q16, int n_octaves) noexcept {
+    return base_hz_q16 << n_octaves;
 }
 
 // 泛音公列分析: 检查 2^a × 3^b 格点上的频率分布
 // 返回格点总数和最大频率
 struct HarmonicsResult {
     int lattice_points;
-    double max_frequency_hz;
+    int64_t max_frequency_q16;
 };
 
 [[nodiscard]] constexpr HarmonicsResult harmonics_analysis(
-    double base_hz, int max_a, int max_b
+    int64_t base_hz_q16, int max_a, int max_b
 ) noexcept {
     int count = 0;
-    double max_f = 0.0;
+    int64_t max_f = 0;
     for (int a = 0; a <= max_a; ++a) {
         for (int b = 0; b <= max_b; ++b) {
-            double f = base_hz;
-            for (int i = 0; i < a; ++i) f *= 2.0;
-            for (int j = 0; j < b; ++j) f *= 3.0;
+            int64_t f = base_hz_q16;
+            for (int i = 0; i < a; ++i) f *= 2;
+            for (int j = 0; j < b; ++j) f *= 3;
             if (f > max_f) max_f = f;
             ++count;
         }

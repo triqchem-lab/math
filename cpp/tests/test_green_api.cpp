@@ -49,8 +49,8 @@ void test_namespace_reachability() {
     GREEN_CHECK(sov::math::root::digital_root(144) == 9, "G1.7 sov::math::root 可达");
     GREEN_CHECK(sov::math::l5::C3_CYCLE_STEPS == 1500, "G1.8 sov::math::l5 可达");
     GREEN_CHECK(sov::math::l6::ZHONGLV_PERIOD == 12, "G1.9 sov::math::l6 可达");
-    GREEN_CHECK(sov::math::l7::CHERN_TARGET == -2.0, "G1.10 sov::math::l7 可达");
-    GREEN_CHECK(sov::math::l8::HUANGZHONG_HZ == 432.0, "G1.11 sov::math::l8 可达");
+    GREEN_CHECK(sov::math::l7::CHERN_TARGET_Q16 == -131072, "G1.10 sov::math::l7 可达");
+    GREEN_CHECK(sov::math::l8::HUANGZHONG_HZ == 432, "G1.11 sov::math::l8 可达");
     GREEN_CHECK(sov::math::asserts::full_constitutional_audit(), "G1.12 sov::math::asserts 可达");
     GREEN_CHECK(sov::io::SOV_MAGIC == 0x564F5354, "G1.13 sov::io 可达");
 }
@@ -77,9 +77,9 @@ void test_cross_file_consistency() {
         "G2.6 C3_CYCLE_STEPS 一致性");
     GREEN_CHECK(sov::math::l6::ZHONGLV_PERIOD == 12,
         "G2.7 ZHONGLV_PERIOD 一致性");
-    GREEN_CHECK(sov::math::l7::CHERN_TARGET == -2.0,
+    GREEN_CHECK(sov::math::l7::CHERN_TARGET_Q16 == -131072,
         "G2.8 CHERN_TARGET 一致性");
-    GREEN_CHECK(sov::math::l8::HUANGZHONG_HZ == 432.0,
+    GREEN_CHECK(sov::math::l8::HUANGZHONG_HZ == 432,
         "G2.9 HUANGZHONG_HZ 一致性");
 }
 

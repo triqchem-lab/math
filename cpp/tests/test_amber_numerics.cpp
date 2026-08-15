@@ -131,19 +131,19 @@ void test_grand_pump_cycle() {
 void test_curie_transition() {
     using namespace sov::math::l5;
 
-    // ρ(0) = 0
-    AMBER_CHECK(std::abs(compute_rho(0)) < 0.001, "C1: ρ(0)=0",
+    // ρ(0) = 0 (Q16)
+    AMBER_CHECK(compute_rho(0) < 66, "C1: ρ(0)=0",
         "初始相变密度非零");
 
-    // ρ(4500) = 1.0
-    AMBER_CHECK(std::abs(compute_rho(PHASE_ANCHOR_STEPS) - 1.0) < 0.001,
+    // ρ(4500) = 1.0 (Q16)
+    AMBER_CHECK(65536 - compute_rho(PHASE_ANCHOR_STEPS) < 66,
         "C2: ρ(4500)=1", "锚点密度不达1.0");
 
     // 居里点 ρ(CURIE) ≈ 0.38
     // 找到 ρ(t) 首次穿越 0.38 的步数
     int curie_step = -1;
     for (int s = 0; s < PHASE_ANCHOR_STEPS; s += 100) {
-        if (compute_rho(s) >= CURIE_THRESHOLD) {
+        if (compute_rho(s) >= CURIE_THRESHOLD_Q16) {
             curie_step = s;
             break;
         }
@@ -152,11 +152,11 @@ void test_curie_transition() {
     AMBER_CHECK(curie_step > 1500 && curie_step < 2500,
         "C3: 居里步数", "相变点不在预期范围(1500-2500步)");
 
-    // 固相判定
-    AMBER_CHECK(determine_phase(0.0) == SolitonPhase::SOLID_FROZEN,
+    // 固相判定 (Q16)
+    AMBER_CHECK(determine_phase(0) == SolitonPhase::SOLID_FROZEN,
         "C4: ρ=0→固相", "相态判定错误");
-    // 超流判定
-    AMBER_CHECK(determine_phase(1.0) == SolitonPhase::SUPERFLUID,
+    // 超流判定 (Q16)
+    AMBER_CHECK(determine_phase(65536) == SolitonPhase::SUPERFLUID,
         "C5: ρ=1→超流", "相态判定错误");
 }
 

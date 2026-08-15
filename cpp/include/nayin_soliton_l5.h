@@ -23,11 +23,11 @@
 #include <cstdint>
 
 /* ═══════════════════════════════════════════════════════════════
- * ⚠️ [宪法违例标注] 本层含浮点常量/函数 (double / std::log10 / std::pow)。
- *    违反律算合一宪法「禁浮点」条款 — 层5-8 属宏观观测参考层,
- *    其数值经 2026-08-16 验证战役与 Python IEEE double 位级一致 (计算正确),
- *    但不混入 L0-L4 纯整数计算 (GF3 / Z/3¹¹ / Q16 / LCM 桥)。
- *    隔离策略: 本层仅作跨范畴宏观量参考, 禁止其值回灌层0-4。
+ * [Q16 化 2026-08-16] 原 double 实现改为 Q16.16 定点 (依赖 L0-L4 整数层):
+ *   本征值 {94.8%, 4.3%, 0.9%} → {62128, 2818, 590}
+ *   居里阈值 0.38 → 24904; 0.75 → 49152; ρ=1 → 65536
+ *   compute_rho: sin²(π/2·step/4500) 泰勒近似全程 Q16 (int64 中间量)
+ *   与 double 版误差 ≤ 2⁻¹⁶ (验证战役对照)。
  * ═══════════════════════════════════════════════════════════════════ */
 
 namespace sov::math::l5 {
@@ -37,11 +37,17 @@ namespace sov::math::l5 {
 // ═══════════════════════════════════════════════════════
 inline constexpr int C3_CYCLE_STEPS      = 1500;   // C3周期 (12×5³)
 inline constexpr int STANDING_NODES[]     = {0,3,6,9}; // 驻波节点
-inline constexpr double SOLITON_EIGEN_0  = 94.8;   // 孤子T0本征值 (%)
-inline constexpr double SOLITON_EIGEN_1  = 4.3;    // 孤子T1本征值 (%)
-inline constexpr double SOLITON_EIGEN_2  = 0.9;    // 孤子T2本征值 (%)
-inline constexpr double CURIE_THRESHOLD  = 0.38;   // 居里相变临界ρ
-inline constexpr int PHASE_ANCHOR_STEPS  = 4500;   // sin²三周期共振锚点
+inline constexpr int32_t SOLITON_EIGEN_0_Q16 = 62128;  // 94.8%  (0.948 × 2¹⁶)
+inline constexpr int32_t SOLITON_EIGEN_1_Q16 = 2818;   // 4.3%   (0.043 × 2¹⁶)
+inline constexpr int32_t SOLITON_EIGEN_2_Q16 = 590;    // 0.9%   (0.009 × 2¹⁶)
+inline constexpr int32_t CURIE_THRESHOLD_Q16 = 24904;  // 0.38 × 2¹⁶
+inline constexpr int32_t LIQUID_THRESHOLD_Q16 = 49152; // 0.75 × 2¹⁶
+inline constexpr int     PHASE_ANCHOR_STEPS = 4500;    // sin²三周期共振锚点
+// 兼容别名 (double 版遗留, 新代码禁用)
+inline constexpr int32_t SOLITON_EIGEN_0 = SOLITON_EIGEN_0_Q16;
+inline constexpr int32_t SOLITON_EIGEN_1 = SOLITON_EIGEN_1_Q16;
+inline constexpr int32_t SOLITON_EIGEN_2 = SOLITON_EIGEN_2_Q16;
+inline constexpr int32_t CURIE_THRESHOLD = CURIE_THRESHOLD_Q16;
 
 // ═══════════════════════════════════════════════════════
 // L5 孤子状态机
@@ -54,10 +60,10 @@ enum class SolitonPhase : uint8_t {
 };
 
 struct SolitonState {
-    double rho;               // 相变密度 [0,1]
-    double eigen_t0;          // trit0本征值
-    double eigen_t1;          // trit1本征值
-    double eigen_t2;          // trit2本征值
+    int32_t rho_q16;          // 相变密度 [0, 65536] (Q16.16)
+    int32_t eigen_t0_q16;     // trit0本征值 (Q16)
+    int32_t eigen_t1_q16;     // trit1本征值 (Q16)
+    int32_t eigen_t2_q16;     // trit2本征值 (Q16)
     int c3_cycle_step;        // C3周期内步数 [0,1499]
     SolitonPhase phase;       // 当前相态
     bool c3_active;           // C3轮转是否激活
@@ -67,20 +73,23 @@ struct SolitonState {
 // L5 操作
 // ═══════════════════════════════════════════════════════
 
-// 相变密度: sin²平滑过渡 (方案B — 三周期共振)
-[[nodiscard]] constexpr double compute_rho(int step) noexcept {
-    if (step >= PHASE_ANCHOR_STEPS) return 1.0;
-    // ρ = sin²(π/2 × step/4500)
-    double progress = 1.5707963267948966 * step / PHASE_ANCHOR_STEPS; // π/2
-    double s = progress - progress*progress*progress/6.0; // sin近似
-    return s * s;
+// 相变密度: sin²平滑过渡, 全程 Q16.16 (方案B — 三周期共振)
+// progress = (π/2)·step/4500, π/2 → Q16 102944 (1.5707963267948966 × 2¹⁶)
+// sin ≈ p − p³/6 (泰勒, Q16), ρ = s²
+[[nodiscard]] constexpr int32_t compute_rho(int step) noexcept {
+    if (step >= PHASE_ANCHOR_STEPS) return 65536;  // ρ = 1.0
+    int64_t p = (int64_t)102944 * step / PHASE_ANCHOR_STEPS;   // progress Q16
+    int64_t p2 = (p * p) >> 16;
+    int64_t p3 = (p2 * p) >> 16;
+    int64_t s  = p - (p3 / 6);                                 // sin 近似 Q16
+    return (int32_t)((s * s) >> 16);                           // ρ = sin²
 }
 
-// 孤子相态判定
-[[nodiscard]] constexpr SolitonPhase determine_phase(double rho) noexcept {
-    if (rho < CURIE_THRESHOLD)      return SolitonPhase::SOLID_FROZEN;
-    if (rho < 0.75)                  return SolitonPhase::LIQUID_FORMING;
-    if (rho < 1.0)                   return SolitonPhase::CURIE_TRANSITION;
+// 孤子相态判定 (Q16 阈值比较)
+[[nodiscard]] constexpr SolitonPhase determine_phase(int32_t rho_q16) noexcept {
+    if (rho_q16 < CURIE_THRESHOLD_Q16)  return SolitonPhase::SOLID_FROZEN;
+    if (rho_q16 < LIQUID_THRESHOLD_Q16) return SolitonPhase::LIQUID_FORMING;
+    if (rho_q16 < 65536)                return SolitonPhase::CURIE_TRANSITION;
     return SolitonPhase::SUPERFLUID;
 }
 
@@ -101,17 +110,17 @@ struct SolitonState {
 // 孤子状态更新: 根据步数推进本征值 C3 轮转
 [[nodiscard]] constexpr SolitonState soliton_update(int step) noexcept {
     SolitonState s{};
-    s.rho = compute_rho(step);
+    s.rho_q16 = compute_rho(step);
     s.c3_cycle_step = step % C3_CYCLE_STEPS;
-    s.phase = determine_phase(s.rho);
+    s.phase = determine_phase(s.rho_q16);
     s.c3_active = (s.phase >= SolitonPhase::LIQUID_FORMING);
 
-    // C3轮转: 每500步本征值循环置换
+    // C3轮转: 每500步本征值循环置换 (Q16)
     int rot = c3_rotate(s.c3_cycle_step);
     switch (rot) {
-        case 0: s.eigen_t0 = SOLITON_EIGEN_0; s.eigen_t1 = SOLITON_EIGEN_1; s.eigen_t2 = SOLITON_EIGEN_2; break;
-        case 1: s.eigen_t2 = SOLITON_EIGEN_0; s.eigen_t0 = SOLITON_EIGEN_1; s.eigen_t1 = SOLITON_EIGEN_2; break;
-        case 2: s.eigen_t1 = SOLITON_EIGEN_0; s.eigen_t2 = SOLITON_EIGEN_1; s.eigen_t0 = SOLITON_EIGEN_2; break;
+        case 0: s.eigen_t0_q16 = SOLITON_EIGEN_0_Q16; s.eigen_t1_q16 = SOLITON_EIGEN_1_Q16; s.eigen_t2_q16 = SOLITON_EIGEN_2_Q16; break;
+        case 1: s.eigen_t2_q16 = SOLITON_EIGEN_0_Q16; s.eigen_t0_q16 = SOLITON_EIGEN_1_Q16; s.eigen_t1_q16 = SOLITON_EIGEN_2_Q16; break;
+        case 2: s.eigen_t1_q16 = SOLITON_EIGEN_0_Q16; s.eigen_t2_q16 = SOLITON_EIGEN_1_Q16; s.eigen_t0_q16 = SOLITON_EIGEN_2_Q16; break;
     }
     return s;
 }
@@ -124,10 +133,10 @@ struct SolitonState {
 // C3 本征值循环置换: (e0,e1,e2) → (e2,e0,e1)
 [[nodiscard]] constexpr SolitonState soliton_rotate(const SolitonState& s) noexcept {
     SolitonState r = s;
-    double tmp = r.eigen_t0;
-    r.eigen_t0 = r.eigen_t2;
-    r.eigen_t2 = r.eigen_t1;
-    r.eigen_t1 = tmp;
+    int32_t tmp = r.eigen_t0_q16;
+    r.eigen_t0_q16 = r.eigen_t2_q16;
+    r.eigen_t2_q16 = r.eigen_t1_q16;
+    r.eigen_t1_q16 = tmp;
     r.c3_cycle_step = (r.c3_cycle_step + 500) % C3_CYCLE_STEPS;
     return r;
 }

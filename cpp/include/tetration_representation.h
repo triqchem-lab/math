@@ -31,20 +31,20 @@ namespace sov::math::tetration {
 // ═══════════════════════════════════════════════════════
 
 struct TetrationNumber {
-    double   height;           // 指数塔高度 H (可含小数, 如2.44)
+    int32_t  height_q16;       // 指数塔高度 H (Q16.16, 如 2.44 → 159908)
     uint8_t  z12_phase;        // Z12相位 [0,11] — 十二律位置
     uint64_t zhonglv_count;    // 仲吕闭合累计 — 时间戳
 
     // 默认: H=1 (即12本身)
     constexpr TetrationNumber() noexcept
-        : height(1.0), z12_phase(0), zhonglv_count(0) {}
+        : height_q16(65536), z12_phase(0), zhonglv_count(0) {}
 
     // 从仲吕闭合构建
     static TetrationNumber from_zhonglv(uint64_t zc) noexcept {
         TetrationNumber tn{};
         tn.zhonglv_count = zc;
         tn.z12_phase = static_cast<uint8_t>(zc % 12);
-        tn.height = sov::math::tetration::tower_height_from_zhonglv(zc);
+        tn.height_q16 = sov::math::tetration::tower_height_from_zhonglv_q16(zc);
         return tn;
     }
 
@@ -55,7 +55,7 @@ struct TetrationNumber {
     // 塔数相乘 ≡ 高度相加 (因为 12↑↑H1 × 12↑↑H2 ≈ 12↑↑(H1+H2))
     TetrationNumber operator*(const TetrationNumber& other) const noexcept {
         TetrationNumber r{};
-        r.height = this->height + other.height;
+        r.height_q16 = this->height_q16 + other.height_q16;
         r.z12_phase = (this->z12_phase + other.z12_phase) % 12;
         r.zhonglv_count = this->zhonglv_count + other.zhonglv_count;
         return r;
@@ -64,7 +64,7 @@ struct TetrationNumber {
     // 塔数幂 ≡ 高度相乘 (因为 (12↑↑H)^n ≈ 12↑↑(H×n))
     TetrationNumber pow(uint64_t n) const noexcept {
         TetrationNumber r{};
-        r.height = this->height * static_cast<double>(n);
+        r.height_q16 = (int32_t)(((int64_t)this->height_q16 * (int64_t)n) >> 16);
         r.z12_phase = static_cast<uint8_t>((this->z12_phase * n) % 12);
         r.zhonglv_count = this->zhonglv_count * n;
         return r;
@@ -75,7 +75,7 @@ struct TetrationNumber {
         TetrationNumber r = *this;
         r.zhonglv_count += closures;
         r.z12_phase = static_cast<uint8_t>(r.zhonglv_count % 12);
-        r.height = sov::math::tetration::tower_height_from_zhonglv(r.zhonglv_count);
+        r.height_q16 = sov::math::tetration::tower_height_from_zhonglv_q16(r.zhonglv_count);
         return r;
     }
 };
@@ -86,9 +86,12 @@ struct TetrationNumber {
 
 inline std::string to_string(const TetrationNumber& tn) {
     char buf[128];
+    // 整数渲染 Q16: H = 整数部分 + 4 位小数 (无浮点, 仅显示层)
+    int32_t hi = tn.height_q16 >> 16;
+    uint32_t frac = ((uint32_t)(tn.height_q16 & 0xFFFF) * 10000u) >> 16;
     std::snprintf(buf, sizeof(buf),
-        "12↑↑%.2f @ Z12[%u] (仲吕=%lu)",
-        tn.height, tn.z12_phase, tn.zhonglv_count);
+        "12↑↑%d.%04u @ Z12[%u] (仲吕=%lu)",
+        hi, frac, tn.z12_phase, (unsigned long)tn.zhonglv_count);
     return std::string(buf);
 }
 

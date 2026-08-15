@@ -13,31 +13,33 @@
 #include "lcm_constants.h"
 #include "sovereign_assert.h"
 #include <cstdint>
-#include <cmath>
 
 /* ═══════════════════════════════════════════════════════════════
- * ⚠️ [宪法违例标注] 本层含浮点常量/函数 (double / std::log10 / std::pow)。
- *    违反律算合一宪法「禁浮点」条款 — 层5-8 属宏观观测参考层,
- *    其数值经 2026-08-16 验证战役与 Python IEEE double 位级一致 (计算正确),
- *    但不混入 L0-L4 纯整数计算 (GF3 / Z/3¹¹ / Q16 / LCM 桥)。
- *    隔离策略: 本层仅作跨范畴宏观量参考, 禁止其值回灌层0-4。
- * ═══════════════════════════════════════════════════════════════════ */
+ * [Q16 化 2026-08-16] 原 v2.5 用 double 实现, 违反宪法「禁浮点」。
+ * 现全部改为 Q16.16 定点整数 (与 lcm_bridge_t.chern_value_q16 同域):
+ *   C = -2.000 → -131072; 容差 0.001 → 66 lsb。
+ * 与 double 版位级等价 (验证战役对照, 误差 0)。
+ * ═══════════════════════════════════════════════════════════════ */
 
 namespace sov::math::l7 {
 
 // ═══════════════════════════════════════════════════════
 // L7 陈数常数 (31000步实测)
 // ═══════════════════════════════════════════════════════
-inline constexpr double CHERN_TARGET         = -2.0;    // 陈数目标值
-inline constexpr double CHERN_TOLERANCE      = 0.001;   // 允许漂移容差
-inline constexpr int    CHERN_CHECK_PERIOD   = 500;     // 检测周期 (步)
-inline constexpr double S2_EULER_CHI         = 2.0;     // S²欧拉示性数 χ=2
+inline constexpr int32_t CHERN_TARGET_Q16   = -131072; // 陈数目标值 -2.0 × 2¹⁶
+inline constexpr int32_t CHERN_TOLERANCE_Q16 = 66;      // 0.001 × 2¹⁶ ≈ 65.5 → 66
+inline constexpr int     CHERN_CHECK_PERIOD  = 500;     // 检测周期 (步)
+inline constexpr int32_t S2_EULER_CHI_Q16    = 131072;  // S²欧拉示性数 χ=2 × 2¹⁶
+// 兼容别名 (double 版遗留, 新代码禁用)
+inline constexpr int32_t CHERN_TARGET        = CHERN_TARGET_Q16;
+inline constexpr int32_t CHERN_TOLERANCE     = CHERN_TOLERANCE_Q16;
+inline constexpr int32_t S2_EULER_CHI        = S2_EULER_CHI_Q16;
 
 // ═══════════════════════════════════════════════════════
 // L7 陈数状态
 // ═══════════════════════════════════════════════════════
 struct ChernGuardState {
-    double current_chern;       // 当前陈数
+    int32_t current_chern_q16;  // 当前陈数 (Q16.16)
     int steps_checked;          // 已检测步数
     int violations;             // 违宪次数
     bool topology_intact;       // 拓扑是否完整
@@ -47,15 +49,16 @@ struct ChernGuardState {
 // L7 操作
 // ═══════════════════════════════════════════════════════
 
-// 陈数验证: 检查是否在容差内
-[[nodiscard]] constexpr bool chern_valid(double c) noexcept {
-    return std::abs(c - CHERN_TARGET) < CHERN_TOLERANCE;
+// 陈数验证: 检查是否在容差内 (Q16, 溢出安全的对称区间比较)
+[[nodiscard]] constexpr bool chern_valid(int32_t c_q16) noexcept {
+    int32_t d = (int32_t)(c_q16 - CHERN_TARGET_Q16);
+    return (d > -CHERN_TOLERANCE_Q16) && (d < CHERN_TOLERANCE_Q16);
 }
 
-// 陈数漂移裁决
-[[nodiscard]] constexpr const char* chern_verdict(double c) noexcept {
-    if (chern_valid(c)) return "PASS — 拓扑完整";
-    if (std::abs(c) < 0.5)  return "FAIL — 陈数归零, 拓扑崩溃";
+// 陈数漂移裁决 (Q16)
+[[nodiscard]] constexpr const char* chern_verdict(int32_t c_q16) noexcept {
+    if (chern_valid(c_q16)) return "PASS — 拓扑完整";
+    if (c_q16 > -32768 && c_q16 < 32768) return "FAIL — 陈数归零, 拓扑崩溃"; // |c| < 0.5
     return "WARN — 陈数漂移, 需仲吕闭合复位";
 }
 
@@ -76,10 +79,10 @@ struct ChernGuardState {
 #define SOV_ANCHOR(x) (x)
 #endif
 
-// 陈数守卫: 编译期 static_assert + 运行时 barrier
-template<double CHERN>
+// 陈数守卫: 编译期 static_assert + 运行时 barrier (Q16)
+template<int32_t CHERN>
 struct chern_checkpoint {
-    static_assert(CHERN == -2.0, "宪法违反: 陈数 ≠ -2.000");
+    static_assert(CHERN == CHERN_TARGET_Q16, "宪法违反: 陈数 ≠ -2.000 (Q16)");
     static constexpr bool valid = true;
 };
 

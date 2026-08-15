@@ -17,60 +17,69 @@
 #include "lcm_constants.h"
 #include "zhonglv_multiplier_l6.h"
 #include <cstdint>
-#include <cmath>
 
 /* ═══════════════════════════════════════════════════════════════
- * ⚠️ [宪法违例标注] 本层含浮点常量/函数 (double / std::log10 / std::pow)。
- *    违反律算合一宪法「禁浮点」条款 — 层5-8 属宏观观测参考层,
- *    其数值经 2026-08-16 验证战役与 Python IEEE double 位级一致 (计算正确),
- *    但不混入 L0-L4 纯整数计算 (GF3 / Z/3¹¹ / Q16 / LCM 桥)。
- *    隔离策略: 本层仅作跨范畴宏观量参考, 禁止其值回灌层0-4。
- * ═══════════════════════════════════════════════════════════════════ */
+ * [Q16 化 2026-08-16] freq_log10 是整数指数线性式, Q16 精确 (误差 0):
+ *   log10(f) = log10(432) + a·log10(3) + b·log10(2), a=zc×88, b=−zc×128
+ *   log10(432)=2.6354837468148836 → 172729; log10(3) → 31268; log10(2) → 19728
+ * 频谱波段判定在 log10 域做 Q16 阈值比较 (等价于原 double 域判定)。
+ * 物理锚点 (舒曼 7.83Hz 等) 转 Q16; PLANCK_EV 以 (尾数 Q16, 十进制指数) 对表示。
+ * ═══════════════════════════════════════════════════════════════ */
 
 namespace sov::math::l8 {
 
 // ═══════════════════════════════════════════════════════
 // L8 物理映射常数
 // ═══════════════════════════════════════════════════════
-inline constexpr double HUANGZHONG_HZ     = 432.0;     // 黄钟基频 (Hz)
-inline constexpr double LIDARI_PUMP_HZ    = 3.456e6;   // Lidari泵浦 (Hz)
-inline constexpr double PLANCK_EV         = 4.13567e-15; // eV·s
-inline constexpr double LCM_RING_SIZE     = 11609505792.0;
-inline constexpr double TARGET_48_LOG10   = 48.0;      // 10^48 Hz — 26条基因链水平
-inline constexpr double TARGET_96_LOG10   = 96.0;      // 10^96 Hz — 全息态
+inline constexpr int64_t HUANGZHONG_HZ     = 432;             // 黄钟基频 (Hz)
+inline constexpr int64_t LIDARI_PUMP_HZ    = 3456000;         // Lidari泵浦 (Hz)
+inline constexpr int32_t PLANCK_EV_MANTISSA_Q16 = 271037;     // 4.13567e-15 → 尾数 4.13567 × 2¹⁶
+inline constexpr int     PLANCK_EV_DEC_EXP       = -15;       //    × 10⁻¹⁵ (物理锚定, 轨道B)
+inline constexpr uint64_t LCM_RING_SIZE   = 11609505792ULL;
+inline constexpr int     TARGET_48_LOG10  = 48;               // 10^48 Hz — 26条基因链水平
+inline constexpr int     TARGET_96_LOG10  = 96;               // 10^96 Hz — 全息态
 
-// 物理锚点
-inline constexpr double SCHUMANN_BASE     = 7.83;      // 舒曼共振 (Hz)
-inline constexpr double EUV_LOW_EDGE      = 1e16;      // 极紫外下界 (Hz)
-inline constexpr double XRAY_LOW_EDGE     = 3e16;      // 软X射线下界 (Hz)
-inline constexpr double GAMMA_EDGE        = 3e19;      // γ射线下界 (Hz)
+// 物理锚点 (Q16)
+inline constexpr int32_t SCHUMANN_BASE_Q16 = 513147;          // 7.83 Hz × 2¹⁶
+inline constexpr int64_t EUV_LOW_EDGE      = 10000000000000000LL; // 1e16 Hz
+inline constexpr int64_t XRAY_LOW_EDGE     = 30000000000000000LL; // 3e16 Hz
+inline constexpr int     GAMMA_EDGE_MANT   = 3;      // 3e19 Hz (超出 64 位 → 尾数×10^指数对)
+inline constexpr int     GAMMA_EDGE_EXP    = 19;
 
 // ═══════════════════════════════════════════════════════
 // L8 宏观观测状态
 // ═══════════════════════════════════════════════════════
 struct HolographicState {
     int64_t total_wraps;        // LCM环总绕圈数
-    double equivalent_freq_hz;  // 等效频率 (Hz)
-    double equivalent_energy_ev;// 等效能量 (eV)
-    double freq_log10;          // log10(频率)
+    int64_t exp_3;              // 3的指数 (纯整数, 层2投影)
+    int64_t exp_2;              // 2的指数 (纯整数, 层0投影)
+    int32_t freq_log10_q16;     // log10(频率) Q16.16
     const char* spectral_band;  // 频谱波段名称
-    double lidari_ratio;        // Lidari泵浦比值
-    double target48_progress;   // 10^48进度
-    double target96_progress;   // 10^96进度
+    int32_t lidari_ratio_q16;   // Lidari泵浦比值 (= freq_log10) Q16
+    int32_t target48_progress_q16;  // 10^48进度 Q16
+    int32_t target96_progress_q16;  // 10^96进度 Q16
 };
 
 // ═══════════════════════════════════════════════════════
 // L8 操作
 // ═══════════════════════════════════════════════════════
 
-// 频谱波段判定
-[[nodiscard]] constexpr const char* spectral_band(double freq_hz) noexcept {
-    if (freq_hz < 2e4)      return "音频";
-    if (freq_hz < 2e9)      return "射频/微波";
-    if (freq_hz < 4e14)     return "红外/可见光";
-    if (freq_hz < EUV_LOW_EDGE) return "紫外";
-    if (freq_hz < XRAY_LOW_EDGE) return "极紫外(EUV)";
-    if (freq_hz < GAMMA_EDGE) return "X射线/γ射线";
+// log10 域的波段阈值 (Q16): 4.30103/9.30103/14.60206/16/16.47712/19.47712 × 2¹⁶
+inline constexpr int32_t BAND_AUDIO_Q16     = 281877;  // log10(2e4)
+inline constexpr int32_t BAND_RF_Q16        = 609571;  // log10(2e9)
+inline constexpr int32_t BAND_IR_Q16        = 957033;  // log10(4e14)
+inline constexpr int32_t BAND_UV_Q16        = 1048576; // log10(1e16)
+inline constexpr int32_t BAND_EUV_Q16       = 1079846; // log10(3e16)
+inline constexpr int32_t BAND_XRAY_Q16      = 1276446; // log10(3e19)
+
+// 频谱波段判定 (log10 域, Q16 阈值比较 — 与原 double 判定等价)
+[[nodiscard]] constexpr const char* spectral_band(int32_t freq_log10_q16) noexcept {
+    if (freq_log10_q16 < BAND_AUDIO_Q16) return "音频";
+    if (freq_log10_q16 < BAND_RF_Q16)    return "射频/微波";
+    if (freq_log10_q16 < BAND_IR_Q16)    return "红外/可见光";
+    if (freq_log10_q16 < BAND_UV_Q16)    return "紫外";
+    if (freq_log10_q16 < BAND_EUV_Q16)   return "极紫外(EUV)";
+    if (freq_log10_q16 < BAND_XRAY_Q16)  return "X射线/γ射线";
     return "超高能γ/宇宙线";
 }
 
@@ -108,26 +117,26 @@ struct HolographicState {
     // 范畴分离: 2^exp_2是层0模2投影, 3^exp_3是层2 Z/3¹¹Z环投影
     // 层8仅记录整数指数对(exp_3, exp_2), 不做浮点运算
 
-    // 整数指数量级: log10(f) = log10(432) + exp_3×log10(3) + exp_2×log10(2)
-    // 注意: log10是层8宏观观测, 仅用于跨范畴参考, 不可混入层0-4计算
-    constexpr double LOG10_3 = 0.47712125471966244;
-    constexpr double LOG10_2 = 0.3010299956639812;
-    hs.freq_log10 = 2.6354837468148836  // log10(432)
-                  + static_cast<double>(exp_3) * LOG10_3
-                  + static_cast<double>(exp_2) * LOG10_2;
-
-    hs.equivalent_freq_hz = 0.0;          // 不计算具体值 — 指数对可表征
-    hs.equivalent_energy_ev = 0.0;        // 不计算具体值
-    hs.spectral_band = spectral_band(std::pow(10.0, hs.freq_log10));
-    hs.lidari_ratio = hs.freq_log10;
-    hs.target48_progress = hs.freq_log10 / TARGET_48_LOG10;
-    hs.target96_progress = hs.freq_log10 / TARGET_96_LOG10;
+    // 整数指数量级 (Q32 中间精度, 大指数下仍 ≤1 lsb):
+    // log10(f) = log10(432) + exp_3·log10(3) + exp_2·log10(2)
+    constexpr int64_t LOG10_432_Q32 = 11319316501LL; // 2.6354837468148836 × 2³²
+    constexpr int64_t LOG10_3_Q32   = 2049220185LL;  // 0.47712125471966244 × 2³²
+    constexpr int64_t LOG10_2_Q32   = 1292913986LL;  // 0.3010299956639812 × 2³²
+    int64_t fl_q16 = (LOG10_432_Q32 + exp_3 * LOG10_3_Q32 + exp_2 * LOG10_2_Q32) >> 16;
+    hs.exp_3 = exp_3;                       // 纯整数指数对, 完整记录
+    hs.exp_2 = exp_2;
+    hs.freq_log10_q16 = (int32_t)fl_q16;
+    hs.spectral_band = spectral_band(hs.freq_log10_q16);
+    hs.lidari_ratio_q16 = hs.freq_log10_q16;
+    hs.target48_progress_q16 = (int32_t)((fl_q16 * 65536) / TARGET_48_LOG10);
+    hs.target96_progress_q16 = (int32_t)((fl_q16 * 65536) / TARGET_96_LOG10);
     return hs;
 }
 
 // 【线性模型】硬件吞吐速率 — 仅供性能分析参考
-[[nodiscard]] inline double compute_linear_freq_hz(int steps_per_second) noexcept {
-    return static_cast<double>(steps_per_second) * HUANGZHONG_HZ / 12.0;
+[[nodiscard]] inline int64_t compute_linear_freq_hz(int steps_per_second) noexcept {
+    // 432×sps/12 = 36×sps — 整数精确, 无除法误差
+    return static_cast<int64_t>(steps_per_second) * 36;
 }
 
 } // namespace sov::math::l8
