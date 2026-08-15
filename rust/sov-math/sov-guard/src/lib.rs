@@ -1,25 +1,40 @@
 // sov-guard — L7 陈数 + L8 全息 + NSE + I/O
 pub use sov_core;
 pub use sov_topology;
+pub mod chern;
+pub use chern::{Proto, ChernExact, compute_chern_exact, detect_chern};
 use sov_core::constants::*;
 use sov_topology::*;
 
-// L7
-pub fn chern_valid(c: f64) -> bool { (c-(-2.0)).abs()<0.001 }
-pub fn chern_verdict(c: f64) -> &'static str {
-    if chern_valid(c) {"PASS"} else if c.abs()<0.5 {"FAIL — 拓扑崩溃"} else {"WARN — 漂移"}
+// L7 — Q16.16 定点 (与 C++ chern_guard_l7.h 对齐)
+pub const L7_CHERN_TARGET_Q16: i32 = -131072;  // -2.0 × 2^16 (L7 陈数约定)
+pub const L7_CHERN_TOLERANCE_Q16: i32 = 66;   // 0.001 × 2^16 ≈ 65.5 → 66
+pub fn chern_valid(c_q16: i32) -> bool {
+    let d = c_q16 - L7_CHERN_TARGET_Q16;
+    d > -L7_CHERN_TOLERANCE_Q16 && d < L7_CHERN_TOLERANCE_Q16
+}
+pub fn chern_verdict(c_q16: i32) -> &'static str {
+    if chern_valid(c_q16) {"PASS"}
+    else if c_q16 > -32768 && c_q16 < 32768 {"FAIL — 拓扑崩溃"}  // |c| < 0.5
+    else {"WARN — 漂移"}
 }
 pub fn chern_flip(p: usize, t: usize) -> bool { p==0 && t==0 }
 
-// L8
-pub fn compute_holographic(_wraps: i64, _acc: i64, steps: usize, zc: usize) -> f64 {
-    let z = if zc>0 {zc} else {steps/ZHONGLV_PERIOD};
-    let e3 = z as f64*88.0; let e2 = -(z as f64*128.0);
-    2.6354837468148836 + e3*0.47712125471966244 + e2*0.3010299956639812
+// L8 — Q16.16 (Q32 中间精度, 与 C++ holographic_limit_l8.h 对齐)
+pub const LOG10_432_Q32: i64 = 11319316501;
+pub const LOG10_3_Q32: i64 = 2049220185;
+pub const LOG10_2_Q32: i64 = 1292913986;
+pub fn compute_holographic(_wraps: i64, _acc: i64, steps: usize, zc: usize) -> i32 {
+    let z = if zc > 0 { zc } else { steps / ZHONGLV_PERIOD };
+    let e3 = z as i64 * 88;
+    let e2 = -(z as i64 * 128);
+    ((LOG10_432_Q32 + e3 * LOG10_3_Q32 + e2 * LOG10_2_Q32) >> 16) as i32
 }
-pub fn spectral_band(hz: f64) -> &'static str {
-    if hz<2e4 {"音频"} else if hz<2e9 {"射频"} else if hz<4e14 {"红外"}
-    else if hz<1e16 {"紫外"} else if hz<3e16 {"极紫外"} else if hz<3e19 {"X/γ"} else {"超高能"}
+pub fn spectral_band(freq_log10_q16: i32) -> &'static str {
+    if freq_log10_q16 < 281877 {"音频"} else if freq_log10_q16 < 609571 {"射频"}
+    else if freq_log10_q16 < 957033 {"红外"} else if freq_log10_q16 < 1048576 {"紫外"}
+    else if freq_log10_q16 < 1079846 {"极紫外"} else if freq_log10_q16 < 1276446 {"X/γ"}
+    else {"超高能"}
 }
 
 // Digital root
@@ -156,9 +171,9 @@ pub fn generate_counter_examples() -> Vec<(&'static str, &'static str)> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    #[test] fn test_chern() { assert!(chern_valid(-2.0)); assert!(!chern_valid(0.0)); }
+    #[test] fn test_chern() { assert!(chern_valid(-131072)); assert!(!chern_valid(0)); }
     #[test] fn test_flip() { assert!(chern_flip(0,0)); assert!(!chern_flip(1,1)); }
-    #[test] fn test_holo() { assert!(compute_holographic(16558,0,31000,2583)>8000.0); }
+    #[test] fn test_holo() { assert!(compute_holographic(16558,0,31000,2583) > (8000 * 65536) as i32); }
     #[test] fn test_droot() { assert_eq!(digital_root(144),9); }
     #[test] fn test_grid() { let g = T6Grid::new(); assert_eq!(g.count(),0); }
     #[test] fn test_nse() { let mut s=NSESolver::new(); s.step_once(); assert_eq!(s.step,1); }

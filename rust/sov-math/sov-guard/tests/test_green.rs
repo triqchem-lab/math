@@ -78,9 +78,9 @@ fn g5_t6_grid() {
 
 #[test]
 fn g6_holographic() {
-    let log10 = compute_holographic(16558, 0, 31000, 2583);
-    assert!(log10 > 8000.0);
-    let band = spectral_band(10f64.powf(log10));
+    let log10 = compute_holographic(16558, 0, 31000, 2583); // Q16
+    assert!(log10 > (8000 * 65536) as i32);
+    let band = spectral_band(log10);
     assert!(band.contains("超高能") || band.contains("X") || band.contains("极紫外"));
 }
 

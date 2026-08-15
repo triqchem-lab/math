@@ -83,8 +83,8 @@ fn r5_pack_unpack_roundtrip() {
 
 #[test]
 fn r6_chern_and_bridge() {
-    assert!(chern_valid(-2.0));
-    assert!(!chern_valid(0.0));
+    assert!(chern_valid(-131072));
+    assert!(!chern_valid(0));
     assert!(chern_flip(0, 0));
     assert!(!chern_flip(1, 1));
 
