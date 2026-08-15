@@ -61,6 +61,15 @@ add_executable(test_l5_l8_verify tests/test_l5_l8_verify.cpp)
 target_link_libraries(test_l5_l8_verify PRIVATE sov_math)
 add_test(NAME l5_l8_verify COMMAND test_l5_l8_verify)
 
+# 精确层 (对齐 Rust sov-core::eis / sov-guard::chern — 零浮点)
+add_executable(test_eisenstein tests/test_eisenstein.cpp)
+target_link_libraries(test_eisenstein PRIVATE sov_math)
+add_test(NAME eisenstein COMMAND test_eisenstein)
+
+add_executable(test_chern_exact tests/test_chern_exact.cpp)
+target_link_libraries(test_chern_exact PRIVATE sov_math)
+add_test(NAME chern_exact COMMAND test_chern_exact)
+
 # ═══════════════════════════════════════════════════════════
 # 🔴 宪法级 — 宪法不可变, 违宪即阻断
 # ═══════════════════════════════════════════════════════════
