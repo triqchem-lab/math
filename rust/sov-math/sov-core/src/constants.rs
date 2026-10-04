@@ -34,7 +34,12 @@ pub const TOROIDAL_WINDING: usize = 46;
 /// 陈数
 pub const CHERN_TARGET: i32 = 2;      // 与 C++ lcm_constants.h int CHERN_TARGET=2 对齐 (整型, 禁浮点)
 pub const CHERN_TARGET_Q16: i32 = 131072; // 2.0 × 65536
-pub const DELTA_Q16: i32 = 113506;         // √3 × 65536
+// ⚠ 来源：实验物理锚定（H₂O@C₆₀ 光谱能级分裂 ≈0.5 meV），非代数推导
+// 共源 I_h 正二十面体对称群（与 144, 46 并列），见 wiki/08-constants.md:125
+// wiki CHIRAL_COLLAPSE = 113507（≈√3×65536=113511.68，本值差 1 为历史遗留）
+pub const DELTA_Q16: i32 = 113506;
+pub const CHIRAL_COLLAPSE: i32 = 113507;    // wiki 08-constants 权威值
+pub const SQRT3_Q16_FLOOR: i32 = 113511;    // floor(√3 × 65536) 数学精确截断
 
 /// 纳音
 pub const NAYIN_COUNT: usize = 60;
