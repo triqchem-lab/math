@@ -1020,5 +1020,9 @@ ring_full_double_bad=0,chk=440005957
 ring_add_sweep_bad=0,chk=350098737
 ring_mul_sweep_bad=0,chk=997820492
 err_ring=-1,-1
+sigma_full_bad=0,chk=891216330
+sigma_involution_bad=0
+gf9_norm_full_bad=0,chk=703378107
+gf9_norm_mul_bad=0,chk=777517667
 err_null=-4
 runtime_fini=0

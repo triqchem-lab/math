@@ -753,6 +753,56 @@ def check_ring_z3_11(fail):
           + ("" if ok else "  🔴"))
     return ok
 
+DCGROUP = f"{SRC}/Sovereign/Algebra/GroupTheory/DCGroup.agda"
+GF9_AGDA = f"{SRC}/Sovereign/Algebra/FieldTower/GF9.agda"
+
+def check_frobenius_norm(fail):
+    """GF(9) Frobenius σ 与范数 N: 全域穷尽 (12 点 / 9 值 / 81 对乘性)"""
+    dcg = read(DCGROUP)
+    gf9 = read(GF9_AGDA)
+    has_sigma = bool(re.search(r"sigmaDC \(t , a\) = \(t , alphaInv a\)", dcg))
+    has_inv = "sigmaDC-involution" in dcg
+    has_norm = bool(re.search(r"galoisNorm", gf9))
+    has_norm_mul = "norm-mul" in gf9
+    body = read(BODY)
+    MOD7 = 1000000007
+    sg = re.search(r"sigma_full_bad=(\d+),chk=(\d+)", body)
+    inv = re.search(r"sigma_involution_bad=(\d+)", body)
+    nm = re.search(r"gf9_norm_full_bad=(\d+),chk=(\d+)", body)
+    nmul = re.search(r"gf9_norm_mul_bad=(\d+),chk=(\d+)", body)
+    # 独立复算
+    c_s = 0
+    for t in range(3):
+        for k in range(4):
+            c_s = (c_s * 131 + t * 10 + ((4 - k) % 4)) % MOD7
+    c_n = 0
+    for a in range(9):
+        x, y = a // 3, a % 3
+        c_n = (c_n * 131 + (x*x + y*y) % 3) % MOD7
+    c_m = 0
+    for a in range(9):
+        for b in range(9):
+            x1, y1, x2, y2 = a//3, a%3, b//3, b%3
+            xr = ((x1*x2 - y1*y2) % 3 + 3) % 3
+            yr = ((x1*y2 + y1*x2) % 3 + 3) % 3
+            c = xr*3 + yr
+            nx = (x1*x1 + y1*y1) % 3
+            ny = (x2*x2 + y2*y2) % 3
+            nc = ((xr*xr + yr*yr)) % 3
+            c_m = (c_m * 131 + nc) % MOD7
+    ok = (has_sigma and has_inv and has_norm and has_norm_mul
+          and sg and sg.group(1) == "0" and int(sg.group(2)) == c_s
+          and inv and inv.group(1) == "0"
+          and nm and nm.group(1) == "0" and int(nm.group(2)) == c_n
+          and nmul and nmul.group(1) == "0" and int(nmul.group(2)) == c_m)
+    print(f"Agda sigmaDC (t,αᵏ)↦(t,α⁻ᵏ) {'✓' if has_sigma else '✗'}, involution {'✓' if has_inv else '✗'}, "
+          f"galoisNorm {'✓' if has_norm else '✗'}, norm-mul {'✓' if has_norm_mul else '✗'}; "
+          f"ABI σ 全域 12 {'✓' if sg and sg.group(1)=='0' else '✗'} (独立复算 {'✓' if sg and int(sg.group(2))==c_s else '✗'}), "
+          f"σ²=id {'✓' if inv and inv.group(1)=='0' else '✗'}, "
+          f"N 全域 9 {'✓' if nm and nm.group(1)=='0' else '✗'}, N 乘性 81 对 {'✓' if nmul and nmul.group(1)=='0' else '✗'}"
+          + ("" if ok else "  🔴"))
+    return ok
+
 def main():
     src = read(CHAIN)
     fail = 0
@@ -799,6 +849,7 @@ def main():
     if not check_digital_root(fail): fail = 1
     if not check_small_domains(fail): fail = 1
     if not check_ring_z3_11(fail): fail = 1
+    if not check_frobenius_norm(fail): fail = 1
 
     print("\n" + ("PASS" if not fail else "FAIL"))
     return fail

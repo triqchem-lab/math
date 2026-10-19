@@ -934,6 +934,59 @@ int main(int argc, char **argv) {
           uint16_t t; printf("err_ring=%d,%d\n", ra(a, a, o), rt(a, &t)); }
     }
 
+    /* ══ GF(9) Frobenius σ 与范数 N: 全域穷尽 ══ */
+    {
+        typedef int32_t (*fn_sg)(uint8_t, uint8_t, uint8_t *, uint8_t *);
+        typedef int32_t (*fn_nm)(uint8_t, uint8_t *);
+        fn_sg sg = (fn_sg)sym("sov_dc_sigma");
+        fn_nm nm = (fn_nm)sym("sov_gf9_norm");
+
+        /* ① σ 全域 144 点 (12 点 × 12? 实为 3×4=12): x=(t,αᵏ) ↦ (t,α^(−k)) */
+        { int bad = 0; long long chk = 0;
+          for (int t = 0; t < 3; ++t) for (int k = 0; k < 4; ++k) {
+              uint8_t to = 9, ko = 9; sg((uint8_t)t, (uint8_t)k, &to, &ko);
+              int expk = (4 - k) % 4;
+              if (to != t || ko != expk) ++bad;
+              chk = (chk * 131 + to * 10 + ko) % 1000000007LL;
+          }
+          printf("sigma_full_bad=%d,chk=%lld\n", bad, chk); }
+
+        /* ② σ² = id (全域) */
+        { int bad = 0;
+          for (int t = 0; t < 3; ++t) for (int k = 0; k < 4; ++k) {
+              uint8_t t1, k1, t2, k2;
+              sg((uint8_t)t, (uint8_t)k, &t1, &k1); sg(t1, k1, &t2, &k2);
+              if (t2 != t || k2 != k) ++bad;
+          }
+          printf("sigma_involution_bad=%d\n", bad); }
+
+        /* ③ 范数: 9 值全域 (a = x + yα 编码 3x+y)，N = x²+y² ∈ GF(3) */
+        { int bad = 0; long long chk = 0;
+          for (int a = 0; a < 9; ++a) {
+              int x = a / 3, y = a % 3;
+              uint8_t o = 9; nm((uint8_t)a, &o);
+              int exp = (x * x + y * y) % 3;
+              if (o != exp) ++bad;
+              chk = (chk * 131 + o) % 1000000007LL;
+          }
+          printf("gf9_norm_full_bad=%d,chk=%lld\n", bad, chk); }
+
+        /* ④ 范数乘性: 全域 81 对 N(xy) = N(x)N(y) (乘法用 trit 域乘) */
+        { int bad = 0; long long chk = 0;
+          /* 用 ABI 的 gf9 乘法? 无导出；改用 x+yα 的域乘公式：(x1,y1)(x2,y2) = (x1x2 - y1y2, x1y2 + y1x2) mod 3 */
+          for (int a = 0; a < 9; ++a) for (int b = 0; b < 9; ++b) {
+              int x1 = a / 3, y1 = a % 3, x2 = b / 3, y2 = b % 3;
+              int xr = ((x1 * x2 - y1 * y2) % 3 + 3) % 3;
+              int yr = ((x1 * y2 + y1 * x2) % 3 + 3) % 3;
+              int c = xr * 3 + yr;
+              uint8_t na, nb, nc;
+              nm((uint8_t)a, &na); nm((uint8_t)b, &nb); nm((uint8_t)c, &nc);
+              if (nc != (uint8_t)((na * nb) % 3)) ++bad;
+              chk = (chk * 131 + nc) % 1000000007LL;
+          }
+          printf("gf9_norm_mul_bad=%d,chk=%lld\n", bad, chk); }
+    }
+
     /* 空指针保护 */
     printf("err_null=%d\n", tadd(0, 0, NULL));
     { fn_abi rfini = (fn_abi)dlsym(H, "sov_runtime_fini");
