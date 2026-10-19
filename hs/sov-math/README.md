@@ -23,6 +23,8 @@ src/Sov/Math/
   Constants.hs     宪法常数（黄钟 3^11、仲吕 2^16、LCM、陈数 ±2、Δ_Q16 三值并存）
   Trit.hs          L1 GF(3)：C3 旋转 / 乘法 / 范数 / 损益（互逆）
   Layer1.hs        5-trit 打包 + 批量加法/点积/范数
+  L2Ops.hs         L2 矩阵乘/√3门控/门控乘/RMSNorm(LUT 注入) + A4 翻转
+  Block.hs         SOV v2.6 范畴标签/主权块 128/全息头
   Tryte.hs         6 位基 3 数（纳音 mod 60、十二律 mod 12 投影）
   Ring.hs          L2 Z/3^11Z 环（进位加法、本征进位乘法、T₁^11 = 0）
   Adc.hs           L0 uint384 ADC 进位链 + LCM 累加器（纯函数式状态）
@@ -31,7 +33,7 @@ src/Sov/Math/
   FixedComplex.hs  Q16.16 定点复数（ω = −1/2 + i√3/2，投影层不进状态机）
   Eis.hs           Eisenstein 整数 Z[ω]（与 Agda Sovereign.RootMath.Eisenstein 对齐）
   Error.hs         两层错误体系
-test/Sov/Tests/    50 项测试，逐条镜像 rust #[cfg(test)]
+test/Sov/Tests/    59 项测试，逐条镜像 rust #[cfg(test)]
 ```
 
 ## 构建与测试
@@ -39,7 +41,7 @@ test/Sov/Tests/    50 项测试，逐条镜像 rust #[cfg(test)]
 ```bash
 cd hs/sov-math
 cabal build all
-cabal run sov-math-test   # ✅ 全部通过: 50/50
+cabal run sov-math-test   # ✅ 全部通过: 59/59
 ```
 
 ## 跨语言对齐说明

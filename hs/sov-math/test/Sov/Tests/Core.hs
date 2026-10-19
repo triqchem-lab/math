@@ -9,6 +9,8 @@ import qualified Sov.Math.Constants as C
 import Sov.Math.Eis
 import Sov.Math.FixedComplex
 import Sov.Math.Layer1
+import Sov.Math.L2Ops
+import Sov.Math.Block
 import Sov.Math.Nat
 import Sov.Math.Ring
 import Sov.Math.SunYi
@@ -116,6 +118,30 @@ allTests =
   -- ── Vec / Nat (强类型基础设施) ──
   , check "vec_length_typed"    (vecLength n11 (replicateV n11 T0) == 11)
   , check "vec_zip_length_safe" (zipWithV addT (replicateV n3 T1) (replicateV n3 T2) == replicateV n3 T0)
+
+  -- ── L2Ops (l2_matmul / l2_ops / vavx3 纯语义) ──
+  , check "matmul_2x2"   -- rust test_matmul: x=[[1,2],[1,2]], w=[[1,0],[0,1]] → [[1,2],[1,2]]
+      (matmulGF3 [[T1,T2],[T1,T2]] [[T1,T0],[T0,T1]] == [[T1,T2],[T1,T2]])
+  , check "gf3_add_batch" -- rust test_add: 全1 + 全2 = 全0
+      (zipWith addT (replicate 100 T1) (replicate 100 T2) == replicate 100 T0)
+  , check "gf3_mul_batch" -- rust test_mul: [2,2]⊙[2,1] = [1,2]
+      (map (\(a,b) -> mulT a b) [(T2,T2),(T2,T1)] == [T1,T2])
+  , check "gate_sqrt3"   -- rust test_gate: 全1矩阵 5 行 dim10, threshold 100 → 全1
+      (gateSqrt3 (replicate 5 (replicate 10 T1)) 100 == replicate 5 T1)
+  , check "a4_c3cw"      -- rust test_a4 (l2_matmul): [0,1,2] C3Cw → [1,2,0]
+      (a4FlipTriple C3Cw (T0, T1, T2) == (T1, T2, T0))
+  , check "ring_vector_add"  -- rust test_vector_add: t1+t2 与 t2+t1, digit(1)=1
+      (case ringVectorAdd [t1e, t2e] [t2e, t1e] of
+         (c : _) -> digitR 1 c == Just T1
+         []      -> False)
+  , check "ring_dot"     -- rust test_dot: [t1,t2]·[t1,t1] → digit(2)=1, digit(3)=1
+      (let d = ringDotProduct [t1e, t2e] [t1e, t1e]
+       in digitR 2 d == Just T1 && digitR 3 d == Just T1)
+
+  -- ── Block (types.rs 剩余) ──
+  , check "layer_tag_values"
+      (layerTagValue TagL1Gf3Tensor == 0x10000001 && layerTagValue TagTopologyGrid == 0x40000004)
+  , check "sov_block_zero"  (sbQs sovBlockZero == replicateV n6 T0)
   ]
 
 -- ═══ 辅助 ═══

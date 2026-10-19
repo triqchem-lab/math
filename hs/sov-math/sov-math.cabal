@@ -28,6 +28,8 @@ library
                       Sov.Math.FixedComplex
                       Sov.Math.Eis
                       Sov.Math.Layer1
+                      Sov.Math.L2Ops
+                      Sov.Math.Block
     hs-source-dirs:   src
     build-depends:    base >=4 && <5
     default-language: GHC2021
