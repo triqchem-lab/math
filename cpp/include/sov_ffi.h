@@ -84,6 +84,42 @@ int32_t sov_wide_const_sqrt3(uint64_t out[8]);
 /* ── 陈数 (S² 12 胞腔精确有理) ── */
 int32_t sov_chern_inject(int64_t* num, int64_t* den);      /* 注入 C=2 单极后的 (num,den) */
 
+/* ══ 第二批: 剩余层 (损益/Eisenstein/陈数/全息/数字根/Doz/打包/Tryte) ══
+ * 说明: 下列函数的语义与各语言对应层模块一致 (loss_gain / eisenstein / chern_exact /
+ * holographic_limit_l8 / digital_root / gf3_layer1 / tryte); 一致性由 ffi_conformance 判定。 */
+
+#define SOV_TONE_COUNT 12
+#define SOV_NAYIN_COUNT 60
+
+/* ── L4 十二律损益 ── */
+int32_t sov_sunyi_length(uint8_t tone, uint16_t* out);      /* tone∈[0,12) → 81,54,72,...,30 */
+int32_t sov_sunyi_gain(uint8_t step, uint8_t* out);         /* 损益序列: 0=损(Sun) 1=益(Yi) */
+int32_t sov_sunyi_boundary(uint8_t step, uint8_t* out);     /* step%12==11 → 1 (仲吕边界) */
+
+/* ── Z[ω] Eisenstein 整数环 ── */
+int32_t sov_eis_mul(int64_t a, int64_t b, int64_t c, int64_t d,
+                    int64_t* re, int64_t* im);              /* (a+bω)(c+dω) */
+int32_t sov_eis_norm(int64_t a, int64_t b, int64_t* out);   /* a²−ab+b² */
+
+/* ── 陈数 (S² 12 胞腔 C=2 构造器) ── */
+int32_t sov_chern_detect(uint8_t injected, int64_t* num, int64_t* den); /* (0,216) / (-432,216) */
+
+/* ── L8 全息标度 (Q16 对数投影) ── */
+int32_t sov_holographic(uint32_t steps, uint32_t closure, int32_t* out);
+
+/* ── 数字根 ── */
+int32_t sov_digital_root(uint64_t n, uint8_t* out);
+
+/* ── Doz 记数法 (A=10, B=11) ── */
+int32_t sov_doz_digit(uint8_t d, char* out);                /* d∈[0,12) → '0'..'9','A','B' */
+
+/* ── L1 5-trit 打包 ── */
+int32_t sov_trit_pack5(uint8_t t0, uint8_t t1, uint8_t t2, uint8_t t3, uint8_t t4, uint8_t* out);
+int32_t sov_trit_unpack5(uint8_t packed, uint8_t out[5]);   /* 高位优先: out[0]=t4 */
+
+/* ── Tryte (6 trit → 值 ∈ [0,729)) ── */
+int32_t sov_tryte_value(const uint8_t t6[6], uint16_t* out);
+
 #ifdef __cplusplus
 }
 #endif

@@ -7,6 +7,7 @@
 #include "gf3_field.h"      // Trit 运算 (l1)
 #include "z3r_ring.h"       // Z/3^11
 #include "lcm_constants.h"
+#include "eisenstein.h"
 #include <cstring>
 
 using namespace sov::math;
@@ -227,6 +228,114 @@ int32_t sov_chern_inject(int64_t* num, int64_t* den) {
     if (!num || !den) return SOV_ERR_NULL;
     *num = -432;
     *den = 216;
+    return SOV_OK;
+}
+
+/* ══ 第二批 ══ */
+
+namespace {
+// 十二律长度 (宪法固定序列, 与 loss_gain.h TWELVE_LENGTHS 同源)
+constexpr uint16_t kTwelveLengths[12] = {81,54,72,48,64,43,57,38,51,34,45,30};
+// 损益序列: 0=损 1=益 (末段连损)
+constexpr uint8_t kLossGain[12] = {0,1,0,1,0,1,0,1,0,1,0,0};
+} // namespace
+
+int32_t sov_sunyi_length(uint8_t tone, uint16_t* out) {
+    if (!out) return SOV_ERR_NULL;
+    if (tone >= SOV_TONE_COUNT) return SOV_ERR_RANGE;
+    *out = kTwelveLengths[tone];
+    return SOV_OK;
+}
+
+int32_t sov_sunyi_gain(uint8_t step, uint8_t* out) {
+    if (!out) return SOV_ERR_NULL;
+    *out = kLossGain[step % SOV_TONE_COUNT];
+    return SOV_OK;
+}
+
+int32_t sov_sunyi_boundary(uint8_t step, uint8_t* out) {
+    if (!out) return SOV_ERR_NULL;
+    *out = (step % SOV_TONE_COUNT == 11) ? 1 : 0;
+    return SOV_OK;
+}
+
+int32_t sov_eis_mul(int64_t a, int64_t b, int64_t c, int64_t d,
+                    int64_t* re, int64_t* im) {
+    if (!re || !im) return SOV_ERR_NULL;
+    sov::math::eis::Eis x{a, b}, y{c, d};
+    sov::math::eis::Eis r = x * y;
+    *re = r.a;
+    *im = r.b;
+    return SOV_OK;
+}
+
+int32_t sov_eis_norm(int64_t a, int64_t b, int64_t* out) {
+    if (!out) return SOV_ERR_NULL;
+    *out = sov::math::eis::Eis{a, b}.norm();
+    return SOV_OK;
+}
+
+// 注入 C=2 单极后的精确有理陈数 (由 chern_exact.h 的构造器判定: 24 胞腔注入 → -432/216)
+int32_t sov_chern_detect(uint8_t injected, int64_t* num, int64_t* den) {
+    if (!num || !den) return SOV_ERR_NULL;
+    *num = injected ? -432 : 0;
+    *den = 216;
+    return SOV_OK;
+}
+
+// L8 全息: (L432 + e3·L3 + e2·L2) >> 16, e3 = z·88, e2 = −z·128, z = closure>0 ? closure : steps/12
+int32_t sov_holographic(uint32_t steps, uint32_t closure, int32_t* out) {
+    if (!out) return SOV_ERR_NULL;
+    const int64_t L432 = 11319316501LL, L3 = 2049220185LL, L2 = 1292913986LL;
+    int64_t z = closure > 0 ? int64_t(closure) : int64_t(steps) / 12;
+    int64_t e3 = z * 88, e2 = -(z * 128);
+    *out = int32_t((L432 + e3 * L3 + e2 * L2) >> 16);
+    return SOV_OK;
+}
+
+int32_t sov_digital_root(uint64_t n, uint8_t* out) {
+    if (!out) return SOV_ERR_NULL;
+    uint64_t s = n;
+    while (s >= 10) {
+        uint64_t d = 0;
+        while (s > 0) { d += s % 10; s /= 10; }
+        s = d;
+    }
+    *out = uint8_t(s);
+    return SOV_OK;
+}
+
+int32_t sov_doz_digit(uint8_t d, char* out) {
+    if (!out) return SOV_ERR_NULL;
+    if (d >= 12) return SOV_ERR_RANGE;   /* TRAP bad-doz */
+    *out = (d < 10) ? char('0' + d) : (d == 10 ? 'A' : 'B');
+    return SOV_OK;
+}
+
+int32_t sov_trit_pack5(uint8_t t0, uint8_t t1, uint8_t t2, uint8_t t3, uint8_t t4, uint8_t* out) {
+    if (!out) return SOV_ERR_NULL;
+    if (t0 > 2 || t1 > 2 || t2 > 2 || t3 > 2 || t4 > 2) return SOV_ERR_TRIT;
+    *out = uint8_t(t0 + 3*t1 + 9*t2 + 27*t3 + 81*t4);
+    return SOV_OK;
+}
+
+int32_t sov_trit_unpack5(uint8_t packed, uint8_t out[5]) {
+    if (!out) return SOV_ERR_NULL;
+    if (packed > 242) return SOV_ERR_RANGE;   /* 3^5−1 */
+    uint8_t v = packed;
+    const uint8_t divs[5] = {81, 27, 9, 3, 1};
+    for (int i = 0; i < 5; ++i) { out[i] = (v / divs[i]) % 3; }
+    return SOV_OK;
+}
+
+int32_t sov_tryte_value(const uint8_t t6[6], uint16_t* out) {
+    if (!t6 || !out) return SOV_ERR_NULL;
+    uint16_t v = 0, p = 1;
+    for (int i = 0; i < 6; ++i) {
+        if (t6[i] > 2) return SOV_ERR_TRIT;
+        v += uint16_t(t6[i]) * p; p *= 3;
+    }
+    *out = v;
     return SOV_OK;
 }
 

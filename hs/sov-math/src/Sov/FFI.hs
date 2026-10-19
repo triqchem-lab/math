@@ -36,6 +36,19 @@ module Sov.FFI
   , sov_wide_const_sqrt3_wrapper
     -- 陈数
   , sov_chern_inject_wrapper
+    -- 第二批
+  , sov_sunyi_length_wrapper
+  , sov_sunyi_gain_wrapper
+  , sov_sunyi_boundary_wrapper
+  , sov_eis_mul_wrapper
+  , sov_eis_norm_wrapper
+  , sov_chern_detect_wrapper
+  , sov_holographic_wrapper
+  , sov_digital_root_wrapper
+  , sov_doz_digit_wrapper
+  , sov_trit_pack5_wrapper
+  , sov_trit_unpack5_wrapper
+  , sov_tryte_value_wrapper
   ) where
 
 import Data.Bits    (shiftL, shiftR, (.&.), (.|.))
@@ -49,6 +62,9 @@ import qualified Sov.Math.DuodecClock as DC
 import qualified Sov.Math.Trit as T
 import qualified Sov.Math.WideConstants as WC
 import qualified Sov.Math.WideFixed as WF
+import qualified Sov.Math.SunYi as SY
+import qualified Sov.Math.Eis as EIS
+import qualified Sov.Math.Guard.L7L8 as L78
 
 -- ── 状态码 ──
 sovOk, sovErrTrit, sovErrRange, sovErrNull :: Int32
@@ -348,3 +364,119 @@ sov_chern_inject_wrapper num den
       poke den 216
       return 0
 foreign export ccall "sov_chern_inject" sov_chern_inject_wrapper :: Ptr CLLong -> Ptr CLLong -> IO CInt
+
+
+-- ═══ 第二批: 剩余层 ═══
+
+sov_sunyi_length_wrapper :: CUChar -> Ptr CUShort -> IO CInt
+sov_sunyi_length_wrapper tone out
+  | out == nullPtr = return (fromIntegral sovErrNull)
+  | fromIntegral tone >= (12 :: Int) = return (fromIntegral sovErrRange)
+  | otherwise = do
+      poke out (fromIntegral (SY.twelveLengths !! fromIntegral tone))
+      return 0
+foreign export ccall "sov_sunyi_length" sov_sunyi_length_wrapper :: CUChar -> Ptr CUShort -> IO CInt
+
+sov_sunyi_gain_wrapper :: CUChar -> Ptr CUChar -> IO CInt
+sov_sunyi_gain_wrapper step out
+  | out == nullPtr = return (fromIntegral sovErrNull)
+  | otherwise = do
+      let g = SY.stepLossGain (fromIntegral step)
+      poke out (fromIntegral (case g of SY.Sun -> 0 :: Int; SY.Yi -> 1))
+      return 0
+foreign export ccall "sov_sunyi_gain" sov_sunyi_gain_wrapper :: CUChar -> Ptr CUChar -> IO CInt
+
+sov_sunyi_boundary_wrapper :: CUChar -> Ptr CUChar -> IO CInt
+sov_sunyi_boundary_wrapper step out
+  | out == nullPtr = return (fromIntegral sovErrNull)
+  | otherwise = do
+      poke out (if SY.isZhonglvBoundary (fromIntegral step) then 1 else 0 :: CUChar)
+      return 0
+foreign export ccall "sov_sunyi_boundary" sov_sunyi_boundary_wrapper :: CUChar -> Ptr CUChar -> IO CInt
+
+sov_eis_mul_wrapper :: CLLong -> CLLong -> CLLong -> CLLong -> Ptr CLLong -> Ptr CLLong -> IO CInt
+sov_eis_mul_wrapper a b c d re im
+  | re == nullPtr || im == nullPtr = return (fromIntegral sovErrNull)
+  | otherwise = do
+      let r = EIS.mulE (EIS.Eis (fromIntegral a) (fromIntegral b))
+                       (EIS.Eis (fromIntegral c) (fromIntegral d))
+      poke re (fromIntegral (EIS.eisA r))
+      poke im (fromIntegral (EIS.eisB r))
+      return 0
+foreign export ccall "sov_eis_mul" sov_eis_mul_wrapper :: CLLong -> CLLong -> CLLong -> CLLong -> Ptr CLLong -> Ptr CLLong -> IO CInt
+
+sov_eis_norm_wrapper :: CLLong -> CLLong -> Ptr CLLong -> IO CInt
+sov_eis_norm_wrapper a b out
+  | out == nullPtr = return (fromIntegral sovErrNull)
+  | otherwise = do
+      poke out (fromIntegral (EIS.normE (EIS.Eis (fromIntegral a) (fromIntegral b))))
+      return 0
+foreign export ccall "sov_eis_norm" sov_eis_norm_wrapper :: CLLong -> CLLong -> Ptr CLLong -> IO CInt
+
+sov_chern_detect_wrapper :: CUChar -> Ptr CLLong -> Ptr CLLong -> IO CInt
+sov_chern_detect_wrapper injected num den
+  | num == nullPtr || den == nullPtr = return (fromIntegral sovErrNull)
+  | otherwise = do
+      poke num (if injected /= 0 then -432 else 0)
+      poke den 216
+      return 0
+foreign export ccall "sov_chern_detect" sov_chern_detect_wrapper :: CUChar -> Ptr CLLong -> Ptr CLLong -> IO CInt
+
+sov_holographic_wrapper :: CUInt -> CUInt -> Ptr CInt -> IO CInt
+sov_holographic_wrapper steps closure out
+  | out == nullPtr = return (fromIntegral sovErrNull)
+  | otherwise = do
+      poke out (fromIntegral (L78.computeHolographicApprox 0 0 (fromIntegral steps) (fromIntegral closure)))
+      return 0
+foreign export ccall "sov_holographic" sov_holographic_wrapper :: CUInt -> CUInt -> Ptr CInt -> IO CInt
+
+sov_digital_root_wrapper :: CULLong -> Ptr CUChar -> IO CInt
+sov_digital_root_wrapper n out
+  | out == nullPtr = return (fromIntegral sovErrNull)
+  | otherwise = do
+      poke out (fromIntegral (L78.digitalRoot (fromIntegral n)))
+      return 0
+foreign export ccall "sov_digital_root" sov_digital_root_wrapper :: CULLong -> Ptr CUChar -> IO CInt
+
+sov_doz_digit_wrapper :: CUChar -> Ptr CChar -> IO CInt
+sov_doz_digit_wrapper d out
+  | out == nullPtr = return (fromIntegral sovErrNull)
+  | d' >= 12 = return (fromIntegral sovErrRange)
+  | otherwise = do
+      poke out (toEnum (if d' < 10 then fromEnum '0' + d' else if d' == 10 then fromEnum 'A' else fromEnum 'B'))
+      return 0
+  where d' = fromIntegral d :: Int
+foreign export ccall "sov_doz_digit" sov_doz_digit_wrapper :: CUChar -> Ptr CChar -> IO CInt
+
+sov_trit_pack5_wrapper :: CUChar -> CUChar -> CUChar -> CUChar -> CUChar -> Ptr CUChar -> IO CInt
+sov_trit_pack5_wrapper t0 t1 t2 t3 t4 out
+  | out == nullPtr = return (fromIntegral sovErrNull)
+  | any (> 2) ts = return (fromIntegral sovErrTrit)
+  | otherwise = do
+      poke out (fromIntegral (sum [ ts !! i * 3 ^ i | i <- [0 .. 4] ]))
+      return 0
+  where ts = map fromIntegral [t0, t1, t2, t3, t4] :: [Int]
+foreign export ccall "sov_trit_pack5" sov_trit_pack5_wrapper :: CUChar -> CUChar -> CUChar -> CUChar -> CUChar -> Ptr CUChar -> IO CInt
+
+sov_trit_unpack5_wrapper :: CUChar -> Ptr CUChar -> IO CInt
+sov_trit_unpack5_wrapper packed out
+  | out == nullPtr = return (fromIntegral sovErrNull)
+  | p' > 242 = return (fromIntegral sovErrRange)
+  | otherwise = do
+      let ds = [81, 27, 9, 3, 1] :: [Int]
+      mapM_ (\(i, dv) -> pokeElemOff out i (fromIntegral ((p' `div` dv) `mod` 3))) (zip [0 ..] ds)
+      return 0
+  where p' = fromIntegral packed :: Int
+foreign export ccall "sov_trit_unpack5" sov_trit_unpack5_wrapper :: CUChar -> Ptr CUChar -> IO CInt
+
+sov_tryte_value_wrapper :: Ptr CUChar -> Ptr CUShort -> IO CInt
+sov_tryte_value_wrapper t6 out
+  | t6 == nullPtr || out == nullPtr = return (fromIntegral sovErrNull)
+  | otherwise = do
+      ts <- mapM (\i -> fromIntegral <$> peekElemOff t6 i) [0 .. 5] :: IO [Int]
+      if any (> 2) ts
+        then return (fromIntegral sovErrTrit)
+        else do
+          poke out (fromIntegral (sum [ ts !! i * 3 ^ i | i <- [0 .. 5] ]))
+          return 0
+foreign export ccall "sov_tryte_value" sov_tryte_value_wrapper :: Ptr CUChar -> Ptr CUShort -> IO CInt

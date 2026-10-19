@@ -90,9 +90,11 @@ harness: engineering/bench_energy.py (RAPL 实测 + 空载基线扣除, 3 轮中
 | rust | `libsov_guard.so` (cdylib) | `cargo build --release -p sov-guard` |
 | hs | `libsovffi.so` (20 符号) | `hs/sov-math/engineering/build_ffi_hs.sh` |
 
+**符号数**：32 个（第一批 20 + 第二批 12）。
+
 **契约要点**：全部函数返回 `int32_t` 状态码（0 OK / −1 TRIT / −2 RANGE / −4 NULL）；输出经调用方缓冲区回传（库内不分配，无 free 语义）；`sov_runtime_init/fini` 统一运行时生命周期（hs 调 `hs_init`，cpp/rust 空操作）。
 
-**验证**：`hs/sov-math/engineering/ffi_conformance.sh` 一键跑三语言 .so 的同一测试向量（GF(3) 18 + GF(9) 90 + 环 + DC 混合表 144 + σ/CRT/平移 + LCM 桥 20 步轨迹 + 宽定点 + 陈数 + 错误码）→ **311 行逐行一致**，golden 快照在 `engineering/results/ffi_conformance_expected.txt`。
+**验证**：`hs/sov-math/engineering/ffi_conformance.sh` 一键跑三语言 .so 的同一测试向量（GF(3) 18 + GF(9) 90 + 环 + DC 混合表 144 + σ/CRT/平移 + LCM 桥 20 步轨迹 + 宽定点 + 陈数 + 损益链 + Eisenstein + 全息 + 数字根 + Doz + 5-trit 打包 + Tryte + 错误码）→ **785 行逐行一致**，golden 快照在 `engineering/results/ffi_conformance_expected.txt`。
 
 ⚠ Haskell .so 的模块构造子在 **dlopen 期**即需 RTS 已初始化 ⇒ 宿主须先 `hs_init(NULL,NULL)` 再 dlopen（脚本用 GHC 链接版驱动实现；纯 C 宿主对标 cpp/rust 无需此步）。
 

@@ -144,6 +144,96 @@ int main(int argc, char **argv) {
     { fn_chern c = (fn_chern)sym("sov_chern_inject"); int64_t n = 0, d = 0;
       c(&n, &d); printf("chern=%lld/%lld\n", (long long)n, (long long)d); }
 
+    /* ══ 第二批 ══ */
+    {
+        typedef int32_t (*fn_sl)(uint8_t, uint16_t *);
+        typedef int32_t (*fn_sg)(uint8_t, uint8_t *);
+        fn_sl sl = (fn_sl)sym("sov_sunyi_length");
+        fn_sg sg = (fn_sg)sym("sov_sunyi_gain"), sb = (fn_sg)sym("sov_sunyi_boundary");
+        for (int t = 0; t < 12; ++t) { uint16_t o = 0; sl(t, &o); printf("sunyi%d=%u\n", t, o); }
+        for (int t = 0; t < 24; ++t) {
+            uint8_t g = 9, b = 9;
+            sg(t, &g); sb(t, &b);
+            printf("gain%d=%d,bnd%d\n", t, g, b);
+        }
+        { uint16_t o = 0; printf("err_sunyi=%d\n", sl(12, &o)); }
+    }
+    {
+        typedef int32_t (*fn_eism)(int64_t, int64_t, int64_t, int64_t, int64_t *, int64_t *);
+        typedef int32_t (*fn_eisn)(int64_t, int64_t, int64_t *);
+        fn_eism em = (fn_eism)sym("sov_eis_mul");
+        fn_eisn en = (fn_eisn)sym("sov_eis_norm");
+        const int64_t box[] = {-2, -1, 0, 1, 2};
+        for (unsigned i = 0; i < 5; ++i) for (unsigned j = 0; j < 5; ++j)
+          for (unsigned k = 0; k < 5; ++k) for (unsigned l = 0; l < 5; ++l) {
+            int64_t re = 0, im = 0;
+            em(box[i], box[j], box[k], box[l], &re, &im);
+            if (i == 0 || j == 0 || k == 0 || l == 0)   /* 抽样打印防过长 */
+                printf("eis%d%d%d%d=%lld,%lld\n", (int)box[i], (int)box[j], (int)box[k], (int)box[l],
+                       (long long)re, (long long)im);
+        }
+        for (unsigned i = 0; i < 5; ++i) for (unsigned j = 0; j < 5; ++j) {
+            int64_t n = 0; en(box[i], box[j], &n);
+            printf("eisn%d%d=%lld\n", (int)box[i], (int)box[j], (long long)n);
+        }
+    }
+    {
+        typedef int32_t (*fn_cd)(uint8_t, int64_t *, int64_t *);
+        fn_cd cd = (fn_cd)sym("sov_chern_detect");
+        for (int inj = 0; inj < 2; ++inj) {
+            int64_t n = 0, d = 0; cd(inj, &n, &d);
+            printf("chern%d=%lld/%lld\n", inj, (long long)n, (long long)d);
+        }
+    }
+    {
+        typedef int32_t (*fn_h)(uint32_t, uint32_t, int32_t *);
+        fn_h h = (fn_h)sym("sov_holographic");
+        const uint32_t cases[][2] = {{31000,2583},{96,0},{1200,100},{6624,6624},{0,0}};
+        for (unsigned i = 0; i < 5; ++i) {
+            int32_t o = 0; h(cases[i][0], cases[i][1], &o);
+            printf("holo%u_%u=%d\n", cases[i][0], cases[i][1], o);
+        }
+    }
+    {
+        typedef int32_t (*fn_dr)(uint64_t, uint8_t *);
+        fn_dr dr = (fn_dr)sym("sov_digital_root");
+        const uint64_t ns[] = {0,9,10,38,81,144,729,177147,11609505792ULL};
+        for (unsigned i = 0; i < sizeof(ns)/sizeof(ns[0]); ++i) {
+            uint8_t o = 0; dr(ns[i], &o);
+            printf("droot%llu=%u\n", (unsigned long long)ns[i], o);
+        }
+    }
+    {
+        typedef int32_t (*fn_dz)(uint8_t, char *);
+        fn_dz dz = (fn_dz)sym("sov_doz_digit");
+        for (int d = 0; d < 12; ++d) { char o = '?'; dz(d, &o); printf("doz%d=%c\n", d, o); }
+        { char o = '?'; printf("err_doz=%d\n", dz(12, &o)); }
+    }
+    {
+        typedef int32_t (*fn_p5)(uint8_t, uint8_t, uint8_t, uint8_t, uint8_t, uint8_t *);
+        typedef int32_t (*fn_u5)(uint8_t, uint8_t *);
+        fn_p5 p5 = (fn_p5)sym("sov_trit_pack5");
+        fn_u5 u5 = (fn_u5)sym("sov_trit_unpack5");
+        for (int t0 = 0; t0 < 3; ++t0) for (int t4 = 0; t4 < 3; ++t4) {
+            uint8_t pk = 0; p5(t0, 1, 2, 0, t4, &pk);
+            uint8_t un[5] = {9,9,9,9,9}; u5(pk, un);
+            printf("pack%d_%d=%d;un=%d%d%d%d%d\n", t0, t4, pk, un[0], un[1], un[2], un[3], un[4]);
+        }
+        { uint8_t o = 0; printf("err_pack=%d\n", p5(3, 0, 0, 0, 0, &o)); }
+        { uint8_t un[5]; printf("err_unpack=%d\n", u5(243, un)); }
+    }
+    {
+        typedef int32_t (*fn_tv)(const uint8_t *, uint16_t *);
+        fn_tv tv = (fn_tv)sym("sov_tryte_value");
+        const uint8_t a[6] = {0,1,2,1,2,0};
+        const uint8_t b[6] = {2,2,2,2,2,2};
+        uint16_t o = 0;
+        tv(a, &o); printf("tryte_a=%u\n", o);
+        tv(b, &o); printf("tryte_b=%u\n", o);
+        const uint8_t bad[6] = {0,0,0,0,0,3};
+        printf("err_tryte=%d\n", tv(bad, &o));
+    }
+
     /* 空指针保护 */
     printf("err_null=%d\n", tadd(0, 0, NULL));
     { fn_abi rfini = (fn_abi)dlsym(H, "sov_runtime_fini");

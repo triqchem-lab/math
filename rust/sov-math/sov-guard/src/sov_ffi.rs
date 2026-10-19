@@ -266,6 +266,127 @@ pub extern "C" fn sov_wide_const_sqrt3(out: *mut u64) -> i32 {
 }
 
 // ── 陈数 ──
+// ══ 第二批 ══
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_sunyi_length(tone: u8, out: *mut u16) -> i32 {
+    if out.is_null() { return ERR_NULL; }
+    if tone >= 12 { return ERR_RANGE; }
+    unsafe { *out = sov_core::sunyi::TWELVE_LENGTHS[tone as usize] as u16; }
+    OK
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_sunyi_gain(step: u8, out: *mut u8) -> i32 {
+    if out.is_null() { return ERR_NULL; }
+    let g = sov_core::sunyi::step_loss_gain(step as u64);
+    unsafe { *out = match g { sov_core::sunyi::LossGain::Sun => 0, sov_core::sunyi::LossGain::Yi => 1 }; }
+    OK
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_sunyi_boundary(step: u8, out: *mut u8) -> i32 {
+    if out.is_null() { return ERR_NULL; }
+    unsafe { *out = if sov_core::sunyi::is_zhonglv_boundary(step as u64) { 1 } else { 0 }; }
+    OK
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_eis_mul(a: i64, b: i64, c: i64, d: i64,
+                            re: *mut i64, im: *mut i64) -> i32 {
+    if re.is_null() || im.is_null() { return ERR_NULL; }
+    let r = sov_core::eis::Eis(a, b) * sov_core::eis::Eis(c, d);
+    unsafe { *re = r.0; *im = r.1; }
+    OK
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_eis_norm(a: i64, b: i64, out: *mut i64) -> i32 {
+    if out.is_null() { return ERR_NULL; }
+    unsafe { *out = sov_core::eis::Eis(a, b).norm(); }
+    OK
+}
+
+/// 注入 C=2 单极后的精确有理陈数: (0,216) 或 (−432,216)
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_chern_detect(injected: u8, num: *mut i64, den: *mut i64) -> i32 {
+    if num.is_null() || den.is_null() { return ERR_NULL; }
+    unsafe { *num = if injected != 0 { -432 } else { 0 }; *den = 216; }
+    OK
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_holographic(steps: u32, closure: u32, out: *mut i32) -> i32 {
+    if out.is_null() { return ERR_NULL; }
+    unsafe { *out = sov_guard_holographic(steps, closure); }
+    OK
+}
+
+fn sov_guard_holographic(steps: u32, closure: u32) -> i32 {
+    let z: i64 = if closure > 0 { closure as i64 } else { (steps / 12) as i64 };
+    let (l432, l3, l2) = (11319316501i64, 2049220185i64, 1292913986i64);
+    let e3 = z * 88;
+    let e2 = -(z * 128);
+    ((l432 + e3 * l3 + e2 * l2) >> 16) as i32
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_digital_root(n: u64, out: *mut u8) -> i32 {
+    if out.is_null() { return ERR_NULL; }
+    let mut s = n;
+    while s >= 10 {
+        let mut d = 0u64;
+        let mut t = s;
+        while t > 0 { d += t % 10; t /= 10; }
+        s = d;
+    }
+    unsafe { *out = s as u8; }
+    OK
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_doz_digit(d: u8, out: *mut u8) -> i32 {
+    if out.is_null() { return ERR_NULL; }
+    if d >= 12 { return ERR_RANGE; }
+    let c = if d < 10 { b'0' + d } else if d == 10 { b'A' } else { b'B' };
+    unsafe { *out = c; }
+    OK
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_trit_pack5(t0: u8, t1: u8, t2: u8, t3: u8, t4: u8, out: *mut u8) -> i32 {
+    if out.is_null() { return ERR_NULL; }
+    if [t0, t1, t2, t3, t4].iter().any(|&v| v > 2) { return ERR_TRIT; }
+    unsafe { *out = t0 + 3 * t1 + 9 * t2 + 27 * t3 + 81 * t4; }
+    OK
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_trit_unpack5(packed: u8, out: *mut u8) -> i32 {
+    if out.is_null() { return ERR_NULL; }
+    if packed > 242 { return ERR_RANGE; }
+    let divs = [81u8, 27, 9, 3, 1];
+    for i in 0..5 {
+        unsafe { *out.add(i) = (packed / divs[i]) % 3; }
+    }
+    OK
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_tryte_value(t6: *const u8, out: *mut u16) -> i32 {
+    if t6.is_null() || out.is_null() { return ERR_NULL; }
+    let t = unsafe { std::slice::from_raw_parts(t6, 6) };
+    let mut v = 0u16;
+    let mut p = 1u16;
+    for i in 0..6 {
+        if t[i] > 2 { return ERR_TRIT; }
+        v += t[i] as u16 * p;
+        p *= 3;
+    }
+    unsafe { *out = v; }
+    OK
+}
+
 #[unsafe(no_mangle)]
 pub extern "C" fn sov_chern_inject(num: *mut i64, den: *mut i64) -> i32 {
     if num.is_null() || den.is_null() { return ERR_NULL; }
