@@ -99,8 +99,10 @@ cc app.c $(pkg-config --cflags --libs sov-ffi-rust) -o app   # rust 实现 (可�
 
 | 路径 | 内容 |
 |---|---|
-| `<prefix>/include/sov/sov.h` | umbrella 头（含 `SOV_ABI_AT_LEAST(maj,min)` 编译期版本判定） |
-| `<prefix>/include/sov/sov_ffi.h` | 契约头（32 符号，`SOV_API` 可见性标注） |
+| `<prefix>/include/sov/sov.h` | umbrella（含 `SOV_ABI_AT_LEAST(maj,min)`） |
+| `<prefix>/include/sov/types.h` | 基础类型/状态码/`SOV_API`（所有头的依赖） |
+| `<prefix>/include/sov/sov_ffi.h` | 全量契约头（聚合） |
+| `<prefix>/include/sov/{version,trit,gf9,ring,dc,bridge,wide,chern,sunyi,eis,holo,digit,pack,tryte}.h` | **按设施细分 14 头**（共 35 符号），每个单头自足 |
 | `<prefix>/lib/libsov_ffi.so.1.0.0` + `.so.1` + `.so` | cpp 动态（soname `libsov_ffi.so.1`） |
 | `<prefix>/lib/libsov_ffi.a` | cpp 静态 |
 | `<prefix>/lib/libsov_ffi_rust.so` | rust 实现（cdylib） |

@@ -22,8 +22,8 @@ cd "$ROOT"
 mkdir -p "$PREFIX/include/sov" "$PREFIX/lib/pkgconfig"
 
 echo "[1/5] 头文件"
-install -m644 cpp/include/sov/sov.h      "$PREFIX/include/sov/sov.h"
-install -m644 cpp/include/sov/sov_ffi.h  "$PREFIX/include/sov/sov_ffi.h"
+# 全部设施头 (umbrella + 契约 + types + 14 个细分头)
+install -m644 cpp/include/sov/*.h "$PREFIX/include/sov/"
 
 echo "[2/5] cpp 实现 (动态 soname + 静态)"
 g++ -O2 -std=c++23 -fPIC -fvisibility=hidden -I cpp/include \

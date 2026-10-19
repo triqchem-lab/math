@@ -132,7 +132,7 @@ target_include_directories(sov_ffi_static PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/inc
 # 标准安装布局: include/sov/*.h + lib/libsov_ffi.{so,a} + pkgconfig/sov-ffi.pc
 install(TARGETS sov_ffi sov_ffi_static
         LIBRARY DESTINATION lib ARCHIVE DESTINATION lib)
-install(FILES include/sov/sov.h include/sov/sov_ffi.h DESTINATION include/sov)
+install(DIRECTORY include/sov/ DESTINATION include/sov FILES_MATCHING PATTERN "*.h")
 # pkg-config 模板中的 @PREFIX@ 由安装脚本填充 (脚本直装模式); CMake 安装用 CMAKE_INSTALL_PREFIX
 string(REPLACE "@PREFIX@" "${CMAKE_INSTALL_PREFIX}" SOV_PC_PREFIX "${CMAKE_CURRENT_SOURCE_DIR}/packaging/sov-ffi.pc.in")
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/packaging/sov-ffi.pc.in ${CMAKE_CURRENT_BINARY_DIR}/sov-ffi.pc @ONLY)
