@@ -744,6 +744,20 @@ int main(int argc, char **argv) {
           printf("err_rot_trit=%d,%d\n", rv(1, 3, 0, &x, &y), rv(0, 0, 5, &x, &y)); }
     }
 
+    /* ══ 数字根约定核对 (Agda digitalRoot = n % 9; ABI = 经典数字根) ══ */
+    {
+        typedef int32_t (*fn_dr)(uint64_t, uint8_t *);
+        fn_dr dr = (fn_dr)sym("sov_digital_root");
+        long long chk = 0; int bad = 0;
+        for (uint64_t n = 0; n <= 2000; ++n) {
+            uint8_t r = 0; dr(n, &r);
+            uint8_t exp = (n == 0) ? 0 : (uint8_t)((n % 9 == 0) ? 9 : (n % 9));
+            if (r != exp) ++bad;
+            chk = (chk * 131 + r) % 1000000007LL;
+        }
+        printf("droot_sweep_bad=%d,chk=%lld\n", bad, chk);
+    }
+
     /* 空指针保护 */
     printf("err_null=%d\n", tadd(0, 0, NULL));
     { fn_abi rfini = (fn_abi)dlsym(H, "sov_runtime_fini");

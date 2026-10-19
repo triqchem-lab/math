@@ -622,6 +622,27 @@ def check_hopf_lift(fail):
           + ("" if ok else "  🔴"))
     return ok
 
+DIGITAL_ROOT = f"{SRC}/Sovereign/Foundation/DigitalRoot.agda"
+
+def check_digital_root(fail):
+    """数字根约定: Agda 定义 `digitalRoot n = n % 9`; ABI 实现经典数字根。
+
+    二者只在「非零 9 的倍数」上相差（Agda 给 0，ABI 给 9）。
+    核对: (a) Agda 定义形态与 digitalRootMod9 存在;
+          (b) ABI 全域 n≤2000 满足 abi(n) = 0(n=0) / 9(9|n>0) / n%9。
+    """
+    src = read(DIGITAL_ROOT)
+    has_def = bool(re.search(r"digitalRoot : ℕ → ℕ\ndigitalRoot n = n % 9", src))
+    has_mod9 = bool(re.search(r"digitalRootMod9 : ∀ n → digitalRoot n ≡ n % 9", src))
+    body = read(BODY)
+    sw = re.search(r"droot_sweep_bad=(\d+),chk=(\d+)", body)
+    sweep_ok = bool(sw and sw.group(1) == "0")
+    print(f"Agda digitalRoot (n%9) 定义 {'✓' if has_def else '✗'}, digitalRootMod9 {'✓' if has_mod9 else '✗'}; "
+          f"ABI 经典数字根全域 n≤2000: {'✓ 0 反例' if sweep_ok else '✗'}"
+          f" ⚠ 约定差异: 非零 9 的倍数 Agda=0 / ABI=9"
+          + ("" if (has_def and has_mod9 and sweep_ok) else "  🔴"))
+    return has_def and has_mod9 and sweep_ok
+
 def main():
     src = read(CHAIN)
     fail = 0
@@ -665,6 +686,7 @@ def main():
     if not check_rot_bridge(fail): fail = 1
     if not check_discrete_sphere(fail): fail = 1
     if not check_hopf_lift(fail): fail = 1
+    if not check_digital_root(fail): fail = 1
 
     print("\n" + ("PASS" if not fail else "FAIL"))
     return fail
