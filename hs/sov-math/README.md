@@ -29,6 +29,7 @@ src/Sov/Math/
   Guard/L7L8.hs    L7 陈数守卫 (Verdict 枚举) + L8 全息 Q32 标度 + 数字根
   Topology/*.hs    T6/仲吕/孤子(Q32 Taylor)/时间晶体/N14/指数塔 (全部零浮点)
   Validation/*.hs  Z[ω,i]/杨辉 Lucas/2·A₄ 特征标/GF(9)·GF(4) 幻方/电磁学 15 节
+  DuodecClock.hs   DC 联合时钟定义层 (零冥族五字段/σ_DC/联合生成元周期 12, 全枚举)
   Guard/NSE.hs     T⁶ 网格/NSE 演化/宪法审计/SOV v2.6 序列化 (真空常数 (尾数Q16,指数) 表示)
   Tryte.hs         6 位基 3 数（纳音 mod 60、十二律 mod 12 投影）
   Ring.hs          L2 Z/3^11Z 环（进位加法、本征进位乘法、T₁^11 = 0）

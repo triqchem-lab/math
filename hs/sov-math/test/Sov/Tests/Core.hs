@@ -25,6 +25,7 @@ import qualified Sov.Validation.GF4Magic as G4
 import qualified Sov.Validation.Magic as MG
 import qualified Sov.Validation.EM as EM
 import qualified Sov.Math.Guard.NSE as NS
+import qualified Sov.Math.DuodecClock as DC
 import Sov.Math.Nat
 import Sov.Math.Ring
 import Sov.Math.SunYi
@@ -332,6 +333,20 @@ allTests =
   , check "holo_progress"    (NS.lcmProgressQ16 NS.holoNew == 0)
   , check "constitution_audit" NS.fullConstitutionalAudit
   , check "counter_examples" (length (NS.counterExamples) == 5)
+
+  -- ── DC 联合时钟定义层 (DuodecClock/DCGroup 镜像, 零冥族) ──
+  , check "dc_zero_oblivion"  -- 五字段 + σ 对合 + 生成元周期, 全枚举
+      (all snd DC.zeroOblivion)
+  , check "dc_char3"          DC.dcChar3
+  , check "dc_joint_period"   DC.jointPeriod12
+  , check "dc_gen_order_12"   DC.jointGeneratorPeriod
+  , check "dc_sigma_inv"      (all (\p -> DC.sigmaDC (DC.sigmaDC p) == p) DC.allPoints)
+  , check "dc_sigma_on_alpha" -- σ_DC(T,αᵏ) = (T,α⁻ᵏ): σ(α)=α³, σ(α²)=α²
+      (DC.sigmaDC (DC.DP T0 DC.A1) == DC.DP T0 DC.A3
+       && DC.sigmaDC (DC.DP T0 DC.A2) == DC.DP T0 DC.A2)
+  , check "dc_mixedop_assoc"  -- 结合律 12³ = 1728 case 全枚举 (对齐 mixedOp-assoc)
+      (and [ DC.mixedOp (DC.mixedOp p q) r == DC.mixedOp p (DC.mixedOp q r)
+           | p <- DC.allPoints, q <- DC.allPoints, r <- DC.allPoints ])
   ]
 
 -- ═══ 辅助 ═══

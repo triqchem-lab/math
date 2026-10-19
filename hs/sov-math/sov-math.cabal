@@ -34,6 +34,7 @@ library
                       Sov.Math.Guard.L7L8
                       Sov.Math.Guard.NSE
                       Sov.Math.Chiral
+                      Sov.Math.DuodecClock
                       Sov.Math.Topology.T6
                       Sov.Math.Topology.TimeCrystal
                       Sov.Math.Topology.Soliton
