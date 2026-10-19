@@ -587,9 +587,45 @@ pub unsafe extern "C" fn sov_u384_shr16(a: *const u64, out: *mut u64) -> i32 {
 const NSE_TOTAL: usize = 6624;
 
 pub struct NseHandle {
-    cells: Vec<u8>,
+    cells: Vec<u8>,     // mode 0/1: T6 单分量 (6624)
+    comp: Vec<u8>,      // mode 2: C3^6 × 6 分量 (729*6, 布局 comp[i*729 + x])
     step: u32,
     mode: u8,
+}
+
+#[inline]
+fn tadd(a: u8, b: u8) -> u8 { (a + b) % 3 }
+#[inline]
+fn tneg(a: u8) -> u8 { (3 - a + 3) % 3 }
+#[inline]
+fn shift_at(i: usize, x: usize) -> usize {
+    let base = 3usize.pow(i as u32);
+    let digit = (x / base) % 3;
+    x + ((digit + 1) % 3) * base - digit * base
+}
+
+/// 形式化 nsStep (Agda NSEOnT6: nsStep v = v +F grad (div v))
+fn formalised_step(c: &mut Vec<u8>) {
+    const N: usize = 729;
+    let at = |c: &Vec<u8>, x: usize, i: usize| c[i * N + x];
+    let diff_f = |c: &Vec<u8>, axis: usize, comp: usize, x: usize| {
+        tadd(at(c, shift_at(axis, x), comp), tneg(at(c, x, comp)))
+    };
+    let mut d = vec![0u8; N];
+    for x in 0..N {
+        let mut acc = 0u8;
+        for i in 0..6 { acc = tadd(acc, diff_f(c, i % 3, i, x)); }
+        d[x] = acc;
+    }
+    let mut next = c.clone();
+    for i in 0..6 {
+        let axis = i % 3;
+        for x in 0..N {
+            let grad_d = tadd(d[shift_at(axis, x)], tneg(d[x]));
+            next[i * N + x] = tadd(at(c, x, i), grad_d);
+        }
+    }
+    *c = next;
 }
 
 impl NseHandle {
@@ -600,8 +636,13 @@ impl NseHandle {
 #[unsafe(no_mangle)]
 pub extern "C" fn sov_nse_new(mode: u8, out: *mut *mut NseHandle) -> i32 {
     if out.is_null() { return ERR_NULL; }
-    if mode > 1 { return ERR_RANGE; }
-    let h = Box::new(NseHandle { cells: vec![0u8; NSE_TOTAL], step: 0, mode });
+    if mode > 2 { return ERR_RANGE; }
+    let h = Box::new(NseHandle {
+        cells: vec![0u8; NSE_TOTAL],
+        comp: vec![0u8; 729 * 6],
+        step: 0,
+        mode,
+    });
     unsafe { *out = Box::into_raw(h); }
     OK
 }
@@ -610,6 +651,7 @@ pub extern "C" fn sov_nse_new(mode: u8, out: *mut *mut NseHandle) -> i32 {
 pub extern "C" fn sov_nse_step(h: *mut NseHandle) -> i32 {
     if h.is_null() { return ERR_NULL; }
     let h = unsafe { &mut *h };
+    if h.mode == 2 { formalised_step(&mut h.comp); h.step += 1; return OK; }
     let s = h.step;
     let viscous = h.rho_q16() >= 24904;
     let mut next = vec![0u8; NSE_TOTAL];
@@ -651,6 +693,27 @@ pub extern "C" fn sov_nse_cell(h: *const NseHandle, p: u16, t: u16, out: *mut u8
     if h.is_null() || out.is_null() { return ERR_NULL; }
     if p >= 144 || t >= 46 { return ERR_RANGE; }
     unsafe { *out = (&*h).cells[p as usize * 46 + t as usize]; }
+    OK
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_nse_component(h: *const NseHandle, x: u16, i: u8, out: *mut u8) -> i32 {
+    if h.is_null() || out.is_null() { return ERR_NULL; }
+    let h = unsafe { &*h };
+    if h.mode != 2 { return -3; }   // SOV_ERR_STATE
+    if x >= 729 || i >= 6 { return ERR_RANGE; }
+    unsafe { *out = h.comp[i as usize * 729 + x as usize]; }
+    OK
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_nse_set_component(h: *mut NseHandle, x: u16, i: u8, v: u8) -> i32 {
+    if h.is_null() { return ERR_NULL; }
+    let h = unsafe { &mut *h };
+    if h.mode != 2 { return -3; }
+    if x >= 729 || i >= 6 { return ERR_RANGE; }
+    if v > 2 { return ERR_TRIT; }
+    h.comp[i as usize * 729 + x as usize] = v;
     OK
 }
 

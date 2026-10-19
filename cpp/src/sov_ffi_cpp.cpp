@@ -534,7 +534,8 @@ int32_t sov_u384_shr16(const uint64_t a[6], uint64_t out[6]) {
 /* ══ 第七批: NSE 句柄式 ABI (全库唯一有分配语义的设施) ══ */
 
 struct sov_nse_handle {
-    std::array<uint8_t, 6624> cells{};
+    std::array<uint8_t, 6624> cells{};      // mode 0/1: T6 单分量
+    std::array<uint8_t, 729 * 6> comp{};    // mode 2: C3^6 × 6 分量 (形式化 nsStep)
     uint32_t step = 0;
     uint8_t mode = 0;
 };
@@ -547,9 +548,43 @@ inline int32_t nse_nonzero(const sov_nse_handle* h) {
 }
 } // namespace
 
+namespace {
+inline uint8_t tadd(uint8_t a, uint8_t b) { return uint8_t((a + b) % 3); }
+inline uint8_t tneg(uint8_t a) { return uint8_t((3 - a) % 3); }
+// 轴 3^i 的循环移位 (i ∈ {0,1,2})
+inline uint16_t shift_at(int i, uint16_t x) {
+    int base = 1; for (int k = 0; k < i; ++k) base *= 3;
+    int digit = (x / base) % 3;
+    return uint16_t(x + ((digit + 1) % 3 - digit) * base);
+}
+// 形式化 nsStep (Agda NSEOnT6: nseStep v = v +F grad (div v))
+inline void formalised_step(std::array<uint8_t, 729 * 6>& c) {
+    constexpr int N = 729;
+    auto at = [&](int x, int i) -> uint8_t { return c[size_t(i) * N + size_t(x)]; };
+    auto diffF = [&](int axis, int comp, int x) -> uint8_t {
+        return tadd(at(shift_at(axis, uint16_t(x)), comp), tneg(at(x, comp)));
+    };
+    std::array<uint8_t, N> d{};
+    for (int x = 0; x < N; ++x) {
+        uint8_t acc = 0;
+        for (int i = 0; i < 6; ++i) acc = tadd(acc, diffF(i % 3, i, x));  // div v x
+        d[x] = acc;
+    }
+    std::array<uint8_t, 729 * 6> next = c;
+    for (int i = 0; i < 6; ++i) {
+        const int axis = i % 3;
+        for (int x = 0; x < N; ++x) {
+            uint8_t grad_d = tadd(d[shift_at(axis, uint16_t(x))], tneg(d[x]));
+            next[size_t(i) * N + size_t(x)] = tadd(at(x, i), grad_d);
+        }
+    }
+    c = next;
+}
+} // namespace
+
 int32_t sov_nse_new(uint8_t mode, sov_nse_handle** out) {
     if (!out) return SOV_ERR_NULL;
-    if (mode > 1) return SOV_ERR_RANGE;
+    if (mode > 2) return SOV_ERR_RANGE;
     auto* h = new (std::nothrow) sov_nse_handle();
     if (!h) return SOV_ERR_STATE;
     h->mode = mode;
@@ -559,6 +594,7 @@ int32_t sov_nse_new(uint8_t mode, sov_nse_handle** out) {
 
 int32_t sov_nse_step(sov_nse_handle* h) {
     if (!h) return SOV_ERR_NULL;
+    if (h->mode == 2) { formalised_step(h->comp); h->step += 1; return SOV_OK; }
     const uint32_t s = h->step;
     const int32_t nz = nse_nonzero(h);
     const int32_t rho_q16 = int32_t((int64_t(nz) * 65536) / 6624);
@@ -599,6 +635,23 @@ int32_t sov_nse_cell(const sov_nse_handle* h, uint16_t p, uint16_t t, uint8_t* o
     if (!h || !out) return SOV_ERR_NULL;
     if (p >= 144 || t >= 46) return SOV_ERR_RANGE;
     *out = h->cells[p * 46 + t];
+    return SOV_OK;
+}
+
+int32_t sov_nse_component(const sov_nse_handle* h, uint16_t x, uint8_t i, uint8_t* out) {
+    if (!h || !out) return SOV_ERR_NULL;
+    if (h->mode != 2) return SOV_ERR_STATE;
+    if (x >= 729 || i >= 6) return SOV_ERR_RANGE;
+    *out = h->comp[size_t(i) * 729 + x];
+    return SOV_OK;
+}
+
+int32_t sov_nse_set_component(sov_nse_handle* h, uint16_t x, uint8_t i, uint8_t v) {
+    if (!h) return SOV_ERR_NULL;
+    if (h->mode != 2) return SOV_ERR_STATE;
+    if (x >= 729 || i >= 6) return SOV_ERR_RANGE;
+    if (v > 2) return SOV_ERR_TRIT;
+    h->comp[size_t(i) * 729 + x] = v;
     return SOV_OK;
 }
 

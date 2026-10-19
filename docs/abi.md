@@ -4,7 +4,7 @@
 > 三语言实现（cpp / rust / hs）**逐符号等价**，可由任意 C/C++/带 FFI 的宿主加载。
 > 单一事实源：`cpp/include/sov/*.h`（版本脚本 `cpp/packaging/sov_ffi.map` 由此自动生成）。
 
-## 一、符号清单（57 个，分 21 个设施头）
+## 一、符号清单（59 个，分 21 个设施头）
 
 | 头 | 符号数 | 符号 |
 |---|---|---|
@@ -17,7 +17,7 @@
 | `<sov/bridge.h>` | 1 | `sov_lcm_step` |
 | `<sov/l6.h>` | 1 | `sov_zhonglv_step` |
 | `<sov/u384.h>` | 3 | `sov_u384_add`, `sov_u384_mul_u64`, `sov_u384_shr16` |
-| `<sov/nse.h>` | 6 | `sov_nse_new`, `sov_nse_step`, `sov_nse_density_q16`, `sov_nse_step_count`, `sov_nse_cell`, `sov_nse_free` |
+| `<sov/nse.h>` | 8 | `sov_nse_new`, `sov_nse_step`, `sov_nse_density_q16`, `sov_nse_step_count`, `sov_nse_cell`, `sov_nse_component`, `sov_nse_set_component`, `sov_nse_free` |
 | `<sov/t6.h>` | 2 | `sov_t6_index`, `sov_is_standing_node` |
 | `<sov/wide.h>` | 3 | `sov_wide_rho`, `sov_wide_const_pi`, `sov_wide_const_sqrt3` |
 | `<sov/chern.h>` | 4 | `sov_chern_inject`, `sov_chern_detect`, `sov_chern_inject_monopole`, `sov_chern_compute` |
@@ -62,7 +62,7 @@
 | 闸门 | 命令 | 判据 |
 |---|---|---|
 | 导出面 | `engineering/verify_export_surface.sh` | 三语言 dynsym == 契约（缺/多皆红） |
-| 实现一致 | `engineering/ffi_conformance.sh` | 三语言同一向量 **926 行逐行相同** |
+| 实现一致 | `engineering/ffi_conformance.sh` | 三语言同一向量 **935 行逐行相同** |
 | 头合规 | `engineering/c99_compliance_check.py` | 保留标识符 / 自足性 / 版本闸门 |
 | 档位矩阵 | `engineering/c_standard_matrix.sh` | C99..C23 × C++11..23 × gcc/clang |
 | 安装 | `engineering/install_c_abi.sh` | `dist/` 标准布局 + pkg-config 三套 |
@@ -94,9 +94,22 @@ cpp 的 `NSESolver::step` 与 rust/hs 的 `step_once` 在 delta 公式上不同�
 实测（Python 独立复算，144×46=6624 格点，初态全 0）：**1 步后 3312/6624 = 50.0% 格点不同**；
 二者其余部分（ρ≥0.38 的 C3 相位调制、1500 周期、12 步仲吕）完全一致 ⇒ 分歧就是这一行。
 
-**ABI 的处理**：不做静默选择，而是暴露**双模式** `SOV_NSE_MODE_UNIFORM(0)` / `SOV_NSE_MODE_SPATIAL(1)`，
-两种模式都实现并都被一致性测试覆盖（`m0_final:rho65150`、`m1_final:rho64734`）。
-哪个模式作为默认/唯一语义 = **待人类裁决**（改动影响物理结论，不是工程细节）。
+**ABI 的处理（人类指示：原理查形式化库）**：两种启发式泵浦保留为 mode 0/1，
+并新增 **mode 2 = 形式化 `nsStep`**，其定义**逐条对应** Agda 项目
+`Sovereign/Application/Problems/NavierStokes/NSEOnT6.agda`：
+
+| Agda 定义 | ABI 实现 |
+|---|---|
+| `Torus6 = C3 × … × C3`（729 点） | `x ∈ [0,729)` 基-3 编码 |
+| `Field = 6 × ScalarField` | `comp[i*729 + x]`，6 分量 × 729 格 |
+| `shiftAt i`（坐标 i +1 mod 3） | `shift_at(i, x)` = `x + ((digit+1)%3)·3^i − digit·3^i` |
+| `diffF i f x = f(shiftAt i x) ⊕ negate(f x)` | `tadd(at(shift,x), tneg(at(x)))` |
+| `div v x = sum6 (diffF 0 v₁) … (diffF 2 v₆)` | 六项 ⊕ 折叠 |
+| `grad f = (diffF 0 f, diffF 1 f, diffF 2 f, …)` | 分量 i 用轴 `i%3` |
+| `nsStep v = v +F grad (div v)` | 逐分量 `v ⊕ grad(div v)` |
+
+**独立验证**：按 Agda 定义逐条转写成 Python（非读我方实现），与 ABI mode 2 的
+**四步全状态摘要（6×729 = 4374 trits）完全一致** ⇒ 这是「锚定到形式化」而非「三个实现互相同意」。
 
 ## 六、尚未纳入 ABI 的能力（诚实清单）
 
@@ -122,3 +135,19 @@ cpp 的 `NSESolver::step` 与 rust/hs 的 `step_once` 在 delta 公式上不同�
 `SOV_ABI_MAJOR.MINOR = 1.0` 目前为**预发布**（pre-release）：尚无外部消费者，
 基线 `docs/abi-baseline-v1.0.txt` 作为**当前工作快照**，符号集仍随开发增长。
 **首次对外发布时冻结**：此后新增符号 ⇒ 升 MINOR，删除/改签名 ⇒ 升 MAJOR（`abi_check.sh` 已强制）。
+
+## 九、与 Agda 形式化库的锚定（原理来源）
+
+| ABI 设施 | Agda 依据（`/data/work/discrete-mathematics`） |
+|---|---|
+| `sov_nse_*` mode 2 | `Application/Problems/NavierStokes/NSEOnT6.agda`: `nsStep`、`div`、`grad`、`diffF`、`shiftAt` |
+| `sov_sunyi_*` 损益 | `NSE.agda` §0 公理7（损一 `+1`、益一 `+2`）、`sunyi-ratio 3/2` |
+| `sov_zhonglv_step` | `NSE.agda` §0 公理5（`3^11 / 2^16`）、`zhonglv-mult 8` |
+| `sov_soliton_*` | `Base/Invariants.agda`（相位锚 4500 / 域值）与 `NSE.agda` §6 λ 推导 |
+| `sov_t6_index` / `is_standing_node` | `NSE.agda` §0 公理3（`POLAR=144`、`TOROIDAL=46`、`TOTAL=6624`） |
+| `sov_eis_*` | `Foundation/Eisenstein.agda`（0 postulate/0 hole） |
+| `sov_ring_*` / `sov_gf9_*` | `Base/Trit.agda`、`Algebra/FieldTower/GF9.agda` |
+| `sov_dc_*` | `Algebra/GroupTheory/DuodecClock.agda` + `DCGroup.agda`（`dcZeroOblivion`） |
+
+⚠ 诚实边界：上表是**定义对应**，不等于每个 ABI 符号都有 Agda 定理背书；
+目前只有 `nsStep` 做过「逐条转写 + 四步全状态对照」的强验证，其余为定义级对应。

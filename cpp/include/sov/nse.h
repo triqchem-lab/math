@@ -6,10 +6,14 @@
  *   · 句柄内部布局不进 ABI (不透明), 因此可以演进;
  *   · 单个句柄非线程安全; 不同句柄互不影响 (可并行)。
  *
- * 语义模式 (实测 cpp 与 rust/hs 的 delta 公式不同, 故显式双模式而非偷选其一):
- *   mode 0 = 均一 pump (rust/hs):     delta = (s 偶 ? 1 : 2)
- *   mode 1 = 空间 pump (cpp):         delta = ((s+p+t) 偶 ? 1 : 2)
- * 两种模式其余部分相同: ρ ≥ 0.38 时按 C3 相位 (1500 周期) 调制; 每 12 步计一次仲吕。
+ * 语义模式:
+ *   mode 0 = 均一 pump (rust/hs):     delta = (s 偶 ? 1 : 2)                       [启发式]
+ *   mode 1 = 空间 pump (cpp):         delta = ((s+p+t) 偶 ? 1 : 2)                 [启发式]
+ *   mode 2 = **形式化 nsStep**        v +F grad(div v)  —— 与 Agda 项目
+ *            `Sovereign.Application.Problems.NavierStokes.NSEOnT6` 的 nsStep 逐条对应
+ *            (Torus6 = C3⁶ = 729 点; Field = 6 分量 × 729 格; diffF 前向差分 ⊕ negate).
+ *            ※ mode 2 的状态空间与前两种**不同** (4374 trits vs 6624), 用 sov_nse_component 读写.
+ * mode 0/1 其余部分相同: ρ ≥ 0.38 时按 C3 相位 (1500 周期) 调制; 每 12 步计一次仲吕。
  */
 #ifndef SOV_NSE_H
 #define SOV_NSE_H
@@ -23,8 +27,11 @@ extern "C" {
 #define SOV_NSE_POLAR     144
 #define SOV_NSE_TOROIDAL  46
 #define SOV_NSE_TOTAL     6624
-#define SOV_NSE_MODE_UNIFORM 0
-#define SOV_NSE_MODE_SPATIAL 1
+#define SOV_NSE_MODE_UNIFORM    0
+#define SOV_NSE_MODE_SPATIAL    1
+#define SOV_NSE_MODE_FORMALISED 2
+#define SOV_NSE_TORUS6_POINTS   729   /* C3^6 */
+#define SOV_NSE_COMPONENTS      6
 
 typedef struct sov_nse_handle sov_nse_handle;
 
@@ -38,6 +45,10 @@ int32_t sov_nse_density_q16(const sov_nse_handle* h, int32_t* out) SOV_API;
 int32_t sov_nse_step_count(const sov_nse_handle* h, uint32_t* out) SOV_API;
 /* 单格点读取 (p ∈ [0,144), t ∈ [0,46)) */
 int32_t sov_nse_cell(const sov_nse_handle* h, uint16_t p, uint16_t t, uint8_t* out) SOV_API;
+/* mode 2 专用: 读/写分量 (x ∈ [0,729) 为 C3^6 的基-3 编码, i ∈ [0,6)) */
+int32_t sov_nse_component(const sov_nse_handle* h, uint16_t x, uint8_t i, uint8_t* out) SOV_API;
+int32_t sov_nse_set_component(sov_nse_handle* h, uint16_t x, uint8_t i, uint8_t v) SOV_API;
+
 /* 释放句柄 (唯一入口; 传 NULL 无操作) */
 int32_t sov_nse_free(sov_nse_handle* h) SOV_API;
 

@@ -488,7 +488,44 @@ int main(int argc, char **argv) {
                   ncell(h, 144, 0, &o), ncell(h, 0, 46, &o)); }
             printf("m%d_free=%d\n", mode, nfree(h));
         }
-        { void* h; printf("err_nse_mode=%d\n", nnew(2, &h)); }
+        /* ── mode 2 = 形式化 nsStep (Agda NSEOnT6: v +F grad(div v)) ── */
+        {
+            typedef int32_t (*fn_cg)(const void *, uint16_t, uint8_t, uint8_t *);
+            typedef int32_t (*fn_cs)(void *, uint16_t, uint8_t, uint8_t);
+            fn_cg ncomp = (fn_cg)sym("sov_nse_component");
+            fn_cs nset = (fn_cs)sym("sov_nse_set_component");
+            void* h2 = NULL;
+            printf("nse2_new=%d\n", nnew(2, &h2));
+            /* 确定性初态: v_i(x) = (x*7 + i*5 + 1) mod 3 */
+            for (int i = 0; i < 6; ++i)
+                for (int x = 0; x < 729; ++x)
+                    nset(h2, (uint16_t)x, (uint8_t)i, (uint8_t)((x * 7 + i * 5 + 1) % 3));
+            for (int st = 0; st < 4; ++st) {
+                /* 全状态摘要: 每分量 Σ v_i(x)·(x+1) mod 1000003 + 前 12 值 */
+                printf("nse2_s%d:", st);
+                for (int i = 0; i < 6; ++i) {
+                    long long acc = 0; char head[13];
+                    for (int x = 0; x < 729; ++x) {
+                        uint8_t v = 0; ncomp(h2, (uint16_t)x, (uint8_t)i, &v);
+                        acc = (acc + (long long)v * (x + 1)) % 1000003;
+                        if (x < 12) head[x] = (char)('0' + v);
+                    }
+                    head[12] = 0;
+                    printf("c%d=%lld/%s;", i, acc, head);
+                }
+                printf("\n");
+                nstep(h2);
+            }
+            /* 边界与状态检查 */
+            { uint8_t v; printf("nse2_err=%d,%d,%d,%d\n",
+                  nset(h2, 729, 0, 0), nset(h2, 0, 6, 0), nset(h2, 0, 0, 3), 0);
+              printf("nse2_comp_err=%d,%d\n", ncomp(h2, 729, 0, &v), ncomp(h2, 0, 6, &v)); }
+            /* mode 0 上调用分量接口 → SOV_ERR_STATE */
+            { void* h0; uint8_t v; nnew(0, &h0);
+              printf("nse0_comp_state=%d\n", ncomp(h0, 0, 0, &v)); nfree(h0); }
+            printf("nse2_free=%d\n", nfree(h2));
+        }
+        { void* h; printf("err_nse_mode=%d\n", nnew(3, &h)); }
         { printf("nse_free_null=%d\n", nfree(NULL)); }
         { int32_t rho; printf("err_nse_null=%d\n", ndq(NULL, &rho)); }
     }

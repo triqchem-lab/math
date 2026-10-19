@@ -75,6 +75,8 @@ module Sov.FFI
   , sov_nse_density_q16_wrapper
   , sov_nse_step_count_wrapper
   , sov_nse_cell_wrapper
+  , sov_nse_component_wrapper
+  , sov_nse_set_component_wrapper
   , sov_nse_free_wrapper
   ) where
 
@@ -103,16 +105,17 @@ import Data.List (foldl')
 import System.IO.Unsafe (unsafePerformIO)
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import Foreign.StablePtr (StablePtr, newStablePtr, deRefStablePtr, freeStablePtr)
-import Data.Array.Unboxed (UArray, listArray, (!), elems)
+import Data.Array.Unboxed (UArray, listArray, (!), elems, (//))
 import qualified Sov.Math.Vec as V
 import qualified Sov.Math.Trit as T
 import Sov.Math.Trit (Trit(..))
 
 -- ── 状态码 ──
-sovOk, sovErrTrit, sovErrRange, sovErrNull :: Int32
+sovOk, sovErrTrit, sovErrRange, sovErrState, sovErrNull :: Int32
 sovOk       = 0
 sovErrTrit  = -1
 sovErrRange = -2
+sovErrState = -3
 sovErrNull  = -4
 
 huangzhong, lcmTotal :: Word64
@@ -810,7 +813,8 @@ foreign export ccall "sov_u384_shr16" sov_u384_shr16_wrapper :: Ptr CULLong -> P
 -- ═══ 第七批: NSE 句柄式 ABI (唯一有分配语义的设施) ═══
 
 data NseState = NseState
-  { nseCells :: UArray Int Word8
+  { nseCells :: UArray Int Word8     -- mode 0/1: 6624
+  , nseComp  :: UArray Int Word8     -- mode 2: 6×729 (布局 i*729 + x)
   , nseStep  :: Word32
   , nseMode  :: Word8
   }
@@ -826,9 +830,12 @@ nseRhoQ16 a = nseNonzero a * 65536 `div` 6624
 sov_nse_new_wrapper :: CUChar -> Ptr (Ptr ()) -> IO CInt
 sov_nse_new_wrapper mode out
   | out == nullPtr = return (fromIntegral sovErrNull)
-  | fromIntegral mode > (1 :: Int) = return (fromIntegral sovErrRange)
+  | fromIntegral mode > (2 :: Int) = return (fromIntegral sovErrRange)
   | otherwise = do
-      ref <- newIORef (NseState (listArray (0, 6623) (replicate 6624 0)) 0 (fromIntegral mode))
+      ref <- newIORef (NseState
+              (listArray (0, 6623) (replicate 6624 0))
+              (listArray (0, 4373) (replicate 4374 0))
+              0 (fromIntegral mode))
       sp <- newStablePtr ref
       poke (castPtr out) (castPtr (unsafeCoerce sp :: Ptr ()))
       return 0
@@ -840,24 +847,35 @@ sov_nse_step_wrapper h
   | otherwise = do
       ref <- deRefStablePtr (unsafeCoerce (castPtr h) :: NsePtr)
       st <- readIORef ref
-      let cells = nseCells st
-          s = nseStep st
-          mode = nseMode st
-          viscous = nseRhoQ16 cells >= 24904
-          cellAt p t =
-            let idx = p * 46 + t
-                old = fromIntegral (cells ! idx) :: Int
-                par = if mode == 1 then fromIntegral s + p + t else fromIntegral s
-                nv0 = (old + (if even par then 1 else 2)) `mod` 3
-                c3 = (fromIntegral s + p * 7 + t * 3) `mod` 1500
-                nv | not viscous = nv0
-                   | c3 < 500 = (nv0 + 1) `mod` 3
-                   | c3 < 1000 = (nv0 + 2) `mod` 3
-                   | otherwise = nv0
-            in fromIntegral nv :: Word8
-          next = listArray (0, 6623) [ cellAt p t | p <- [0 .. 143], t <- [0 .. 45] ]
-      writeIORef ref st { nseCells = next, nseStep = s + 1 }
-      return 0
+      if nseMode st == 2
+        then do
+          writeIORef ref st { nseComp = formalisedStep (nseComp st)
+                            , nseStep = nseStep st + 1 }
+          return 0
+        else do
+          writeIORef ref st { nseCells = pumpStep st
+                            , nseStep = nseStep st + 1 }
+          return 0
+
+-- | mode 0/1 的启发式泵浦一步
+pumpStep :: NseState -> UArray Int Word8
+pumpStep st = listArray (0, 6623) [ cellAt p t | p <- [0 .. 143], t <- [0 .. 45] ]
+  where cells = nseCells st
+        s = nseStep st
+        mode = nseMode st
+        viscous = nseRhoQ16 cells >= 24904
+        cellAt p t =
+          let idx = p * 46 + t
+              old = fromIntegral (cells ! idx) :: Int
+              par = if mode == 1 then fromIntegral s + p + t else fromIntegral s
+              nv0 = (old + (if even par then 1 else 2)) `mod` 3
+              c3 = (fromIntegral s + p * 7 + t * 3) `mod` 1500
+              nv | not viscous = nv0
+                 | c3 < 500 = (nv0 + 1) `mod` 3
+                 | c3 < 1000 = (nv0 + 2) `mod` 3
+                 | otherwise = nv0
+          in fromIntegral nv :: Word8
+
 foreign export ccall "sov_nse_step" sov_nse_step_wrapper :: Ptr () -> IO CInt
 
 sov_nse_density_q16_wrapper :: Ptr () -> Ptr CInt -> IO CInt
@@ -899,3 +917,57 @@ sov_nse_free_wrapper h
       freeStablePtr sp
       return 0
 foreign export ccall "sov_nse_free" sov_nse_free_wrapper :: Ptr () -> IO CInt
+
+
+-- ── 形式化 nsStep (Agda NSEOnT6: nsStep v = v +F grad (div v)) ──
+taddH :: Word8 -> Word8 -> Word8
+taddH a b = fromIntegral ((fromIntegral a + fromIntegral b) `mod` (3 :: Int))
+
+tnegH :: Word8 -> Word8
+tnegH a = fromIntegral ((3 - fromIntegral a) `mod` (3 :: Int))
+
+shiftAtH :: Int -> Int -> Int
+shiftAtH i x = x + ((digit + 1) `mod` 3) * base - digit * base
+  where base = 3 ^ i
+        digit = (x `div` base) `mod` 3
+
+formalisedStep :: UArray Int Word8 -> UArray Int Word8
+formalisedStep c = listArray (0, 4373) [ nxt i x | i <- [0 .. 5], x <- [0 .. 728] ]
+  where
+    n = 729
+    at x i = c ! (i * n + x)
+    diffF axis comp x = taddH (at (shiftAtH axis x) comp) (tnegH (at x comp))
+    d = [ foldl taddH 0 [ diffF (i `mod` 3) i x | i <- [0 .. 5] ] | x <- [0 .. 728] ]
+    nxt i x = let axis = i `mod` 3
+                  gradD = taddH (d !! shiftAtH axis x) (tnegH (d !! x))
+              in taddH (at x i) gradD
+
+
+sov_nse_component_wrapper :: Ptr () -> CUShort -> CUChar -> Ptr CUChar -> IO CInt
+sov_nse_component_wrapper h x i out
+  | h == nullPtr || out == nullPtr = return (fromIntegral sovErrNull)
+  | otherwise = do
+      ref <- deRefStablePtr (unsafeCoerce (castPtr h) :: NsePtr)
+      st <- readIORef ref
+      if nseMode st /= 2 then return (fromIntegral sovErrState)
+        else if fromIntegral x >= (729 :: Int) || fromIntegral i >= (6 :: Int)
+          then return (fromIntegral sovErrRange)
+          else do poke out (fromIntegral (nseComp st ! (fromIntegral i * 729 + fromIntegral x)) :: CUChar); return 0
+foreign export ccall "sov_nse_component" sov_nse_component_wrapper :: Ptr () -> CUShort -> CUChar -> Ptr CUChar -> IO CInt
+
+sov_nse_set_component_wrapper :: Ptr () -> CUShort -> CUChar -> CUChar -> IO CInt
+sov_nse_set_component_wrapper h x i v
+  | h == nullPtr = return (fromIntegral sovErrNull)
+  | otherwise = do
+      ref <- deRefStablePtr (unsafeCoerce (castPtr h) :: NsePtr)
+      st <- readIORef ref
+      if nseMode st /= 2 then return (fromIntegral sovErrState)
+        else if fromIntegral x >= (729 :: Int) || fromIntegral i >= (6 :: Int)
+          then return (fromIntegral sovErrRange)
+          else if fromIntegral v > (2 :: Int) then return (fromIntegral sovErrTrit)
+          else do
+            let arr = nseComp st
+                idx = fromIntegral i * 729 + fromIntegral x
+            writeIORef ref st { nseComp = arr // [(idx, fromIntegral v)] }
+            return 0
+foreign export ccall "sov_nse_set_component" sov_nse_set_component_wrapper :: Ptr () -> CUShort -> CUChar -> CUChar -> IO CInt
