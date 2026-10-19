@@ -4,7 +4,7 @@
 > 三语言实现（cpp / rust / hs）**逐符号等价**，可由任意 C/C++/带 FFI 的宿主加载。
 > 单一事实源：`cpp/include/sov/*.h`（版本脚本 `cpp/packaging/sov_ffi.map` 由此自动生成）。
 
-## 一、符号清单（51 个，分 20 个设施头）
+## 一、符号清单（57 个，分 21 个设施头）
 
 | 头 | 符号数 | 符号 |
 |---|---|---|
@@ -17,6 +17,7 @@
 | `<sov/bridge.h>` | 1 | `sov_lcm_step` |
 | `<sov/l6.h>` | 1 | `sov_zhonglv_step` |
 | `<sov/u384.h>` | 3 | `sov_u384_add`, `sov_u384_mul_u64`, `sov_u384_shr16` |
+| `<sov/nse.h>` | 6 | `sov_nse_new`, `sov_nse_step`, `sov_nse_density_q16`, `sov_nse_step_count`, `sov_nse_cell`, `sov_nse_free` |
 | `<sov/t6.h>` | 2 | `sov_t6_index`, `sov_is_standing_node` |
 | `<sov/wide.h>` | 3 | `sov_wide_rho`, `sov_wide_const_pi`, `sov_wide_const_sqrt3` |
 | `<sov/chern.h>` | 4 | `sov_chern_inject`, `sov_chern_detect`, `sov_chern_inject_monopole`, `sov_chern_compute` |
@@ -38,6 +39,7 @@
 |---|---|
 | **返回值** | `int32_t` 状态码：`SOV_OK=0`；`SOV_ERR_TRIT=-1`（分量 ∉ {0,1,2}）；`SOV_ERR_RANGE=-2`（相位/下标/长度越界）；`SOV_ERR_STATE=-3`；`SOV_ERR_NULL=-4`（空指针） |
 | **输出参数** | 一律**调用方分配缓冲区**，指针末尾写入；库内**零分配** ⇒ 无 free 语义、无跨语言所有权问题 |
+| **唯一例外：NSE 句柄** | `sov_nse_new` **由库分配**，必须经 `sov_nse_free` 释放（唯一入口；`free(NULL)` 合法无操作）。句柄内部布局**不进 ABI**（不透明），故可演进。单句柄非线程安全；不同句柄互不影响 |
 | **输入校验** | 所有指针先判空（→ −4）；三进制分量判 ∈ {0,1,2}（→ −1）；相位判 ∈ [0,4)（→ −2）；长度不足（→ −2） |
 | **字符串返回** | 仅 `sov_strerror` 返回 `const char*`：**静态存储、无需释放、进程生命周期有效** |
 | **缓冲区布局** | `sov_ring_*`：11 个小端 trit；`sov_lcm_step`：6×`uint64` 小端；`sov_wide_*`：8×`uint64` 小端幅度 / 2^384；`sov_chern_*`：864 字节 = [head:12][cell:12][trit:6] |
@@ -60,7 +62,7 @@
 | 闸门 | 命令 | 判据 |
 |---|---|---|
 | 导出面 | `engineering/verify_export_surface.sh` | 三语言 dynsym == 契约（缺/多皆红） |
-| 实现一致 | `engineering/ffi_conformance.sh` | 三语言同一向量 **889 行逐行相同** |
+| 实现一致 | `engineering/ffi_conformance.sh` | 三语言同一向量 **926 行逐行相同** |
 | 头合规 | `engineering/c99_compliance_check.py` | 保留标识符 / 自足性 / 版本闸门 |
 | 档位矩阵 | `engineering/c_standard_matrix.sh` | C99..C23 × C++11..23 × gcc/clang |
 | 安装 | `engineering/install_c_abi.sh` | `dist/` 标准布局 + pkg-config 三套 |
@@ -80,11 +82,27 @@
 | **定点中间量宽度** | Q32 正弦 Taylor 与 ρ 的 `sq²` **必须 128 位中间量**（C: `__int128`；Rust: `i128`） | int64 溢出：`x²≈4.55e19 > 2^63`、`2^32² = 2^64` ⇒ cpp/rust 得 `-32768` 而 hs（`Integer` 任意精度）得 `32768`；一致性测试抓出 |
 | 相态编号 | **沿用 cpp/rust 既有语义：0(Solid) < 2(Liquid) < 1(Curie) < 3(Superfluid) —— 非单调** | **人类裁决「兼容优先」：保持既有编号不重编号**；头文件以 `SOV_PHASE_NUMBERING_FROZEN` 显式冻结，改动需升 MAJOR |
 
+## 五点五、NSE 语义分叉（**实测发现，不是推测**）
+
+cpp 的 `NSESolver::step` 与 rust/hs 的 `step_once` 在 delta 公式上不同：
+
+| 实现 | delta | 1 步后是否空间相关 |
+|---|---|---|
+| cpp `sunyi_step(old, s+p+t)` | `((s+p+t) 偶 ? 1 : 2)` | **是**（半格点 +1、半格点 +2） |
+| rust / hs `(old + (s 偶 ? 1 : 2))` | `(s 偶 ? 1 : 2)` | 否（全格点同 delta） |
+
+实测（Python 独立复算，144×46=6624 格点，初态全 0）：**1 步后 3312/6624 = 50.0% 格点不同**；
+二者其余部分（ρ≥0.38 的 C3 相位调制、1500 周期、12 步仲吕）完全一致 ⇒ 分歧就是这一行。
+
+**ABI 的处理**：不做静默选择，而是暴露**双模式** `SOV_NSE_MODE_UNIFORM(0)` / `SOV_NSE_MODE_SPATIAL(1)`，
+两种模式都实现并都被一致性测试覆盖（`m0_final:rho65150`、`m1_final:rho64734`）。
+哪个模式作为默认/唯一语义 = **待人类裁决**（改动影响物理结论，不是工程细节）。
+
 ## 六、尚未纳入 ABI 的能力（诚实清单）
 
 | 能力 | 现状 |
 |---|---|
-| NSE 求解器（6624 格点演化） | cpp `nse_solver.h` / rust `NSESolver` / hs `Guard/NSE.hs` 均有，但**跨语言状态量太大**，需设计句柄或摘要式 ABI |
+| ~~NSE 求解器~~ | ✅ 已入 ABI（第七批，句柄式；双模式见 §5.5） |
 | ~~孤子 ρ(step) Q16~~ | ✅ 已入 ABI（第五批，统一 Q32 Taylor 整数配方，三语言逐位相同） |
 | 孤子 ρ 与实数域 sin² 的关系 | ⚠ 本 ABI 只保证**三语言同一整数配方**；与实数域 `sin²` 的一致性由 oracle 回执 `ba93f0e3` 承载（Q16 误差 ≤1 ulp），**不是**内核证明 |
 | 12 律音高 / 纳音 60 序列 | 部分已入（`sov_sunyi_*`），纳音全表待定 |
@@ -98,3 +116,9 @@
 | `parse_doz(format_doz(v)) == v` | 15 个值（含 0、11、12、144、729、177147、2^64−1=18 位 Doz） | 一致性输出 `rt=1` ×15，三语言相同 |
 | `tryte_value(tryte_unpack(v)) == v` | **全枚举 v ∈ [0,729)** | `tryte_rt_729=1`，三语言相同 |
 | 错误路径 | 缓冲不足 / 小写 / 非法字符 / 空串 / 真溢出 / 解包越界 | 三语言逐项返回码相同 |
+
+## 八、版本状态说明
+
+`SOV_ABI_MAJOR.MINOR = 1.0` 目前为**预发布**（pre-release）：尚无外部消费者，
+基线 `docs/abi-baseline-v1.0.txt` 作为**当前工作快照**，符号集仍随开发增长。
+**首次对外发布时冻结**：此后新增符号 ⇒ 升 MINOR，删除/改签名 ⇒ 升 MAJOR（`abi_check.sh` 已强制）。

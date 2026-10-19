@@ -452,6 +452,47 @@ int main(int argc, char **argv) {
         { uint64_t o[6]; uint8_t c; printf("err_u384=%d\n", uadd(NULL, NULL, o, &c)); }
     }
 
+    /* ══ 第七批: NSE 句柄式 ABI (双模式) ══ */
+    {
+        typedef int32_t (*fn_new)(uint8_t, void **);
+        typedef int32_t (*fn_step)(void *);
+        typedef int32_t (*fn_dq)(const void *, int32_t *);
+        typedef int32_t (*fn_sc)(const void *, uint32_t *);
+        typedef int32_t (*fn_cell)(const void *, uint16_t, uint16_t, uint8_t *);
+        typedef int32_t (*fn_free)(void *);
+        fn_new nnew = (fn_new)sym("sov_nse_new");
+        fn_step nstep = (fn_step)sym("sov_nse_step");
+        fn_dq ndq = (fn_dq)sym("sov_nse_density_q16");
+        fn_sc nsc = (fn_sc)sym("sov_nse_step_count");
+        fn_cell ncell = (fn_cell)sym("sov_nse_cell");
+        fn_free nfree = (fn_free)sym("sov_nse_free");
+
+        for (uint8_t mode = 0; mode < 2; ++mode) {
+            void* h = NULL;
+            int32_t rc = nnew(mode, &h);
+            printf("nse_new%d=%d,handle%d\n", mode, rc, h != NULL);
+            for (int s = 0; s < 13; ++s) {
+                int32_t rho = -1; uint32_t cnt = 0;
+                ndq(h, &rho); nsc(h, &cnt);
+                /* 抽样格点 (C3 相位不同区域) */
+                uint8_t c00 = 9, c1 = 9, c22 = 9;
+                ncell(h, 0, 0, &c00); ncell(h, 1, 1, &c1); ncell(h, 2, 2, &c22);
+                printf("m%ds%d:rho%d,step%u,(0,0)=%d,(1,1)=%d,(2,2)=%d\n",
+                       mode, s, rho, cnt, c00, c1, c22);
+                nstep(h);
+            }
+            { int32_t rho; uint32_t cnt; ndq(h, &rho); nsc(h, &cnt);
+              printf("m%d_final:rho%d,step%u\n", mode, rho, cnt); }
+            /* 越界与空句柄 */
+            { uint8_t o; printf("m%d_err_cell=%d,%d\n", mode,
+                  ncell(h, 144, 0, &o), ncell(h, 0, 46, &o)); }
+            printf("m%d_free=%d\n", mode, nfree(h));
+        }
+        { void* h; printf("err_nse_mode=%d\n", nnew(2, &h)); }
+        { printf("nse_free_null=%d\n", nfree(NULL)); }
+        { int32_t rho; printf("err_nse_null=%d\n", ndq(NULL, &rho)); }
+    }
+
     /* 空指针保护 */
     printf("err_null=%d\n", tadd(0, 0, NULL));
     { fn_abi rfini = (fn_abi)dlsym(H, "sov_runtime_fini");

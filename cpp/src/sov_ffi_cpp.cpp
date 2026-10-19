@@ -9,6 +9,8 @@
 #include "lcm_constants.h"
 #include "eisenstein.h"
 #include "chern_exact.h"
+#include <array>
+#include <new>
 #include <cstring>
 
 using namespace sov::math;
@@ -526,6 +528,82 @@ int32_t sov_u384_shr16(const uint64_t a[6], uint64_t out[6]) {
         uint64_t hi = (i + 1 < 6) ? (a[i + 1] << 48) : 0;
         out[i] = lo | hi;
     }
+    return SOV_OK;
+}
+
+/* ══ 第七批: NSE 句柄式 ABI (全库唯一有分配语义的设施) ══ */
+
+struct sov_nse_handle {
+    std::array<uint8_t, 6624> cells{};
+    uint32_t step = 0;
+    uint8_t mode = 0;
+};
+
+namespace {
+inline int32_t nse_nonzero(const sov_nse_handle* h) {
+    int32_t c = 0;
+    for (uint8_t v : h->cells) if (v) ++c;
+    return c;
+}
+} // namespace
+
+int32_t sov_nse_new(uint8_t mode, sov_nse_handle** out) {
+    if (!out) return SOV_ERR_NULL;
+    if (mode > 1) return SOV_ERR_RANGE;
+    auto* h = new (std::nothrow) sov_nse_handle();
+    if (!h) return SOV_ERR_STATE;
+    h->mode = mode;
+    *out = h;
+    return SOV_OK;
+}
+
+int32_t sov_nse_step(sov_nse_handle* h) {
+    if (!h) return SOV_ERR_NULL;
+    const uint32_t s = h->step;
+    const int32_t nz = nse_nonzero(h);
+    const int32_t rho_q16 = int32_t((int64_t(nz) * 65536) / 6624);
+    const bool viscous = rho_q16 >= 24904;   /* ρ ≥ 0.38 */
+    std::array<uint8_t, 6624> next{};
+    for (int p = 0; p < 144; ++p) {
+        for (int t = 0; t < 46; ++t) {
+            const int idx = p * 46 + t;
+            const uint8_t old = h->cells[idx];
+            const int par = (h->mode == 1) ? int(s + p + t) : int(s);
+            uint8_t nv = uint8_t((old + (par % 2 == 0 ? 1 : 2)) % 3);
+            if (viscous) {
+                int c3 = int((s + p * 7 + t * 3) % 1500);
+                if (c3 < 500)       nv = uint8_t((nv + 1) % 3);
+                else if (c3 < 1000) nv = uint8_t((nv + 2) % 3);
+            }
+            next[idx] = nv;
+        }
+    }
+    h->cells = next;
+    h->step += 1;
+    return SOV_OK;
+}
+
+int32_t sov_nse_density_q16(const sov_nse_handle* h, int32_t* out) {
+    if (!h || !out) return SOV_ERR_NULL;
+    *out = int32_t((int64_t(nse_nonzero(h)) * 65536) / 6624);
+    return SOV_OK;
+}
+
+int32_t sov_nse_step_count(const sov_nse_handle* h, uint32_t* out) {
+    if (!h || !out) return SOV_ERR_NULL;
+    *out = h->step;
+    return SOV_OK;
+}
+
+int32_t sov_nse_cell(const sov_nse_handle* h, uint16_t p, uint16_t t, uint8_t* out) {
+    if (!h || !out) return SOV_ERR_NULL;
+    if (p >= 144 || t >= 46) return SOV_ERR_RANGE;
+    *out = h->cells[p * 46 + t];
+    return SOV_OK;
+}
+
+int32_t sov_nse_free(sov_nse_handle* h) {
+    delete h;
     return SOV_OK;
 }
 

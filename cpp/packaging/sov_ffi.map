@@ -22,6 +22,12 @@ SOV_FFI_1.0 {
     sov_holographic;
     sov_is_standing_node;
     sov_lcm_step;
+    sov_nse_cell;
+    sov_nse_density_q16;
+    sov_nse_free;
+    sov_nse_new;
+    sov_nse_step;
+    sov_nse_step_count;
     sov_parse_doz;
     sov_ring_add;
     sov_ring_double;

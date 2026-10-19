@@ -582,6 +582,84 @@ pub unsafe extern "C" fn sov_u384_shr16(a: *const u64, out: *mut u64) -> i32 {
     OK
 }
 
+// ══ 第七批: NSE 句柄式 ABI (唯一有分配语义的设施) ══
+
+const NSE_TOTAL: usize = 6624;
+
+pub struct NseHandle {
+    cells: Vec<u8>,
+    step: u32,
+    mode: u8,
+}
+
+impl NseHandle {
+    fn nonzero(&self) -> i32 { self.cells.iter().filter(|&&v| v != 0).count() as i32 }
+    fn rho_q16(&self) -> i32 { (self.nonzero() as i64 * 65536 / NSE_TOTAL as i64) as i32 }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_nse_new(mode: u8, out: *mut *mut NseHandle) -> i32 {
+    if out.is_null() { return ERR_NULL; }
+    if mode > 1 { return ERR_RANGE; }
+    let h = Box::new(NseHandle { cells: vec![0u8; NSE_TOTAL], step: 0, mode });
+    unsafe { *out = Box::into_raw(h); }
+    OK
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_nse_step(h: *mut NseHandle) -> i32 {
+    if h.is_null() { return ERR_NULL; }
+    let h = unsafe { &mut *h };
+    let s = h.step;
+    let viscous = h.rho_q16() >= 24904;
+    let mut next = vec![0u8; NSE_TOTAL];
+    for p in 0..144usize {
+        for t in 0..46usize {
+            let idx = p * 46 + t;
+            let old = h.cells[idx];
+            let par = if h.mode == 1 { (s as usize + p + t) } else { s as usize };
+            let mut nv = ((old as usize + if par % 2 == 0 { 1 } else { 2 }) % 3) as u8;
+            if viscous {
+                let c3 = (s as usize + p * 7 + t * 3) % 1500;
+                if c3 < 500 { nv = (nv + 1) % 3; }
+                else if c3 < 1000 { nv = (nv + 2) % 3; }
+            }
+            next[idx] = nv;
+        }
+    }
+    h.cells = next;
+    h.step += 1;
+    OK
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_nse_density_q16(h: *const NseHandle, out: *mut i32) -> i32 {
+    if h.is_null() || out.is_null() { return ERR_NULL; }
+    unsafe { *out = (&*h).rho_q16(); }
+    OK
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_nse_step_count(h: *const NseHandle, out: *mut u32) -> i32 {
+    if h.is_null() || out.is_null() { return ERR_NULL; }
+    unsafe { *out = (&*h).step; }
+    OK
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_nse_cell(h: *const NseHandle, p: u16, t: u16, out: *mut u8) -> i32 {
+    if h.is_null() || out.is_null() { return ERR_NULL; }
+    if p >= 144 || t >= 46 { return ERR_RANGE; }
+    unsafe { *out = (&*h).cells[p as usize * 46 + t as usize]; }
+    OK
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_nse_free(h: *mut NseHandle) -> i32 {
+    if !h.is_null() { unsafe { drop(Box::from_raw(h)); } }
+    OK
+}
+
 #[unsafe(no_mangle)]
 pub extern "C" fn sov_chern_inject(num: *mut i64, den: *mut i64) -> i32 {
     if num.is_null() || den.is_null() { return ERR_NULL; }

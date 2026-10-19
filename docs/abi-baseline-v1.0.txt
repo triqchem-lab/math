@@ -1,6 +1,3 @@
-# sov-ffi ABI 基线 v1.0 (冻结于 2026-10-19)
-# 规则: 新增符号 ⇒ MINOR; 删除/改签名 ⇒ MAJOR
-# 本文件是 semver 判定的比对基准; 有意变更时用 engineering/abi_check.sh --update 重建并升版本
 sov_abi_version
 sov_adc64
 sov_chern_compute
@@ -22,6 +19,12 @@ sov_gf9_norm
 sov_holographic
 sov_is_standing_node
 sov_lcm_step
+sov_nse_cell
+sov_nse_density_q16
+sov_nse_free
+sov_nse_new
+sov_nse_step
+sov_nse_step_count
 sov_parse_doz
 sov_ring_add
 sov_ring_double
