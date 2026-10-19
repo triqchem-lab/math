@@ -402,6 +402,50 @@ int32_t sov_chiral_collapse(int32_t torque_q16, uint8_t* out) {
     return SOV_OK;
 }
 
+/* ══ 第四批 ══ */
+
+namespace {
+inline char doz_char(uint64_t d) { return d < 10 ? char('0' + d) : (d == 10 ? 'A' : 'B'); }
+} // namespace
+
+int32_t sov_format_doz(uint64_t v, char* buf, size_t cap, size_t* written) {
+    if (!buf || !written) return SOV_ERR_NULL;
+    char tmp[32];
+    int n = 0;
+    do { tmp[n++] = doz_char(v % 12); v /= 12; } while (v > 0);
+    if (cap < size_t(n) + 1) return SOV_ERR_RANGE;
+    for (int i = 0; i < n; ++i) buf[i] = tmp[n - 1 - i];   /* MSB-first */
+    buf[n] = '\0';
+    *written = size_t(n);
+    return SOV_OK;
+}
+
+int32_t sov_parse_doz(const char* buf, size_t len, uint64_t* out) {
+    if (!buf || !out) return SOV_ERR_NULL;
+    if (len == 0) return SOV_ERR_RANGE;
+    uint64_t acc = 0;
+    for (size_t i = 0; i < len; ++i) {
+        char c = buf[i];
+        uint64_t d;
+        if (c >= '0' && c <= '9') d = uint64_t(c - '0');
+        else if (c == 'A') d = 10;
+        else if (c == 'B') d = 11;
+        else return SOV_ERR_RANGE;                   /* 小写/非法字符 → TRAP */
+        if (acc > (UINT64_MAX - d) / 12) return SOV_ERR_RANGE;   /* 溢出 */
+        acc = acc * 12 + d;
+    }
+    *out = acc;
+    return SOV_OK;
+}
+
+int32_t sov_tryte_unpack(uint16_t v, uint8_t t6[6]) {
+    if (!t6) return SOV_ERR_NULL;
+    if (v >= 729) return SOV_ERR_RANGE;
+    uint16_t x = v;
+    for (int i = 0; i < 6; ++i) { t6[i] = uint8_t(x % 3); x /= 3; }
+    return SOV_OK;
+}
+
 int32_t sov_tryte_value(const uint8_t t6[6], uint16_t* out) {
     if (!t6 || !out) return SOV_ERR_NULL;
     uint16_t v = 0, p = 1;

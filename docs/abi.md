@@ -4,7 +4,7 @@
 > 三语言实现（cpp / rust / hs）**逐符号等价**，可由任意 C/C++/带 FFI 的宿主加载。
 > 单一事实源：`cpp/include/sov/*.h`（版本脚本 `cpp/packaging/sov_ffi.map` 由此自动生成）。
 
-## 一、符号清单（42 个，分 17 个设施头）
+## 一、符号清单（45 个，分 18 个设施头）
 
 | 头 | 符号数 | 符号 |
 |---|---|---|
@@ -23,8 +23,9 @@
 | `<sov/eis.h>` | 2 | `sov_eis_mul`, `sov_eis_norm` |
 | `<sov/holo.h>` | 1 | `sov_holographic` |
 | `<sov/digit.h>` | 2 | `sov_digital_root`, `sov_doz_digit` |
+| `<sov/doz.h>` | 2 | `sov_format_doz`, `sov_parse_doz` |
 | `<sov/pack.h>` | 2 | `sov_trit_pack5`, `sov_trit_unpack5` |
-| `<sov/tryte.h>` | 1 | `sov_tryte_value` |
+| `<sov/tryte.h>` | 2 | `sov_tryte_value`, `sov_tryte_unpack` |
 
 契约外符号 **零容忍**：`engineering/verify_export_surface.sh` 断言三语言 dynsym **恰好等于**上表
 （缺失 = ABI 不完整；多出 = 导出面失控）。实测：hs 未加版本脚本时泄漏 1224 个 GHC 运行时符号。
@@ -57,7 +58,7 @@
 | 闸门 | 命令 | 判据 |
 |---|---|---|
 | 导出面 | `engineering/verify_export_surface.sh` | 三语言 dynsym == 契约（缺/多皆红） |
-| 实现一致 | `engineering/ffi_conformance.sh` | 三语言同一向量 **832 行逐行相同** |
+| 实现一致 | `engineering/ffi_conformance.sh` | 三语言同一向量 **853 行逐行相同** |
 | 头合规 | `engineering/c99_compliance_check.py` | 保留标识符 / 自足性 / 版本闸门 |
 | 档位矩阵 | `engineering/c_standard_matrix.sh` | C99..C23 × C++11..23 × gcc/clang |
 | 安装 | `engineering/install_c_abi.sh` | `dist/` 标准布局 + pkg-config 三套 |
@@ -70,6 +71,9 @@
 | trit 越界 | 所有接收 trit 的接口逐个校验 ∈ {0,1,2} → `SOV_ERR_TRIT` | rust 侧陈数接口初版漏校验 ⇒ `err_chern_trit` 分歧 |
 | 长度不足 | 缓冲类接口 `len < 需求` → `SOV_ERR_RANGE`（不是 −1） | 陈数接口统一后对齐 |
 | 除数 / 相位 | `lcm <= 0` → `SOV_ERR_RANGE`；相位 ∉ [0,4) → `SOV_ERR_RANGE` | — |
+| Doz 大小写 | 只接受大写 `A`/`B`；小写 → `SOV_ERR_RANGE`（bad-doz TRAP 的解析端对应） | — |
+| Doz 溢出 | 解析累加超出 `uint64` → `SOV_ERR_RANGE`（18 位 `B`×18 = 12^18−1 > 2^64−1） | 初版测试用了 12^16（≈1.85e17，**未溢出**）⇒ 分支未被覆盖，已换真溢出向量 |
+| Doz 缓冲 | `cap < digits + 1` → `SOV_ERR_RANGE`；结果 NUL 结尾，`written` 不含 NUL | — |
 
 ## 六、尚未纳入 ABI 的能力（诚实清单）
 
@@ -78,5 +82,13 @@
 | NSE 求解器（6624 格点演化） | cpp `nse_solver.h` / rust `NSESolver` / hs `Guard/NSE.hs` 均有，但**跨语言状态量太大**，需设计句柄或摘要式 ABI |
 | 孤子 ρ(step) Q16 | 三语言实现方式不同（hs Q32 正弦 / rust f64 / cpp Q16 近似），需先统一为**同一整数配方**再入 ABI |
 | 12 律音高 / 纳音 60 序列 | 部分已入（`sov_sunyi_*`），纳音全表待定 |
-| Doz 字符串渲染 | 目前只有单字符 `sov_doz_digit`；多字符渲染需要缓冲 + 分隔约定 |
+| ~~Doz 字符串渲染~~ | ✅ 已入 ABI（第四批 `sov_format_doz`/`sov_parse_doz`，含 render→parse 往返不变式） |
 | TDA 持续同调 / 手性几何完整面 | 三语言覆盖不一致，未入 |
+
+## 七、往返不变式（可判定的强验证）
+
+| 不变式 | 覆盖 | 证据 |
+|---|---|---|
+| `parse_doz(format_doz(v)) == v` | 15 个值（含 0、11、12、144、729、177147、2^64−1=18 位 Doz） | 一致性输出 `rt=1` ×15，三语言相同 |
+| `tryte_value(tryte_unpack(v)) == v` | **全枚举 v ∈ [0,729)** | `tryte_rt_729=1`，三语言相同 |
+| 错误路径 | 缓冲不足 / 小写 / 非法字符 / 空串 / 真溢出 / 解包越界 | 三语言逐项返回码相同 |

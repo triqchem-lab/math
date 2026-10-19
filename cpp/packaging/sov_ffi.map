@@ -16,11 +16,13 @@ SOV_FFI_1.0 {
     sov_doz_digit;
     sov_eis_mul;
     sov_eis_norm;
+    sov_format_doz;
     sov_gf9_mul;
     sov_gf9_norm;
     sov_holographic;
     sov_is_standing_node;
     sov_lcm_step;
+    sov_parse_doz;
     sov_ring_add;
     sov_ring_double;
     sov_ring_mul;
@@ -38,6 +40,7 @@ SOV_FFI_1.0 {
     sov_trit_pack5;
     sov_trit_sun;
     sov_trit_unpack5;
+    sov_tryte_unpack;
     sov_tryte_value;
     sov_wide_const_pi;
     sov_wide_const_sqrt3;

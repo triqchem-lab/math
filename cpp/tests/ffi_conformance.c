@@ -308,6 +308,57 @@ int main(int argc, char **argv) {
         for (unsigned i = 0; i < 6; ++i) { uint8_t o = 9; ccol(tv[i], &o); printf("collapse%d=%d\n", tv[i], o); }
     }
 
+    /* ══ 第四批: Doz 渲染/解析 + Tryte 解包 (含往返不变式) ══ */
+    {
+        typedef int32_t (*fn_fd)(uint64_t, char *, size_t, size_t *);
+        typedef int32_t (*fn_pd)(const char *, size_t, uint64_t *);
+        typedef int32_t (*fn_tu)(uint16_t, uint8_t *);
+        fn_fd fd = (fn_fd)sym("sov_format_doz");
+        fn_pd pd = (fn_pd)sym("sov_parse_doz");
+        fn_tu tu = (fn_tu)sym("sov_tryte_unpack");
+
+        const uint64_t vs[] = {0, 1, 9, 10, 11, 12, 13, 23, 143, 144, 729, 177147,
+                               11609505792ULL, 12345678901234567ULL, 18446744073709551615ULL};
+        for (unsigned i = 0; i < sizeof(vs)/sizeof(vs[0]); ++i) {
+            char buf[40]; size_t w = 0;
+            int32_t rc = fd(vs[i], buf, sizeof buf, &w);
+            uint64_t back = 0; int32_t rc2 = pd(buf, w, &back);
+            printf("doz%llu=%d:%s,w%zu,back=%d:%llu,rt=%d\n",
+                   (unsigned long long)vs[i], rc, buf, w, rc2,
+                   (unsigned long long)back, back == vs[i] ? 1 : 0);
+        }
+        /* 缓冲不足 / 非法字符 / 小写 / 空串 / 溢出 */
+        { char small[2]; size_t w = 0;
+          printf("err_doz_cap=%d\n", fd(144, small, 2, &w)); }
+        { uint64_t o; printf("err_doz_lower=%d,", pd("1a", 2, &o));
+          printf("bad=%d,", pd("1$", 2, &o));
+          printf("empty=%d,", pd("", 0, &o));
+          /* 真溢出: 12^18−1 > 2^64−1 (12^16 ≈ 1.85e17 仍在界内, 不足以触发溢出分支) */
+          printf("ovf=%d,", pd("BBBBBBBBBBBBBBBBBB", 18, &o));
+          printf("max18=%d\n", pd("839365134A2A240713", 18, &o)); }
+        /* 边界: 12^16 = 18446744073709551616 > 2^64−1 ⇒ 16 位最大可表示 */
+        { char buf[40]; size_t w = 0; uint64_t back = 0;
+          fd(18446744073709551615ULL, buf, sizeof buf, &w);
+          pd(buf, w, &back);
+          printf("doz_max_len=%zu,ok=%d\n", w, back == 18446744073709551615ULL); }
+
+        /* Tryte 往返: value ↔ 6 trit */
+        int rt = 0;
+        for (uint16_t v = 0; v < 729; ++v) {
+            uint8_t t6[6]; tu(v, t6);
+            uint16_t back = 0;
+            /* 复用 sov_tryte_value 反向 */
+            typedef int32_t (*fn_tv)(const uint8_t *, uint16_t *);
+            fn_tv tv = (fn_tv)sym("sov_tryte_value");
+            tv(t6, &back);
+            if (back != v) { rt = -1; break; }
+        }
+        printf("tryte_rt_729=%d\n", rt == 0 ? 1 : 0);
+        { uint8_t t6[6]; printf("err_tryte_unpack=%d\n", tu(729, t6)); }
+        { uint8_t t6[6]; tu(728, t6);
+          printf("tryte728=%d%d%d%d%d%d\n", t6[0], t6[1], t6[2], t6[3], t6[4], t6[5]); }
+    }
+
     /* 空指针保护 */
     printf("err_null=%d\n", tadd(0, 0, NULL));
     { fn_abi rfini = (fn_abi)dlsym(H, "sov_runtime_fini");

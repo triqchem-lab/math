@@ -431,6 +431,65 @@ pub extern "C" fn sov_chiral_collapse(torque_q16: i32, out: *mut u8) -> i32 {
     OK
 }
 
+// ══ 第四批 ══
+
+fn doz_char(d: u64) -> u8 {
+    if d < 10 { b'0' + d as u8 } else if d == 10 { b'A' } else { b'B' }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_format_doz(mut v: u64, buf: *mut u8, cap: usize, written: *mut usize) -> i32 {
+    if buf.is_null() || written.is_null() { return ERR_NULL; }
+    let mut tmp = [0u8; 32];
+    let mut n = 0usize;
+    loop {
+        tmp[n] = doz_char(v % 12);
+        n += 1;
+        v /= 12;
+        if v == 0 { break; }
+    }
+    if cap < n + 1 { return ERR_RANGE; }
+    for i in 0..n {
+        unsafe { *buf.add(i) = tmp[n - 1 - i]; }   // MSB-first
+    }
+    unsafe { *buf.add(n) = 0; *written = n; }
+    OK
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_parse_doz(buf: *const u8, len: usize, out: *mut u64) -> i32 {
+    if buf.is_null() || out.is_null() { return ERR_NULL; }
+    if len == 0 { return ERR_RANGE; }
+    let s = unsafe { std::slice::from_raw_parts(buf, len) };
+    let mut acc: u64 = 0;
+    for &c in s {
+        let d: u64 = match c {
+            b'0'..=b'9' => (c - b'0') as u64,
+            b'A' => 10,
+            b'B' => 11,
+            _ => return ERR_RANGE,   // 小写/非法字符 → TRAP
+        };
+        match acc.checked_mul(12).and_then(|a| a.checked_add(d)) {
+            Some(a) => acc = a,
+            None => return ERR_RANGE,
+        }
+    }
+    unsafe { *out = acc; }
+    OK
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_tryte_unpack(v: u16, t6: *mut u8) -> i32 {
+    if t6.is_null() { return ERR_NULL; }
+    if v >= 729 { return ERR_RANGE; }
+    let mut x = v;
+    for i in 0..6 {
+        unsafe { *t6.add(i) = (x % 3) as u8; }
+        x /= 3;
+    }
+    OK
+}
+
 #[unsafe(no_mangle)]
 pub extern "C" fn sov_chern_inject(num: *mut i64, den: *mut i64) -> i32 {
     if num.is_null() || den.is_null() { return ERR_NULL; }

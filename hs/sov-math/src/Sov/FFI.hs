@@ -57,6 +57,10 @@ module Sov.FFI
   , sov_t6_index_wrapper
   , sov_is_standing_node_wrapper
   , sov_chiral_collapse_wrapper
+    -- 第四批
+  , sov_format_doz_wrapper
+  , sov_parse_doz_wrapper
+  , sov_tryte_unpack_wrapper
   ) where
 
 import Data.Bits    (shiftL, shiftR, (.&.), (.|.))
@@ -625,3 +629,64 @@ sov_chiral_collapse_wrapper torque out
       poke out (if tv > 113506 || tv < -113506 then 1 else 0 :: CUChar)
       return 0
 foreign export ccall "sov_chiral_collapse" sov_chiral_collapse_wrapper :: CInt -> Ptr CUChar -> IO CInt
+
+
+-- ═══ 第四批: Doz 记数法 + Tryte 解包 ═══
+
+dozChar :: Integer -> Char
+dozChar d | d < 10 = toEnum (fromEnum '0' + fromIntegral d)
+          | d == 10 = 'A'
+          | otherwise = 'B'
+
+-- | 无符号 → Doz 字符串 (高位在前, NUL 结尾, written 回传字符数)
+sov_format_doz_wrapper :: CULLong -> Ptr CChar -> CSize -> Ptr CSize -> IO CInt
+sov_format_doz_wrapper v buf cap written
+  | buf == nullPtr || written == nullPtr = return (fromIntegral sovErrNull)
+  | otherwise = do
+      let digits = reverse (go (toInteger v) :: [Char])
+          n = length digits
+      if fromIntegral cap < n + 1
+        then return (fromIntegral sovErrRange)
+        else do
+          mapM_ (\(i, c) -> pokeElemOff buf i (toEnum (fromEnum c))) (zip [0 ..] digits)
+          pokeElemOff buf n (toEnum 0)
+          poke written (fromIntegral n)
+          return 0
+  where go x | x < 12 = [dozChar x]
+             | otherwise = dozChar (x `mod` 12) : go (x `quot` 12)
+foreign export ccall "sov_format_doz" sov_format_doz_wrapper :: CULLong -> Ptr CChar -> CSize -> Ptr CSize -> IO CInt
+
+-- | Doz 字符串 → 无符号 (拒绝小写/非法字符/空串/溢出)
+sov_parse_doz_wrapper :: Ptr CChar -> CSize -> Ptr CULLong -> IO CInt
+sov_parse_doz_wrapper buf len out
+  | buf == nullPtr || out == nullPtr = return (fromIntegral sovErrNull)
+  | len == 0 = return (fromIntegral sovErrRange)
+  | otherwise = do
+      cs <- mapM (\i -> toEnum . fromIntegral <$> (peekElemOff buf i :: IO CChar)) [0 .. fromIntegral len - 1]
+      let dv c | c >= '0' && c <= '9' = Just (toInteger (fromEnum c - fromEnum '0'))
+               | c == 'A' = Just 10
+               | c == 'B' = Just 11
+               | otherwise = Nothing
+          step (Just acc) c = case dv c of
+                    Just d | acc <= (18446744073709551615 - d) `quot` 12 -> Just (acc * 12 + d)
+                    _ -> Nothing
+          step Nothing _ = Nothing
+      case foldl step (Just 0) cs of
+        Nothing -> return (fromIntegral sovErrRange)
+        Just acc -> do
+          poke out (fromIntegral acc)
+          return 0
+foreign export ccall "sov_parse_doz" sov_parse_doz_wrapper :: Ptr CChar -> CSize -> Ptr CULLong -> IO CInt
+
+-- | Tryte 值 → 6 trit (小端)
+sov_tryte_unpack_wrapper :: CUShort -> Ptr CUChar -> IO CInt
+sov_tryte_unpack_wrapper v t6
+  | t6 == nullPtr = return (fromIntegral sovErrNull)
+  | fromIntegral v >= (729 :: Int) = return (fromIntegral sovErrRange)
+  | otherwise = do
+      mapM_ (\(i, d) -> pokeElemOff t6 i (fromIntegral d :: CUChar))
+            (zip [0 ..] (take 6 (go (fromIntegral v))))
+      return 0
+  where go 0 = repeat (0 :: Int)
+        go x = fromIntegral (x `mod` 3) : go (x `quot` 3)
+foreign export ccall "sov_tryte_unpack" sov_tryte_unpack_wrapper :: CUShort -> Ptr CUChar -> IO CInt

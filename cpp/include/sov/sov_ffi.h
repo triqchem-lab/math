@@ -21,6 +21,7 @@
 #include <sov/eis.h>
 #include <sov/holo.h>
 #include <sov/digit.h>
+#include <sov/doz.h>
 #include <sov/pack.h>
 #include <sov/tryte.h>
 

@@ -11,6 +11,7 @@ extern "C" {
 #endif
 
 int32_t sov_tryte_value(const uint8_t t6[6], uint16_t* out) SOV_API;   /* 6 trit → 值 ∈ [0,729) */
+int32_t sov_tryte_unpack(uint16_t v, uint8_t t6[6]) SOV_API;           /* 值 ∈ [0,729) → 6 trit (小端) */
 
 #ifdef __cplusplus
 }
