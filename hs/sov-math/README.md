@@ -61,6 +61,15 @@ cabal run sov-validation  # 8 个验证组全绿 (镜像 rust main.rs)
 | **近似投影 (approx 命名显式)** | `solitonRhoQ16Approx` (1 ulp) / `computeHolographicApprox` / `currentDensityLog10Q24Approx` | sin²/log₁₀ 是超越对象, 离散基座只有定点逼近 — 两语言等价仅指逼近算法语义一致, 非值相等 |
 | **未对账** | u384 (2³⁸⁴ 不可穷举) | 仅结构测试 (加法/乘标量/移位锚点) |
 
+## DC 定义层三语言同步 (DuodecClock/DCGroup 镜像)
+
+| 层 | hs | rust | cpp |
+|---|---|---|---|
+| DuodecPoint/mixedOp/零冥族五字段/σ_DC/生成元阶 12 | DuodecClock.hs ✅ | dc_clock.rs ✅ (7 测试) | dc_clock.h ✅ (14 检查) |
+| 结合律 1728 case / 同态 144 case / CRT 往返 | 全枚举 ✅ | 全枚举 ✅ | 全枚举 ✅ |
+| CRT 锚点表 (e→0, g→1, (T₀,α)→9, (T₁,a₀)→4) | ✅ | ✅ | ✅ |
+| Doz 位形 A/B | ✅ | ✅ | ✅ |
+
 ## 实测性能/能耗 (rho 450k ops, Xeon E5-2686 v4, RAPL 实测)
 
 | 语言 | 墙钟 | 单次延迟 | 包能耗(净, 扣 6.5W 空载) | 能效 |

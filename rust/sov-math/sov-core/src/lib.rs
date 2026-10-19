@@ -31,3 +31,4 @@ pub mod sov_assert;
 pub mod vavx3;
 pub mod wide_constants;
 pub mod wide_fixed;
+pub mod dc_clock;
