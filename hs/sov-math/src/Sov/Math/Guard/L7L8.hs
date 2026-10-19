@@ -10,7 +10,7 @@ module Sov.Math.Guard.L7L8
   , Verdict(..)
   , chernVerdict
   , log10_432_q32, log10_3_q32, log10_2_q32
-  , computeHolographic
+  , computeHolographicApprox
   , Band(..)
   , spectralBand
   , digitalRoot
@@ -49,9 +49,9 @@ log10_432_q32 = 11319316501
 log10_3_q32   = 2049220185
 log10_2_q32   = 1292913986
 
--- 全息标度: f = 432 × 3^a × 2^b 的 log10 Q32 投影 (纯整数)
-computeHolographic :: Int64 -> Int64 -> Int -> Int -> Int32
-computeHolographic _wraps _acc steps zc =
+-- ⚠ 近似投影: log10 标度的人类可读定点化 (Q32 常数截断) — 非 f = 432·3^a·2^b 本身
+computeHolographicApprox :: Int64 -> Int64 -> Int -> Int -> Int32
+computeHolographicApprox _wraps _acc steps zc =
   let z  = if zc > 0 then fromIntegral zc else fromIntegral steps `div` fromIntegral zhonglvPeriod :: Int64
       e3 = z * 88
       e2 = negate (z * 128)

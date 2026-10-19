@@ -26,7 +26,7 @@ module Sov.Math.Guard.NSE
   , HolographicScaling(..)
   , holoNew
   , lcmProgressQ16
-  , currentDensityLog10Q24
+  , currentDensityLog10Q24Approx
   , nseSunyiSequence
   , verifyNoExplosion
   , verifyCurieTransition
@@ -41,7 +41,7 @@ import Data.Int     (Int32, Int64)
 
 import Data.Word    (Word8, Word32, Word64)
 import Sov.Math.Constants
-import Sov.Math.Topology.Soliton (solitonRhoQ16, phaseAnchorSteps, curieThresholdQ16)
+import Sov.Math.Topology.Soliton (solitonRhoQ16Approx, phaseAnchorSteps, curieThresholdQ16)
 import Sov.Math.Topology.T6 (t6Polar, t6Toroidal, t6Total, t6Index)
 import Sov.Math.SunYi (twelveLengths)
 
@@ -170,9 +170,9 @@ lcmProgressQ16 h = fromIntegral limb0Progress
       (l0 : _) -> (toInteger l0 * 65536) `div` toInteger lcmTotal
       []       -> 0
 
--- currentDensityLog10: 58.697 + progress × 38.016, Q24 定点 (零浮点线性插值)
-currentDensityLog10Q24 :: HolographicScaling -> Int64
-currentDensityLog10Q24 h = fromIntegral (base + fromIntegral scaled)
+-- ⚠ 近似投影: 密度对数标度的人类可读定点化 — 非 log₁₀ 本身
+currentDensityLog10Q24Approx :: HolographicScaling -> Int64
+currentDensityLog10Q24Approx h = fromIntegral (base + fromIntegral scaled)
   where
     base = 58697 * (2 ^ (24 :: Int) `div` 1000) :: Integer
     scaled = case holoLimbs h of
@@ -194,8 +194,8 @@ verifyNoExplosion =
 -- 居里相变: rho(0) < 0.01 (Q16 < 655), rho(4500) > 0.99 (Q16 > 64880)
 verifyCurieTransition :: Bool
 verifyCurieTransition =
-  solitonRhoQ16 0 < 655
-  && solitonRhoQ16 phaseAnchorSteps > 64880
+  solitonRhoQ16Approx 0 < 655
+  && solitonRhoQ16Approx phaseAnchorSteps > 64880
 
 -- C₃ 周期可被 12 律整除
 verifyC3Cycle :: Bool

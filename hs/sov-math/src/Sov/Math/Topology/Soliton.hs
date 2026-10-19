@@ -13,7 +13,8 @@ module Sov.Math.Topology.Soliton
   , curieThresholdQ16
   , liquidThresholdQ16
   , sinQ32
-  , solitonRhoQ16
+  , solitonRhoQ16Approx
+  , solitonRhoQ16ApproxDoc
   , SolitonPhase(..)
   , determinePhase
   , isStandingNode
@@ -53,10 +54,18 @@ sinQ32 x = go 1 x x
               total' = if odd k then total - term' else total + term'
           in go (k + 1) term' total'
 
--- | rho(s) = sin²(π/2 · s/4500) 的 Q16 定点 (整型, 零浮点)
+-- | ⚠ 近似投影: rho(s) = sin²(π/2·s/4500) 的 Q16 定点逼近 (误差 ≤ 1 Q16-ulp,
+-- oracle 回执 ba93f0e3)。数学对象是超越函数值, 离散基座只能定点逼近 —
+-- 与 rust f64 版同属 approx 层, 三语言 '等价' 仅指逼近算法语义一致, 非值相等。
 -- s ≥ 4500 → 精确 65536 (对齐 rust step >= PHASE_ANCHOR_STEPS 分支)
-solitonRhoQ16 :: Int -> Int
-solitonRhoQ16 s
+solitonRhoQ16Approx :: Int -> Int
+solitonRhoQ16Approx = solitonRhoQ16Impl
+
+solitonRhoQ16ApproxDoc :: String
+solitonRhoQ16ApproxDoc = "approx: |Δ| ≤ 1 Q16-ulp vs sin² exact"
+
+solitonRhoQ16Impl :: Int -> Int
+solitonRhoQ16Impl s
   | s >= phaseAnchorSteps = 65536
   | otherwise =
       let x  = piHalfQ32 * fromIntegral s `div` fromIntegral phaseAnchorSteps

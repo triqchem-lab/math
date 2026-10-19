@@ -50,6 +50,16 @@ cabal run sov-math-test   # ✅ 全部通过: 147/147
 cabal run sov-validation  # 8 个验证组全绿 (镜像 rust main.rs)
 ```
 
+## 等价性分级 (诚实声明)
+
+| 级别 | 模块 | 证据 |
+|---|---|---|
+| **全域机器对账** | GF(3)/GF(9)/Ring 加法与乘生成元 | oracle 回执 `5e59305a`: 三路 (python 基线/rust dump/hs dump) 3125863 点逐点一致, 生成元论域全枚举 |
+| **精确等价 + 完整论域测试** | Eis/Z[ω,i]/GF(4) 域表/损益链/陈数构造 | 域有限且小, 测试即全枚举 |
+| **结构化对账** | Ring 完整乘法 (3.1e10 对超论域) | 生成元全域 1948617 + 双倍全域 177147 + 种子抽样 1e6 |
+| **近似投影 (approx 命名显式)** | `solitonRhoQ16Approx` (1 ulp) / `computeHolographicApprox` / `currentDensityLog10Q24Approx` | sin²/log₁₀ 是超越对象, 离散基座只有定点逼近 — 两语言等价仅指逼近算法语义一致, 非值相等 |
+| **未对账** | u384 (2³⁸⁴ 不可穷举) | 仅结构测试 (加法/乘标量/移位锚点) |
+
 ## 跨语言对齐说明
 
 - **陈数精确性已三语言对齐**: 注入 C=2 单极 → Haskell `computeChernExact = (−432, 216)`

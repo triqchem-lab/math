@@ -178,7 +178,7 @@ allTests =
   , check "l7_pass"      (chernVerdict (-131072) == Pass && chernValid (-131072))
   , check "l7_collapse"  (chernVerdict 0 == FailTopologicalCollapse)   -- |0| < 0.5
   , check "l7_drift"     (chernVerdict 200000 == WarnDrift)
-  , check "holographic"  (computeHolographic 0 0 96 0 > 0)             -- z=96/12=8 → 正标度
+  , check "holographic"  (computeHolographicApprox 0 0 96 0 > 0)             -- z=96/12=8 → 正标度
   , check "band_ladder"  (spectralBand 100000 == Audio && spectralBand 700000 == Infrared
                           && spectralBand 2000000 == UltraHigh)
   , check "digital_root" (digitalRoot 38 == 2 && digitalRoot 81 == 9 && digitalRoot 9 == 9)
@@ -218,11 +218,11 @@ allTests =
                               && TC.n14VirtualPhase C.grandPump == 0)
 
   -- ── Soliton (零浮点改造, oracle 对账回执 ba93f0e3) ──
-  , check "rho_endpoints"    (Sol.solitonRhoQ16 0 == 0 && Sol.solitonRhoQ16 Sol.phaseAnchorSteps == 65536)
+  , check "rho_endpoints"    (Sol.solitonRhoQ16Approx 0 == 0 && Sol.solitonRhoQ16Approx Sol.phaseAnchorSteps == 65536)
   , check "rho_monotone"     -- sin² 在 [0,π/2] 单调 → 定点表单调
-      (and [ Sol.solitonRhoQ16 s <= Sol.solitonRhoQ16 (s + 1) | s <- [0, 100 .. 4399] ])
+      (and [ Sol.solitonRhoQ16Approx s <= Sol.solitonRhoQ16Approx (s + 1) | s <- [0, 100 .. 4399] ])
   , check "rho_anchor"       -- 锚点 s=2250 (π/4): sin²=1/2 → 32768 ± 1
-      (abs (Sol.solitonRhoQ16 2250 - 32768) <= 1)
+      (abs (Sol.solitonRhoQ16Approx 2250 - 32768) <= 1)
   , check "phase_boundaries"
       (Sol.determinePhase 0 == Sol.SolidFrozen
        && Sol.determinePhase 24903 == Sol.LiquidForming   -- 0.38 边界
