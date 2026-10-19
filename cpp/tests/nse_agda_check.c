@@ -34,14 +34,14 @@ int main(int argc, char **argv) {
     if (bad) { fprintf(stderr, "set failed %d\n", bad); return 4; }
 
     uint8_t buf[729];
-    for (int phase = 0; phase < 2; ++phase) {
+    for (int phase = 0; phase < 5; ++phase) {
         for (int i = 0; i < 6; ++i) {
             for (int x = 0; x < 729; ++x) if (nget(h, (uint16_t)x, (uint8_t)i, &buf[x]) != 0) { fprintf(stderr, "get failed\n"); return 5; }
             printf("S%d_%d=", phase, i);
             for (int x = 0; x < 729; ++x) putchar('0' + (buf[x] % 3));
             putchar('\n');
         }
-        if (phase == 0 && nst(h) != 0) { fprintf(stderr, "step failed\n"); return 6; }
+        if (phase < 4 && nst(h) != 0) { fprintf(stderr, "step failed\n"); return 6; }
     }
     nfr(h);
     return 0;

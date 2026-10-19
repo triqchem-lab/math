@@ -47,17 +47,22 @@ def main():
     subprocess.run(["gcc", "-O2", "-std=c99", "-I", os.path.join(ROOT, "cpp", "include"),
                     SRC, "-o", exe, "-ldl"], check=True)
     out = subprocess.run([exe, LIB], capture_output=True, text=True, check=True).stdout
-    s0 = {}; s1 = {}
+    states = {}
     for ln in out.splitlines():
         if "=" not in ln: continue
         k, v = ln.split("=", 1)
-        (s0 if k.startswith("S0_") else s1)[int(k.split("_")[1])] = [int(c) for c in v]
-    if len(s0) != 6 or len(s1) != 6:
+        idx = int(k.split("_")[1]); phase = int(k[1])
+        states.setdefault(phase, {})[idx] = [int(c) for c in v]
+    if sorted(states) != [0, 1, 2, 3, 4] or any(len(states[p]) != 6 for p in states):
         print("NSE 模式2: 状态读取失败 🔴"); return 1
-    exp = ns_step([s0[i] for i in range(6)])
-    diff = sum(1 for i in range(6) for x in range(729) if exp[i][x] != s1[i][x])
-    total = 6 * 729
-    print(f"NSE 模式2 ↔ Agda nsStep: {total} trits 比对, 差异 {diff} "
+    cur = [states[0][i] for i in range(6)]
+    total = 0; diff = 0
+    for p in range(1, 5):                    # 四步演化, 逐步比对
+        cur = ns_step(cur)
+        got = [states[p][i] for i in range(6)]
+        diff += sum(1 for i in range(6) for x in range(729) if cur[i][x] != got[i][x])
+        total += 6 * 729
+    print(f"NSE 模式2 ↔ Agda nsStep: {total} trits (4 步演化) 比对, 差异 {diff} "
           f"{'✅' if diff == 0 else '🔴'}")
     return 0 if diff == 0 else 1
 
