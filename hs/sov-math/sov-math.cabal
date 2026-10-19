@@ -1,0 +1,47 @@
+cabal-version:      2.4
+-- sov-math — Sovereign 律算核心库 (Haskell 移植)
+-- 镜像 rust/sov-math/sov-core, 对应 C++ include/
+-- 强类型化原则:
+--   1. Trit = 3 构造子枚举, 非法值在类型层不可表达 (替代 runtime panic)
+--   2. RingElement = Vec N11 Trit (DataKinds 定长向量), 位数错误在编译期被拒
+--   3. TryteValue = Vec N6 Trit, 值域 [0,729) 由构造天然保证 (替代 overflow 检查)
+--   4. 十二律 = 12 构造子枚举 (替代字符串表)
+--   5. 可恢复错误走 Either MathError, 不可恢复违反宪法走 error (对齐 constitutional_panic!)
+-- 零浮点: 全库无 Float/Double (宪法), Q16.16 定点用 Data.Int.Int32
+name:               sov-math
+version:            0.1.0.0
+synopsis:           GF(3) 纯整数律算核心 — L0..L8 的 Haskell 强类型移植
+license:            MIT
+build-type:         Simple
+
+library
+    exposed-modules:  Sov.Math.Constants
+                      Sov.Math.Nat
+                      Sov.Math.Vec
+                      Sov.Math.Trit
+                      Sov.Math.Tryte
+                      Sov.Math.Ring
+                      Sov.Math.Adc
+                      Sov.Math.Bridge
+                      Sov.Math.SunYi
+                      Sov.Math.Error
+                      Sov.Math.FixedComplex
+                      Sov.Math.Eis
+                      Sov.Math.Layer1
+    hs-source-dirs:   src
+    build-depends:    base >=4 && <5
+    default-language: GHC2021
+    default-extensions: DataKinds, GADTs, KindSignatures, TypeOperators,
+                        ScopedTypeVariables, LambdaCase, TupleSections, TypeFamilies
+    ghc-options:      -Wall -Werror
+
+test-suite sov-math-test
+    type:             exitcode-stdio-1.0
+    main-is:          Main.hs
+    other-modules:    Sov.Tests.Core
+    hs-source-dirs:   test
+    build-depends:    base >=4 && <5, sov-math
+    default-language: GHC2021
+    default-extensions: DataKinds, GADTs, KindSignatures, TypeOperators,
+                        ScopedTypeVariables, LambdaCase, TupleSections, TypeFamilies
+    ghc-options:      -Wall -Werror -threaded
