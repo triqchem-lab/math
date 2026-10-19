@@ -183,6 +183,15 @@ int main(int argc, char **argv) {
             int64_t n = 0; en(box[i], box[j], &n);
             printf("eisn%d%d=%lld\n", (int)box[i], (int)box[j], (long long)n);
         }
+        /* 全域 625 乘积的校验和 (与 Agda _*ᵉ_ 公式独立评估比对) */
+        { long long acc = 0;
+          for (unsigned i = 0; i < 5; ++i) for (unsigned j = 0; j < 5; ++j)
+          for (unsigned k = 0; k < 5; ++k) for (unsigned l = 0; l < 5; ++l) {
+              int64_t re = 0, im = 0;
+              em(box[i], box[j], box[k], box[l], &re, &im);
+              acc = (acc * 31 + re * 7 + im) % 1000000007LL;
+          }
+          printf("eis_all625=%lld\n", acc); }
     }
     {
         typedef int32_t (*fn_cd)(uint8_t, int64_t *, int64_t *);

@@ -62,7 +62,7 @@
 | 闸门 | 命令 | 判据 |
 |---|---|---|
 | 导出面 | `engineering/verify_export_surface.sh` | 三语言 dynsym == 契约（缺/多皆红） |
-| 实现一致 | `engineering/ffi_conformance.sh` | 三语言同一向量 **948 行逐行相同** |
+| 实现一致 | `engineering/ffi_conformance.sh` | 三语言同一向量 **949 行逐行相同** |
 | 头合规 | `engineering/c99_compliance_check.py` | 保留标识符 / 自足性 / 版本闸门 |
 | 档位矩阵 | `engineering/c_standard_matrix.sh` | C99..C23 × C++11..23 × gcc/clang |
 | 安装 | `engineering/install_c_abi.sh` | `dist/` 标准布局 + pkg-config 三套 |
@@ -158,8 +158,16 @@ cpp 的 `NSESolver::step` 与 rust/hs 的 `step_once` 在 delta 公式上不同�
 | `sov_sunyi_gain` | 解析 `loss-gain-seq`（Sun/Yi 序列）vs ABI 实测 | ✅ 12/12 |
 | `sov_sunyi_remainder` | 解析 `LCM_REMAINDERS` 元组 vs ABI 实测 | ✅ 12/12 |
 | 仲吕闭合常数 | `huangzhong-rem`/`zhonglv-rem` 的 refl 级等式 | ✅ 177147 × 65536 = 11609505792 |
+| `sov_gf9_mul` | 解析 `GF9.agda`（`α² = −1`、`GF9 = GF3 × GF3`）→ 独立评估 81 项乘法表 | ✅ 81/81 |
+| `sov_eis_mul` | 解析 `Eisenstein.agda` 的 `_*ᵉ_` 公式原文并断言规范形 `(a*c-b*d, a*d+b*c-b*d)`；再用该公式独立评估 625 乘积校验和 | ✅ 公式逐字一致；625/625 校验和相同（694701810） |
+| `sov_dc_crt` | 逐行解析 `Duodecimal.agda` 的 12 条 `crt12` 子句 + `toℕ₁₂` 表 | ✅ 12/12 |
 
 核对器：`engineering/verify_agda_anchors.py`（直接读 Agda 源文件，**不读我方表**；已并入 `abi_check.sh` 第 4.5 步）。
-负向控制已实测：篡改一个余数（124416→124417）→ 报 `不一致 1` 并 FAIL。
+当前覆盖 **754 项**：十二律 12 + 损益 12 + 余数 12 + 闭合常数 2 + GF(9) 81 + Eisenstein 625 + CRT 12。
+
+负向控制（已实测三条，判官确实会说「不」）：
+- 篡改余数 `124416→124417` → `不一致 1` FAIL
+- 篡改 `gf9_3_3` 为 7（α·α 应为 2）→ `不一致 1` FAIL
+- 篡改 CRT `(2,2)` 为 9（应为 2）→ `不一致 1` FAIL
 
 ⚠ 其余设施仍是**定义级对应**（未做逐条转写 + 全状态对照），不得声称已强验证。
