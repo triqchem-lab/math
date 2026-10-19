@@ -44,6 +44,7 @@ SOV_FFI_1.0 {
     sov_sunyi_boundary;
     sov_sunyi_gain;
     sov_sunyi_length;
+    sov_sunyi_remainder;
     sov_t6_index;
     sov_trit_add;
     sov_trit_c3;

@@ -35,6 +35,9 @@ hs/sov-math/engineering/ffi_conformance.sh | tail -3 || fail=1
 step 4/6 "头合规 (C99 §7.1.3/§7.26/§7.1.2/§6.10.3.5)"
 python3 hs/sov-math/engineering/c99_compliance_check.py | tail -2 || fail=1
 
+step 4.5 "Agda 形式化源码核对 (表值 + 常数)"
+python3 hs/sov-math/engineering/verify_agda_anchors.py "$ROOT/dist/ffi_cpp.body" | tail -6 || fail=1
+
 step 5/6 "语言档位矩阵"
 hs/sov-math/engineering/c_standard_matrix.sh | tail -1 || fail=1
 

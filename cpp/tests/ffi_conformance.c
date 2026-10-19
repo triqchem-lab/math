@@ -152,6 +152,12 @@ int main(int argc, char **argv) {
         fn_sl sl = (fn_sl)sym("sov_sunyi_length");
         fn_sg sg = (fn_sg)sym("sov_sunyi_gain"), sb = (fn_sg)sym("sov_sunyi_boundary");
         for (int t = 0; t < 12; ++t) { uint16_t o = 0; sl(t, &o); printf("sunyi%d=%u\n", t, o); }
+        {
+            typedef int32_t (*fn_rm)(uint8_t, uint32_t *);
+            fn_rm rm = (fn_rm)sym("sov_sunyi_remainder");
+            for (int t = 0; t < 12; ++t) { uint32_t o = 0; rm(t, &o); printf("rem%d=%u\n", t, o); }
+            { uint32_t o; printf("err_rem=%d\n", rm(12, &o)); }
+        }
         for (int t = 0; t < 24; ++t) {
             uint8_t g = 9, b = 9;
             sg(t, &g); sb(t, &b);

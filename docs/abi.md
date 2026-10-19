@@ -4,7 +4,7 @@
 > 三语言实现（cpp / rust / hs）**逐符号等价**，可由任意 C/C++/带 FFI 的宿主加载。
 > 单一事实源：`cpp/include/sov/*.h`（版本脚本 `cpp/packaging/sov_ffi.map` 由此自动生成）。
 
-## 一、符号清单（59 个，分 21 个设施头）
+## 一、符号清单（60 个，分 21 个设施头）
 
 | 头 | 符号数 | 符号 |
 |---|---|---|
@@ -62,7 +62,7 @@
 | 闸门 | 命令 | 判据 |
 |---|---|---|
 | 导出面 | `engineering/verify_export_surface.sh` | 三语言 dynsym == 契约（缺/多皆红） |
-| 实现一致 | `engineering/ffi_conformance.sh` | 三语言同一向量 **935 行逐行相同** |
+| 实现一致 | `engineering/ffi_conformance.sh` | 三语言同一向量 **948 行逐行相同** |
 | 头合规 | `engineering/c99_compliance_check.py` | 保留标识符 / 自足性 / 版本闸门 |
 | 档位矩阵 | `engineering/c_standard_matrix.sh` | C99..C23 × C++11..23 × gcc/clang |
 | 安装 | `engineering/install_c_abi.sh` | `dist/` 标准布局 + pkg-config 三套 |
@@ -149,5 +149,17 @@ cpp 的 `NSESolver::step` 与 rust/hs 的 `step_once` 在 delta 公式上不同�
 | `sov_ring_*` / `sov_gf9_*` | `Base/Trit.agda`、`Algebra/FieldTower/GF9.agda` |
 | `sov_dc_*` | `Algebra/GroupTheory/DuodecClock.agda` + `DCGroup.agda`（`dcZeroOblivion`） |
 
-⚠ 诚实边界：上表是**定义对应**，不等于每个 ABI 符号都有 Agda 定理背书；
-目前只有 `nsStep` 做过「逐条转写 + 四步全状态对照」的强验证，其余为定义级对应。
+### 已做「强验证」的设施（逐项记录）
+
+| 设施 | 强验证方式 | 结果 |
+|---|---|---|
+| `sov_nse_*` mode 2 | 按 Agda 定义逐条转写 Python（不读我方实现），四步全状态 4374 trits 对照 | ✅ 完全一致 |
+| `sov_sunyi_length` | 解析 `SunyiChain.agda` 的 `十二律长度` 元组原文 vs ABI 实测 | ✅ 12/12 |
+| `sov_sunyi_gain` | 解析 `loss-gain-seq`（Sun/Yi 序列）vs ABI 实测 | ✅ 12/12 |
+| `sov_sunyi_remainder` | 解析 `LCM_REMAINDERS` 元组 vs ABI 实测 | ✅ 12/12 |
+| 仲吕闭合常数 | `huangzhong-rem`/`zhonglv-rem` 的 refl 级等式 | ✅ 177147 × 65536 = 11609505792 |
+
+核对器：`engineering/verify_agda_anchors.py`（直接读 Agda 源文件，**不读我方表**；已并入 `abi_check.sh` 第 4.5 步）。
+负向控制已实测：篡改一个余数（124416→124417）→ 报 `不一致 1` 并 FAIL。
+
+⚠ 其余设施仍是**定义级对应**（未做逐条转写 + 全状态对照），不得声称已强验证。

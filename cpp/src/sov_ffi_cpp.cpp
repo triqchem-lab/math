@@ -244,6 +244,16 @@ constexpr uint16_t kTwelveLengths[12] = {81,54,72,48,64,43,57,38,51,34,45,30};
 constexpr uint8_t kLossGain[12] = {0,1,0,1,0,1,0,1,0,1,0,0};
 } // namespace
 
+// 与 Agda SunyiChain.LCM_REMAINDERS 逐项一致 (exact × 3^7)
+int32_t sov_sunyi_remainder(uint8_t tone, uint32_t* out) {
+    static const uint32_t kRem[12] = {177147, 118098, 157464, 104976, 139968, 93312,
+                                      124416, 82944, 110592, 73728, 98304, 65536};
+    if (!out) return SOV_ERR_NULL;
+    if (tone >= 12) return SOV_ERR_RANGE;
+    *out = kRem[tone];
+    return SOV_OK;
+}
+
 int32_t sov_sunyi_length(uint8_t tone, uint16_t* out) {
     if (!out) return SOV_ERR_NULL;
     if (tone >= SOV_TONE_COUNT) return SOV_ERR_RANGE;

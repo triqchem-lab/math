@@ -38,6 +38,7 @@ module Sov.FFI
   , sov_chern_inject_wrapper
     -- 第二批
   , sov_sunyi_length_wrapper
+  , sov_sunyi_remainder_wrapper
   , sov_sunyi_gain_wrapper
   , sov_sunyi_boundary_wrapper
   , sov_eis_mul_wrapper
@@ -422,6 +423,7 @@ sov_sunyi_length_wrapper tone out
       return 0
 foreign export ccall "sov_sunyi_length" sov_sunyi_length_wrapper :: CUChar -> Ptr CUShort -> IO CInt
 
+
 sov_sunyi_gain_wrapper :: CUChar -> Ptr CUChar -> IO CInt
 sov_sunyi_gain_wrapper step out
   | out == nullPtr = return (fromIntegral sovErrNull)
@@ -430,6 +432,18 @@ sov_sunyi_gain_wrapper step out
       poke out (fromIntegral (case g of SY.Sun -> 0 :: Int; SY.Yi -> 1))
       return 0
 foreign export ccall "sov_sunyi_gain" sov_sunyi_gain_wrapper :: CUChar -> Ptr CUChar -> IO CInt
+
+-- | LCM 余数投影 (Agda SunyiChain.LCM_REMAINDERS, exact × 3^7)
+sov_sunyi_remainder_wrapper :: CUChar -> Ptr CUInt -> IO CInt
+sov_sunyi_remainder_wrapper tone out
+  | out == nullPtr = return (fromIntegral sovErrNull)
+  | fromIntegral tone >= (12 :: Int) = return (fromIntegral sovErrRange)
+  | otherwise = do
+      poke out (fromIntegral (remainderTable !! fromIntegral tone))
+      return 0
+  where remainderTable = [177147,118098,157464,104976,139968,93312,
+                          124416,82944,110592,73728,98304,65536] :: [Word32]
+foreign export ccall "sov_sunyi_remainder" sov_sunyi_remainder_wrapper :: CUChar -> Ptr CUInt -> IO CInt
 
 sov_sunyi_boundary_wrapper :: CUChar -> Ptr CUChar -> IO CInt
 sov_sunyi_boundary_wrapper step out

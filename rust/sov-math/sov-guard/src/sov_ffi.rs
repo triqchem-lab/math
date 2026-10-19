@@ -277,6 +277,16 @@ pub extern "C" fn sov_sunyi_length(tone: u8, out: *mut u16) -> i32 {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn sov_sunyi_remainder(tone: u8, out: *mut u32) -> i32 {
+    if out.is_null() { return ERR_NULL; }
+    if tone >= 12 { return ERR_RANGE; }
+    const REM: [u32; 12] = [177147, 118098, 157464, 104976, 139968, 93312,
+                            124416, 82944, 110592, 73728, 98304, 65536];
+    unsafe { *out = REM[tone as usize]; }
+    OK
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn sov_sunyi_gain(step: u8, out: *mut u8) -> i32 {
     if out.is_null() { return ERR_NULL; }
     let g = sov_core::sunyi::step_loss_gain(step as u64);
