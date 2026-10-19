@@ -25,10 +25,12 @@ def rapl():
     v = int(open(RAPL).read())
     return v
 
+PASSES = sys.argv[1] if len(sys.argv) > 1 else "1"
+OPS = 4500 * int(PASSES)
 targets = [
-    ("cpp",  ["/tmp/wide_bench_cpp"]),
-    ("rust", ["/home/yanli/work/math/rust/sov-math/target/release/wide_bench"]),
-    ("haskell", ["cabal", "run", "-v0", "wide-bench"], "/home/yanli/work/math/hs/sov-math"),
+    ("cpp",  ["/tmp/wide_bench_cpp", PASSES]),
+    ("rust", ["/home/yanli/work/math/rust/sov-math/target/release/wide_bench", PASSES]),
+    ("haskell", ["cabal", "run", "-v0", "wide-bench", "--", PASSES], "/home/yanli/work/math/hs/sov-math"),
 ]
 
 results = {}
@@ -65,11 +67,11 @@ for name, cmd, *cwd in targets:
         "cpu_s": statistics.median(x["cpu_s"] for x in good),
         "energy_J": statistics.median(x["energy_J"] for x in good) if RAPL_OK else None,
         "all": runs,
-        "op_count": 4500,
+        "op_count": OPS,
     }
 
 print("ORACLE-MANIFEST", json.dumps({
-    "basis": "RAPL package energy + monotonic wall + getrusage CPU",
+    "basis": "RAPL package energy + monotonic wall + getrusage CPU", "passes": PASSES,
     "domain": 3, "points": 9,
     "claim": "三语言同一工作负载 (rho 4500 点 Taylor) 延迟/能耗计量, 校验和一致"
 }))
@@ -87,7 +89,7 @@ for n, r in results.items():
     else:
         cpu = r['cpu_s']
         print(f"{n:10} {r['wall_s']:>10.4f} {cpu:>10.4f} {cpu*P_LOW:>8.2f}~{cpu*P_HIGH:<8.2f} "
-              f"{r['wall_s']/4500*1e6:>10.1f} {cpu*P_LOW/4500*1e9:>6.1f}~{cpu*P_HIGH/4500*1e9:<7.1f} {same:>8}")
+              f"{r['wall_s']/4500*1e6:>10.1f} {cpu*P_LOW/OPS*1e9:>6.1f}~{cpu*P_HIGH/OPS*1e9:<7.1f} {same:>8}")
 print()
 for n, r in results.items():
     extra = (f", 能耗估算 ×[{r['cpu_s']/base['cpu_s']*P_LOW/base['cpu_s']:.1f}…]" if not RAPL_OK else f", 能耗 ×{r['energy_J']/base['energy_J']:.2f}")
