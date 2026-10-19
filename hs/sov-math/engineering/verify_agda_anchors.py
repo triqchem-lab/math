@@ -594,6 +594,31 @@ def check_discrete_sphere(fail):
           + ("" if ok else "  🔴"))
     return ok
 
+HOPSPIN = "/data/work/discrete-mathematics/bridge-from-sov-math/HopfSpinLift.agda"
+
+def check_hopf_lift(fail):
+    """Hopf 自旋提升 (新增): A₄ 作用提升到 2A₄，相位与 Hopf 投影等变对齐
+
+    核对模块含 4 条实质断言: phaseAct⁴≡id / phaseAct²非平凡 / 相位保轨道(等变) / det R = 1。
+    """
+    import os
+    if not os.path.exists(HOPSPIN):
+        print("Agda HopfSpinLift: 模块缺失 (未做提升)  🔴")
+        return False
+    src = read(HOPSPIN)
+    checks = {
+        "SpinTotal = TotalSpace × GF(3)²": bool(re.search(r"SpinTotal : Set\nSpinTotal = H\.TotalSpace × Spin", src)),
+        "phaseAct 定义": bool(re.search(r"phaseAct g \(x , v\) = \(T6\.a4Action g x , applyM RB\.R v\)", src)),
+        "phaseAct⁴≡id": bool(re.search(r"phaseAct⁴≡id :", src)),
+        "phaseAct²非平凡 (R²=2I)": bool(re.search(r"phaseAct²-nontrivial :", src)),
+        "等变: 保 A₄ 轨道": bool(re.search(r"phase-equivariant :", src)) and bool(re.search(r"H\.action-in-orbit g x", src)),
+        "det ρ(R)=1 (∈SL(2,3))": bool(re.search(r"detR≡1 : RB\.detM RB\.R ≡i T₁", src)),
+    }
+    ok = all(checks.values())
+    print("Agda HopfSpinLift (2A₄ 提升): " + ", ".join(f"{k} {'✓' if v else '✗'}" for k, v in checks.items())
+          + ("" if ok else "  🔴"))
+    return ok
+
 def main():
     src = read(CHAIN)
     fail = 0
@@ -636,6 +661,7 @@ def main():
     # 该模块由本会话新增于 Agda 侧 bridge-from-sov-math/ (0 postulate / 0 hole, agda exit 0)
     if not check_rot_bridge(fail): fail = 1
     if not check_discrete_sphere(fail): fail = 1
+    if not check_hopf_lift(fail): fail = 1
 
     print("\n" + ("PASS" if not fail else "FAIL"))
     return fail
