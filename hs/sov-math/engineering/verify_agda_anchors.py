@@ -980,6 +980,75 @@ def check_soliton(fail):
         print("Soliton: 需要 mpmath 做高精度参考 (环境缺库, 跳过)  ⚠")
         return True
 
+def check_adc_lcm_chain(fail):
+    """ADC64 (小域穷尽 + 边界 + 恒等) 与 LCM 24 步链 (按文档语义独立复算)"""
+    MOD7 = 1000000007
+    M = (1 << 64) - 1
+    L = 11609505792
+    H = 177147
+    body = read(BODY)
+
+    def mul_small(l, k):
+        out = [0] * 6
+        c = 0
+        for i in range(6):
+            t = l[i] * k + c
+            out[i] = t & M
+            c = t >> 64
+        return out
+
+    def shr_small(l, sh):
+        out = [0] * 6
+        c = 0
+        for i in range(5, -1, -1):
+            out[i] = ((l[i] >> sh) | (c << (64 - sh))) & M
+            c = l[i] & ((1 << sh) - 1)
+        return out
+
+    l = [0] * 6
+    n = 0
+    chk = 0
+    rows = []
+    for _ in range(24):
+        l = mul_small(l, H)
+        low = (l[0] + 1) & M
+        carry = low // L
+        l[0] = low % L
+        l[1] = (l[1] + carry) & M
+        n += 1
+        if n >= 12:
+            l = mul_small(l, H)
+            l = shr_small(l, 16)
+            n = 0
+        for x in l:
+            chk = (chk * 131 + x % 1000003) % MOD7
+        rows.append((l[0], l[1], n))
+    abi_rows = []
+    for m in re.finditer(r"lcmchain(\d+)=(\d+),(\d+),(\d+)", body):
+        abi_rows.append((int(m.group(2)), int(m.group(3)), int(m.group(4))))
+    chain_chk = re.search(r"lcmchain_chk=(\d+)", body)
+    # ADC: 独立复算小域校验和
+    c_adc = 0
+    for a in range(1024):
+        for b in range(1024):
+            for ci in range(2):
+                s = a + b + ci
+                c_adc = (c_adc * 131 + (s % 1000003)) % MOD7
+    adc_small = re.search(r"adc_small_bad=(\d+),chk=(\d+)", body)
+    adc_rand = re.search(r"adc_rand_bad=(\d+),chk=(\d+)", body)
+    adc_bounds = all(f"adc{k}=" in body for k in ("_max0", "_max1", "_maxmax", "_maxmax1", "_pow63"))
+    ok = (adc_small and adc_small.group(1) == "0" and int(adc_small.group(2)) == c_adc
+          and adc_rand and adc_rand.group(1) == "0"
+          and adc_bounds and abi_rows == rows
+          and chain_chk and int(chain_chk.group(1)) == chk)
+    print(f"ADC64: 小域穷尽 1024²×2 {'✓' if adc_small and adc_small.group(1)=='0' else '✗'} "
+          f"(独立复算 {'✓' if adc_small and int(adc_small.group(2))==c_adc else '✗'}), "
+          f"边界 5 项 {'✓' if adc_bounds else '✗'}, 随机 2 万恒等 {'✓' if adc_rand and adc_rand.group(1)=='0' else '✗'}; "
+          f"LCM 24 步链 {'✓' if abi_rows == rows else '✗'} (chk {'✓' if chain_chk and int(chain_chk.group(1))==chk else '✗'}), "
+          f"12 步闭合复位 {'✓' if [r[2] for r in abi_rows] == [r[2] for r in rows] else '✗'}"
+          + ("" if ok else "  🔴"))
+    return ok
+
 def main():
     src = read(CHAIN)
     fail = 0
@@ -1031,6 +1100,7 @@ def main():
     if not check_u384_chern(fail): fail = 1
     if not check_wide_constants(fail): fail = 1
     if not check_soliton(fail): fail = 1
+    if not check_adc_lcm_chain(fail): fail = 1
 
     print("\n" + ("PASS" if not fail else "FAIL"))
     return fail

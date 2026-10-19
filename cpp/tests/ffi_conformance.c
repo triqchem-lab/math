@@ -1168,6 +1168,60 @@ int main(int argc, char **argv) {
           } }
     }
 
+    /* ══ ADC64 全域小域 + 边界；LCM 12/24 步链 ══ */
+    {
+        typedef int32_t (*fn_adc)(uint64_t, uint64_t, uint8_t, uint64_t *, uint8_t *);
+        fn_adc adc = (fn_adc)sym("sov_adc64");
+        /* ① 小域全域: a,b < 1024 × carry_in ∈{0,1} —— 该子空间内穷尽 */
+        { int bad = 0; long long chk = 0;
+          for (uint64_t a = 0; a < 1024; ++a) for (uint64_t b = 0; b < 1024; ++b)
+          for (uint8_t ci = 0; ci < 2; ++ci) {
+              uint64_t s = 0; uint8_t co = 9;
+              if (adc(a, b, ci, &s, &co) != 0) { ++bad; continue; }
+              uint64_t exp = a + b + ci;
+              if (s != exp || co != (uint8_t)(exp >> 63 >> 1)) ++bad;
+              chk = (chk * 131 + (long long)(s % 1000003)) % 1000000007LL;
+          }
+          printf("adc_small_bad=%d,chk=%lld\n", bad, chk); }
+        /* ② 边界: 2^64−1 与进位链 */
+        { uint64_t s; uint8_t co;
+          adc(~0ull, 0, 0, &s, &co); printf("adc_max0=%llu,%u\n", (unsigned long long)s, co);
+          adc(~0ull, 0, 1, &s, &co); printf("adc_max1=%llu,%u\n", (unsigned long long)s, co);
+          adc(~0ull, ~0ull, 0, &s, &co); printf("adc_maxmax=%llu,%u\n", (unsigned long long)s, co);
+          adc(~0ull, ~0ull, 1, &s, &co); printf("adc_maxmax1=%llu,%u\n", (unsigned long long)s, co);
+          adc(1ull<<63, 1ull<<63, 0, &s, &co); printf("adc_pow63=%llu,%u\n", (unsigned long long)s, co); }
+        /* ③ 64 位随机样本 (LCG，确定性) */
+        { int bad = 0; long long chk = 0; uint64_t st = 0x243F6A8885A308D3ull;
+          for (int i = 0; i < 20000; ++i) {
+              st = st * 6364136223846793005ull + 1442695040888963407ull;
+              uint64_t a = st;
+              st = st * 6364136223846793005ull + 1442695040888963407ull;
+              uint64_t b = st;
+              uint8_t ci = (uint8_t)(st >> 63);
+              uint64_t s2; uint8_t co;
+              adc(a, b, ci, &s2, &co);
+              /* 恒等: s + 2^64·co = a + b + ci (mod 2^65) */
+              unsigned __int128 lhs = (unsigned __int128)s2 + ((unsigned __int128)co << 64);
+              unsigned __int128 rhs = (unsigned __int128)a + b + ci;
+              if (lhs != rhs) ++bad;
+              chk = (chk * 131 + (long long)(s2 % 1000003)) % 1000000007LL;
+          }
+          printf("adc_rand_bad=%d,chk=%lld\n", bad, chk); }
+    }
+    {
+        typedef int32_t (*fn_lcm)(uint64_t *, uint64_t, uint32_t *);
+        fn_lcm ls = (fn_lcm)sym("sov_lcm_step");
+        /* 24 步链: acc=0, delta=1; 每步记录全 6 limb 校验和 */
+        uint64_t l[6] = {0,0,0,0,0,0}; uint32_t n = 0;
+        long long chk = 0;
+        for (int i = 0; i < 24; ++i) {
+            ls(l, 1, &n);
+            for (int j = 0; j < 6; ++j) chk = (chk * 131 + (long long)(l[j] % 1000003)) % 1000000007LL;
+            printf("lcmchain%d=%llu,%llu,%u\n", i + 1, (unsigned long long)l[0], (unsigned long long)l[1], n);
+        }
+        printf("lcmchain_chk=%lld\n", chk);
+    }
+
     /* 空指针保护 */
     printf("err_null=%d\n", tadd(0, 0, NULL));
     { fn_abi rfini = (fn_abi)dlsym(H, "sov_runtime_fini");
