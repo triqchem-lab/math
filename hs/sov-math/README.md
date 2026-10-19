@@ -82,6 +82,35 @@ harness: engineering/bench_energy.py (RAPL 实测 + 空载基线扣除, 3 轮中
 
 ## 标准 C ABI (跨语言接口)
 
+> **可以作为标准 C 库消费**：公共头纯 C99（只依赖 `<stdint.h>`/`<stddef.h>`，不含任何语言运行时头），
+> 支持标准安装布局 + pkg-config + soname 版本 + 静态/动态双形态。
+
+```bash
+# 一键安装为标准 C 库
+hs/sov-math/engineering/install_c_abi.sh /tmp/sov-prefix
+
+# 消费 (纯 C99, 三种实现任选)
+export PKG_CONFIG_PATH=/tmp/sov-prefix/lib/pkgconfig
+cc app.c $(pkg-config --cflags --libs sov-ffi)      -o app   # cpp 实现
+cc app.c $(pkg-config --cflags --libs sov-ffi-rust) -o app   # rust 实现 (可互换)
+```
+
+安装布局：
+
+| 路径 | 内容 |
+|---|---|
+| `<prefix>/include/sov/sov.h` | umbrella 头（含 `SOV_ABI_AT_LEAST(maj,min)` 编译期版本判定） |
+| `<prefix>/include/sov/sov_ffi.h` | 契约头（32 符号，`SOV_API` 可见性标注） |
+| `<prefix>/lib/libsov_ffi.so.1.0.0` + `.so.1` + `.so` | cpp 动态（soname `libsov_ffi.so.1`） |
+| `<prefix>/lib/libsov_ffi.a` | cpp 静态 |
+| `<prefix>/lib/libsov_ffi_rust.so` | rust 实现（cdylib） |
+| `<prefix>/lib/libsovffi.so` | hs 实现（宿主需先 `hs_init`） |
+| `<prefix>/lib/pkgconfig/sov-ffi{,-rust,-hs}.pc` | pkg-config（三实现可互换链接） |
+
+示例程序：[examples/c/hello_sov.c](<examples/c/hello_sov.c>) — 只用 `<sov/sov.h>`，`-std=c99 -pedantic-errors -Werror` 零警告，三种实现输出逐字节相同。
+CMake 目标：`sov_ffi`(SHARED) + `sov_ffi_static`(STATIC) + `install` 规则 + `ctest -R ffi_conformance`（dlopen 一致性）。
+
+
 唯一契约头: **`cpp/include/sov_ffi.h`** — 三语言各自实现同一份 ABI，可被任意 C/C++/任意 FFI 宿主加载：
 
 | 语言 | 产物 | 构建 |

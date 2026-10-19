@@ -113,3 +113,32 @@ add_test(NAME green_api COMMAND test_green_api)
 
 install(DIRECTORY include/ DESTINATION include/sov_math)
 install(TARGETS sov_math EXPORT sov_math_targets)
+
+# ============================================================================
+# C ABI: 标准 C 库目标 (共享 + 静态) + 一致性测试
+# ============================================================================
+
+add_library(sov_ffi SHARED src/sov_ffi_cpp.cpp)
+target_include_directories(sov_ffi PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+set_target_properties(sov_ffi PROPERTIES
+    VERSION 1.0.0
+    SOVERSION 1
+    CXX_VISIBILITY_PRESET hidden          # 公共 API 由 SOV_API 显式导出
+    VISIBILITY_INLINES_HIDDEN ON)
+
+add_library(sov_ffi_static STATIC src/sov_ffi_cpp.cpp)
+target_include_directories(sov_ffi_static PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+
+# 标准安装布局: include/sov/*.h + lib/libsov_ffi.{so,a} + pkgconfig/sov-ffi.pc
+install(TARGETS sov_ffi sov_ffi_static
+        LIBRARY DESTINATION lib ARCHIVE DESTINATION lib)
+install(FILES include/sov/sov.h include/sov/sov_ffi.h DESTINATION include/sov)
+# pkg-config 模板中的 @PREFIX@ 由安装脚本填充 (脚本直装模式); CMake 安装用 CMAKE_INSTALL_PREFIX
+string(REPLACE "@PREFIX@" "${CMAKE_INSTALL_PREFIX}" SOV_PC_PREFIX "${CMAKE_CURRENT_SOURCE_DIR}/packaging/sov-ffi.pc.in")
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/packaging/sov-ffi.pc.in ${CMAKE_CURRENT_BINARY_DIR}/sov-ffi.pc @ONLY)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/sov-ffi.pc DESTINATION lib/pkgconfig)
+
+# ABI 一致性测试 (dlopen 三语言实现, 与 golden 快照比对)
+add_executable(ffi_conformance tests/ffi_conformance.c)
+target_link_libraries(ffi_conformance PRIVATE dl)
+add_test(NAME ffi_conformance_cpp COMMAND ffi_conformance $<TARGET_FILE:sov_ffi>)

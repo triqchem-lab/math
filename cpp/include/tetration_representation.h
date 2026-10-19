@@ -11,9 +11,10 @@
 //   组合: TetrationNumber × TetrationNumber = 塔高相加 + 相位模12加
 //         TetrationNumber ^ n = 塔高×n + 相位×n mod 12
 //
-//   Z12 环: 步长=12, 每步=仲吕闭合×8级倍增
-//   模3: GF(3) {T0,T1,T2} — 底层相位旋转
-//   模12: Z12十二律 — 中层时间晶格
+//   十二进制 = char(GF(9)) × ord(α) = 3 × 4 联合时钟周期 (非抽象 Z/12 环):
+//   模3: GF(3) 素域步进 {T0,T1,T2} — 加法周期 3 (三进制归零)
+//   模4: ⟨α⟩ 旋转 {1,α,α²,α³} — 乘法周期 4 (90° 步进, α²=-1)
+//   CRT 合成: Z/3 ⊕ Z/4 ≅ Z/12 — 联合周期, 非域, 无 12 阶内部元素
 //   塔高H: 超运算层级 — 顶层全息投影
 #ifndef SOV_MATH_TETRATION_REPRESENTATION_H
 #define SOV_MATH_TETRATION_REPRESENTATION_H
@@ -25,6 +26,43 @@
 #include <string>
 
 namespace sov::math::tetration {
+
+// ═══════════════════════════════════════════════════════
+// 零、十二进制联合周期 — char(3) × ord(4) 的 CRT 分解
+// ═══════════════════════════════════════════════════════
+//
+// 卢先生的「十二进制」不是抽象环 Z/12，而是特征 3 与 α 旋转阶 4 的
+// 联合时钟周期（对应 Sovereign.Algebra.GroupTheory.DuodecimalGroup.agda）:
+//   12 = 3 × 4 = char(GF(9)) × ord(α)
+//   · z3_step ∈ {0,1,2}   — GF(3) 素域步进 (加法周期 3, 三进制归零)
+//   · z4_rot  ∈ {0,1,2,3} — ⟨α⟩ 旋转 (乘法周期 4, 90° 步进, α²=-1)
+//   CRT 合成: Z/3 ⊕ Z/4 ≅ Z/12, 重构 x = (4·z3 + 9·z4) mod 12
+//   禁挂「GF(9) 含 12 阶子群」: |GF(9)*| = 8, 无 12 阶内部元素。
+struct Z12JointPeriod {
+    uint8_t z3_step;   // 特征 3 步进 (mod 3)
+    uint8_t z4_rot;    // α 旋转阶 4 (mod 4)
+
+    // CRT 投影 (π3, π4): 从平铺相位分解
+    static constexpr Z12JointPeriod from_phase(uint8_t z12) noexcept {
+        return Z12JointPeriod{
+            static_cast<uint8_t>(z12 % 3u),
+            static_cast<uint8_t>(z12 % 4u)
+        };
+    }
+
+    // CRT 重构 (crt12): x = (4·z3 + 9·z4) mod 12
+    constexpr uint8_t to_phase() const noexcept {
+        return static_cast<uint8_t>((4u * z3_step + 9u * z4_rot) % 12u);
+    }
+};
+
+static_assert(Z12JointPeriod{0,0}.to_phase() ==  0, "CRT 黄钟 (0,0)");
+static_assert(Z12JointPeriod{1,1}.to_phase() ==  1, "CRT (1,1)→1");
+static_assert(Z12JointPeriod{2,2}.to_phase() ==  2, "CRT (2,2)→2");
+static_assert(Z12JointPeriod{0,3}.to_phase() ==  3, "CRT (0,3)→3");
+static_assert(Z12JointPeriod{2,3}.to_phase() == 11, "CRT (2,3)→11");
+static_assert(Z12JointPeriod::from_phase(7).z3_step == 1, "7 % 3 = 1");
+static_assert(Z12JointPeriod::from_phase(7).z4_rot  == 3, "7 % 4 = 3");
 
 // ═══════════════════════════════════════════════════════
 // 一、塔数结构 — 不存值, 存几何
@@ -114,7 +152,7 @@ struct TetrationTower {
     // 生成整数层塔数: ^n 12
     static TetrationNumber integer_level(int n) noexcept {
         TetrationNumber tn{};
-        tn.height = static_cast<double>(n);
+        tn.height_q16 = static_cast<int32_t>(n) << 16;  // 整数层: H = n (Q16)
         tn.z12_phase = 0;
         tn.zhonglv_count = 0;  // 整数层不需仲吕计数
         return tn;
