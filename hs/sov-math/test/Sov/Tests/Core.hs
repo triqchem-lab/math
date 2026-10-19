@@ -22,6 +22,7 @@ import qualified Sov.Validation.Zomega as ZW
 import qualified Sov.Validation.ChiInner as CI
 import qualified Sov.Validation.GF9Diag as G9
 import qualified Sov.Validation.GF4Magic as G4
+import qualified Sov.Validation.Magic as MG
 import Sov.Math.Nat
 import Sov.Math.Ring
 import Sov.Math.SunYi
@@ -282,6 +283,19 @@ allTests =
   , check "gf4_transpose"    G4.verifyTransposeSym
   , check "gf4_durer"        G4.verifyDurerNegative
   , check "gf4_all"          G4.verifyAll4
+
+  -- ── Validation: 幻方 (magic_square + ternary_magic) ──
+  , check "magic3_lo_shu_8"  (MG.magic3Count == 8)  -- 9! 全枚举
+  , check "latin3_orthogonal"
+      (MG.isLatinN 3 MG.latin1_3 && MG.isLatinN 3 MG.latin2_3
+       && MG.areOrthogonalN 3 MG.latin1_3 MG.latin2_3)
+  , check "gf9_mols_28"      MG.verifyMolsPairwiseOrthogonal
+  , check "euler_9_magic"    -- λ₁=α, λ₂=2α 叠加 → 369
+      (MG.isMagicSquare (MG.eulerSuperpose9 (MG.gf9Mols !! 0) (MG.gf9Mols !! 1)) == (True, 369))
+  , check "doubly_even_12"   MG.verifyDoublyEven12
+  , check "doubly_even_144"  MG.verifyDoublyEven144
+  , check "m4_euler_34"      MG.verifyM4Euler
+  , check "magic_all"        MG.verifyAllMagic
   ]
 
 -- ═══ 辅助 ═══

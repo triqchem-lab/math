@@ -41,6 +41,7 @@ library
                       Sov.Validation.ChiInner
                       Sov.Validation.GF9Diag
                       Sov.Validation.GF4Magic
+                      Sov.Validation.Magic
     hs-source-dirs:   src
     build-depends:    base >=4 && <5
     default-language: GHC2021
