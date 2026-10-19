@@ -64,7 +64,7 @@
 | 闸门 | 命令 | 判据 |
 |---|---|---|
 | 导出面 | `engineering/verify_export_surface.sh` | 三语言 dynsym == 契约（缺/多皆红） |
-| 实现一致 | `engineering/ffi_conformance.sh` | 三语言同一向量 **984 行逐行相同** |
+| 实现一致 | `engineering/ffi_conformance.sh` | 三语言同一向量 **1001 行逐行相同** |
 | 头合规 | `engineering/c99_compliance_check.py` | 保留标识符 / 自足性 / 版本闸门 |
 | 档位矩阵 | `engineering/c_standard_matrix.sh` | C99..C23 × C++11..23 × gcc/clang |
 | 安装 | `engineering/install_c_abi.sh` | `dist/` 标准布局 + pkg-config 三套 |
@@ -241,3 +241,40 @@ ABI 新增四个函数（`sov_width_*`），强验证：解析 `DigitField.agda`
 `sov_width_bits_for_trits(40)` 初版**死循环**：`3⁴⁰ = 1.2157×10¹⁹ > 2⁶³`，而 `cap` 为 `uint64`，
 `cap <<= 1` 在 2⁶³ 后回绕为 0 ⇒ `0 < need` 永真。修复：移位只到 2⁶³，仍不足则返回 **64**；
 `trits_for_bits` 侧改用 `p <= cap/3` 判据避免 `p*3` 溢出。修复后全量测试 8 秒完成。
+
+## 十二、三种「12」必须分开说（位域容量 ≠ 展示群周期）
+
+存在三种互不替代的「12」，混用即范畴错误：
+
+| 读法 | 出处（形式化） | 「12 =」的含义 | 分量结构 |
+|---|---|---|---|
+| **① 位域容量** | `Synthesis/NumberTheory/DigitField.agda`：`capacity-12 : 3 * (2 * 2) ≡ 12`（refl） | 12 个**状态**可划分为 1 个三态域 + 2 个二态域（**基数/双射**事实） | 3·2·2，纯计数，**不含代数结构** |
+| **② DC 展示群（联合周期）** | `GroupTheory/DuodecClock.agda`：`joint-period-12 : 3 * 4 ≡ 12`（refl）、`mixedOp-12-cycle : ∀ p → mixedOp^12 p ≡ p` | 联合生成元 g 的**阶恰为 12**（`12 = char(GF(9)) × ord(α)`） | **C₃（加法，特征 3）× C₄（乘法相位，⟨α⟩ ⊂ GF(9)\*)**** |
+| **③ 记数法** | `Synthesis/Format/{Doz,Positional}.agda` + 桥 `DigitRealization` | 基 12 的记数法（Doz 一位 ∈ 0..11），与 12 态位域**双射** | 位值权重 12^k |
+
+### 关键：C₄ ≠ V₄ —— 相位不可退化为两个二进制位
+
+「2 个二态域」作为**群**是 C₂×C₂ = **V₄**（每个非平凡元素阶为 2）；
+而相位 ⟨α⟩ 是**循环群 C₄**（存在阶恰为 4 的元素）。两者阶同为 4，但**不同构**：
+C₃×V₄ ≇ C₃×C₄。所以「12 态位域 = 1 三态 + 2 二态」**只能**作容量读法，
+不能读成 DC 的分量分解 —— 这正是「相位不可约」红线（C₄→C₂ 非忠实商）。
+
+Agda 的三元证据：`PhaseSubgroup.alpha-order-exactly-4 = (alpha-4-id, alpha-2-not-id, alpha-not-id)`
+—— α⁴ = 1 且 α² ≠ 1 且 α ≠ 1。
+
+### ABI 强验证（本轮新增）
+
+从单位元 e 出发调用 `sov_dc_translate(k)`，实测 g^k 全表：
+
+```
+k :  0    1    2    3    4    5    6    7    8    9    10   11   12
+g^k: 00   11   22   03   10   21   02   13   20   01   12   23   00
+```
+
+- **g^k = (T_{k mod 3}, a_{k mod 4})** 全 13 项吻合 ⇒ 联合周期 12 与其两个分量同时被判定
+- `jnt0 = jnt12 = e`，且 `k=1..11` 均 ≠ e ⇒ 阶**恰为** 12（不是 6 或 4）
+- `comp_periods=trit3:1,phase4:1` ⇒ trit 分量周期 3、相位分量周期 4
+- `ord4_a1=(1,1)`、`ord4_a2=(2,2)`、`ord4_a4=(1,0)` ⇒ α≠e、**α²≠e**、α⁴=e
+  ⇒ **C₄ 而非 V₄**（若相位是 V₄，α² 就会等于 e）
+
+核对器断言解析 `joint-period-12`、`mixedOp-12-cycle`、`alpha-order-exactly-4` 三处原文后与上表比对。

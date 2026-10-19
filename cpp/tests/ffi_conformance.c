@@ -676,6 +676,32 @@ int main(int argc, char **argv) {
         { uint64_t o; printf("err_cap3=%d,%d\n", ct(41, &o), cb(64, &o)); }
     }
 
+    /* ══ 联合周期 / 分量 / C4≠V4 (DC 展示群) ══ */
+    {
+        typedef int32_t (*fn_dct)(uint32_t, uint8_t, uint8_t, uint8_t *, uint8_t *);
+        fn_dct tr2 = (fn_dct)sym("sov_dc_translate");
+        /* 从单位元 e=(T0,a0) 出发, g^k = translate(k) */
+        for (unsigned k = 0; k <= 12; ++k) {
+            uint8_t t = 9, a = 9;
+            tr2(k, 0, 0, &t, &a);
+            printf("jnt%u=%d%d\n", k, t, a);
+        }
+        /* C4 非 V4: α 的阶恰为 4 (α⁴=1, α²≠1, α≠1) — Agda alpha-order-exactly-4 */
+        { uint8_t t, a;
+          tr2(1, 0, 0, &t, &a); printf("ord4_a1=%d%d\n", t, a);   /* 期望 01: α≠1 */
+          tr2(2, 0, 0, &t, &a); printf("ord4_a2=%d%d\n", t, a);   /* 期望 02: α²≠1 */
+          tr2(4, 0, 0, &t, &a); printf("ord4_a4=%d%d\n", t, a); } /* 期望 10: α⁴=1 (trit=T1) */
+        /* 分量周期: trit 3 / phase 4 */
+        { int trit_ok = 1, phase_ok = 1;
+          for (unsigned k = 0; k + 4 <= 12; ++k) {
+              uint8_t t1, a1, t3, a3, t4, a4;
+              tr2(k, 0, 0, &t1, &a1);
+              if (k + 3 <= 12) { tr2(k + 3, 0, 0, &t3, &a3); if (t1 != t3) trit_ok = 0; }
+              if (k + 4 <= 12) { tr2(k + 4, 0, 0, &t4, &a4); if (a1 != a4) phase_ok = 0; }
+          }
+          printf("comp_periods=trit3:%d,phase4:%d\n", trit_ok, phase_ok); }
+    }
+
     /* 空指针保护 */
     printf("err_null=%d\n", tadd(0, 0, NULL));
     { fn_abi rfini = (fn_abi)dlsym(H, "sov_runtime_fini");

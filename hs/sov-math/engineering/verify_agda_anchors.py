@@ -449,6 +449,37 @@ def check_width(fail):
           + ("" if ok else "  🔴"))
     return ok
 
+def check_joint_period(fail):
+    """DC 联合周期: 解析 joint-period-12 / mixedOp-12-cycle / alpha-order-exactly-4,
+    断言 ABI 的 translate(k) 表满足 g^k = (T_{k mod 3}, a_{k mod 4}), 且相位非 V4。"""
+    dc = read(f"{SRC}/Sovereign/Algebra/GroupTheory/DuodecClock.agda")
+    ps = read(f"{SRC}/Sovereign/Algebra/GroupTheory/PhaseSubgroup.agda")
+    has_jp = bool(re.search(r"joint-period-12 : 3 \* 4 ≡ 12", dc))
+    has_cycle = bool(re.search(r"mixedOp-12-cycle : ∀ p → mixedOp\^12 p ≡ p", dc))
+    has_ord4 = ("alpha-order-exactly-4" in ps) and ("alpha-2-not-id" in ps) and ("alpha-not-id" in ps)
+    body = read(BODY)
+    jnt = {}
+    for ln in body.splitlines():
+        m = re.match(r"jnt(\d+)=(\d)(\d)", ln.strip())
+        if m: jnt[int(m.group(1))] = (int(m.group(2)), int(m.group(3)))
+    ord4 = {}
+    for ln in body.splitlines():
+        m = re.match(r"ord4_a(\d+)=(\d)(\d)", ln.strip())
+        if m: ord4[int(m.group(1))] = (int(m.group(2)), int(m.group(3)))
+    table_ok = all(jnt.get(k) == (k % 3, k % 4) for k in range(13))
+    period_ok = jnt.get(0) == jnt.get(12) and all(jnt.get(k) != (0, 0) for k in range(1, 12))
+    # C4 非 V4: 存在阶恰为 4 的元素 (α^1≠e, α^2≠e, α^4=e); V4 会让 α²=e
+    c4_ok = ord4.get(1, (0, 0)) != (0, 0) and ord4.get(2, (0, 0)) != (0, 0) and ord4.get(4, (0, 0)) == (1, 0)
+    comp = re.search(r"comp_periods=trit3:(\d),phase4:(\d)", body)
+    comp_ok = bool(comp and comp.group(1) == "1" and comp.group(2) == "1")
+    ok = has_jp and has_cycle and has_ord4 and table_ok and period_ok and c4_ok and comp_ok
+    print(f"Agda joint-period-12/mixedOp-12-cycle/alpha-order-exactly-4: "
+          f"{'✓' if has_jp else '✗'}{'✓' if has_cycle else '✗'}{'✓' if has_ord4 else '✗'}; "
+          f"ABI g^k=(T_(k%3),a_(k%4)) 全表 {'✓' if table_ok else '✗'}, 周期 12 {'✓' if period_ok else '✗'}, "
+          f"分量 trit3/phase4 {'✓' if comp_ok else '✗'}, 相位 C₄≠V₄ (α²≠e) {'✓' if c4_ok else '✗'}"
+          + ("" if ok else "  🔴"))
+    return ok
+
 def main():
     src = read(CHAIN)
     fail = 0
@@ -486,6 +517,7 @@ def main():
     if not check_dc_mixedop(fail): fail = 1
     if not check_zhonglv(fail): fail = 1
     if not check_width(fail): fail = 1
+    if not check_joint_period(fail): fail = 1
 
     print("\n" + ("PASS" if not fail else "FAIL"))
     return fail
