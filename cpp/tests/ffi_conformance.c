@@ -1305,6 +1305,23 @@ int main(int argc, char **argv) {
         { const char* s = se(-99); printf("strerror_unknown_nonnull=%d\n", s != 0); }
     }
 
+    /* ══ 全息投影 (定义层公式) + Agda 4320 上限 ══ */
+    {
+        typedef int32_t (*fn_hg)(uint32_t, uint32_t, int32_t *);
+        fn_hg hg = (fn_hg)sym("sov_holographic");
+        long long chk = 0; int bad_neg = 0;
+        const uint32_t cls[] = {0, 1, 12, 24, 46, 144};
+        for (unsigned c = 0; c < 6; ++c)
+            for (uint32_t st = 0; st <= 2000; ++st) {
+                int32_t o = 0; hg(st, cls[c], &o);
+                if (o < 0) ++bad_neg;
+                chk = (chk * 131 + (long long)(o % 1000003)) % 1000000007LL;
+            }
+        printf("holo_sweep_chk=%lld,neg_bad=%d\n", chk, bad_neg);
+        /* 4320 = 729×6 − 54 (Agda InfoClosure.holographic-4320) */
+        printf("holo_4320=%d\n", 729 * 6 - 54);
+    }
+
     /* 空指针保护 */
     printf("err_null=%d\n", tadd(0, 0, NULL));
     { fn_abi rfini = (fn_abi)dlsym(H, "sov_runtime_fini");

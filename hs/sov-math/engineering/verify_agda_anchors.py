@@ -1090,6 +1090,37 @@ def check_eis_misc(fail):
           + ("" if ok else "  🔴"))
     return ok
 
+INFOCLOSURE = f"{SRC}/Sovereign/Algebra/Holographic/InfoClosure.agda"
+
+def check_holographic(fail):
+    """全息投影: 定义层公式独立复算 + Agda 4320 上限 (729×6−54) 锚定
+
+    ⚠ 诚实边界: sov_holographic 的 Q16 常量 (L432/L3/L2) 与 Agda 的 4320 上限
+    没有形式化推导关系; 本核对只验证 ①ABI 按自身公式确定 ②4320 恒等式与 Agda 一致。
+    """
+    MOD7 = 1000000007
+    ic = read(INFOCLOSURE)
+    agda_4320 = bool(re.search(r"holographic-4320 = 4320", ic)) and bool(re.search(r"info-check : holographic-4320 ≡ 4320", ic))
+    body = read(BODY)
+    L432, L3, L2 = 11319316501, 2049220185, 1292913986
+    cls = [0, 1, 12, 24, 46, 144]
+    c = 0
+    for cl in cls:
+        for st in range(2001):
+            z = cl if cl > 0 else st // 12
+            e3, e2 = z * 88, -(z * 128)
+            v = (L432 + e3 * L3 + e2 * L2) >> 16
+            c = (c * 131 + (v % 1000003)) % MOD7
+    sw = re.search(r"holo_sweep_chk=(\d+),neg_bad=(\d+)", body)
+    v4320 = re.search(r"holo_4320=(\d+)", body)
+    ok = (agda_4320 and sw and int(sw.group(1)) == c and sw.group(2) == "0"
+          and v4320 and v4320.group(1) == "4320" and 729 * 6 - 54 == 4320)
+    print(f"全息投影: ABI 公式扫描 6×2001 {'✓' if sw and int(sw.group(1)) == c else '✗'} (独立复算), "
+          f"非负 {'✓' if sw and sw.group(2)=='0' else '✗'}; Agda InfoClosure 4320={'✓' if agda_4320 else '✗'} "
+          f"⚠ 常量与 Agda 无形式化推导 (定义层)"
+          + ("" if ok else "  🔴"))
+    return ok
+
 def main():
     src = read(CHAIN)
     fail = 0
@@ -1143,6 +1174,7 @@ def main():
     if not check_soliton(fail): fail = 1
     if not check_adc_lcm_chain(fail): fail = 1
     if not check_eis_misc(fail): fail = 1
+    if not check_holographic(fail): fail = 1
 
     print("\n" + ("PASS" if not fail else "FAIL"))
     return fail

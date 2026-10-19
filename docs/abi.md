@@ -68,7 +68,7 @@
 | 闸门 | 命令 | 判据 |
 |---|---|---|
 | 导出面 | `engineering/verify_export_surface.sh` | 三语言 dynsym == 契约（缺/多皆红） |
-| 实现一致 | `engineering/ffi_conformance.sh` | 三语言同一向量 **1108 行逐行相同** |
+| 实现一致 | `engineering/ffi_conformance.sh` | 三语言同一向量 **1110 行逐行相同** |
 | 头合规 | `engineering/c99_compliance_check.py` | 保留标识符 / 自足性 / 版本闸门 |
 | 档位矩阵 | `engineering/c_standard_matrix.sh` | C99..C23 × C++11..23 × gcc/clang |
 | 安装 | `engineering/install_c_abi.sh` | `dist/` 标准布局 + pkg-config 三套 |
@@ -197,11 +197,12 @@ cpp 的 `NSESolver::step` 与 rust/hs 的 `step_once` 在 delta 公式上不同�
 | `sov_is_standing_node` | `tone % 3 == 0`，12 音全枚举 | ✅ 12/12 |
 | `sov_chiral_collapse` | 阈值 ±113506 的 7 个边界点 | ✅ 7/7 |
 | `sov_abi_version` / `sov_strerror` | 版本 `(major<<16)\u007cminor = 65536`（1.0）；错误串非空且分类正确 | ✅ 1.0 / ok、illegal trit、未知码非空 |
+| `sov_holographic` | 定义层公式（Q16 对数投影）在 6×2001 组合上独立复算；另核对 Agda `InfoClosure.holographic-4320 ≡ 4320`（= 729×6−54，refl） | ⚠ **仅定义层**：Q16 常量与 Agda 的 4320 上限**无形式化推导关系**，不宣称强验证 |
 | `sov_dayan_multiplier` | 解析 `DayanState.agda` 的 `dayan-init`/`dayan-step` 原文形态；用 ℤ 版独立实现核对 ABI | ✅ 1101/1101 互素对（m≤60），校验和 823007911 |
 | `sov_crt2` | 广义二模 CRT：验证解满足两同余且唯一落在 [0,m₁m₂) | ✅ 576/576（模数对取自 {2,3,5,7,11}），物不知数 → 23 |
 
 核对器：`engineering/verify_agda_anchors.py`（直接读 Agda 源文件，**不读我方表**；已并入 `abi_check.sh` 第 4.5 步）。
-当前覆盖 **4269 项**（含全域穷尽类）（含全域穷尽类）（含全域穷尽类）（含全域穷尽类）（含全域穷尽类）（含全域穷尽类）（含全域穷尽类）（含全域穷尽类）：十二律 12 + 损益 12 + 余数 12 + 闭合常数 2 + GF(9) 81 + Eisenstein 625 + CRT 12 + Trit 18 + DC mixedOp 144 + 仲吕闭合 7 + **Tryte 729 + pack5 243 + Doz 数位 12 + Doz 往返 20001 + 数字根 4002**。
+当前覆盖 **4285 项**（含全域穷尽类）（含全域穷尽类）（含全域穷尽类）（含全域穷尽类）（含全域穷尽类）（含全域穷尽类）（含全域穷尽类）（含全域穷尽类）（含全域穷尽类）：十二律 12 + 损益 12 + 余数 12 + 闭合常数 2 + GF(9) 81 + Eisenstein 625 + CRT 12 + Trit 18 + DC mixedOp 144 + 仲吕闭合 7 + **Tryte 729 + pack5 243 + Doz 数位 12 + Doz 往返 20001 + 数字根 4002**。
 
 负向控制（已实测三条，判官确实会说「不」）：
 - 篡改余数 `124416→124417` → `不一致 1` FAIL
