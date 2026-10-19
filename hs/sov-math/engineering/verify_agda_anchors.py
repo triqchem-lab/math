@@ -353,6 +353,45 @@ def check_dc_mixedop(fail):
           + ("" if not bad else f" → {bad[:2]}") + ("" if ok else "  🔴"))
     return ok
 
+FP16 = f"{SRC}/Sovereign/Algebra/Analytic/FixedPointQ16.agda"
+SBASE = f"{SRC}/Sovereign/Algebra/NumberTheory/SunyiBase.agda"
+
+def check_zhonglv(fail):
+    """仲吕闭合: 解析 zhonglvClosure 定义 + 两条 refl 定理, 与 ABI 比对"""
+    fp = read(FP16); sb = read(SBASE); zc_src = read(f"{SRC}/Sovereign/Algebra/FieldTower/ZhonglvClosure.agda")
+    m_def = re.search(r"zhonglvClosure acc = \(acc \* CLOSURE_NUM\) / CLOSURE_DEN", fp)
+    m_num = re.search(r"CLOSURE_NUM = (\d+)", sb)
+    m_den = re.search(r"CLOSURE_DEN = (\d+)", sb)
+    m_lcm = re.search(r"SOVEREIGN_LCM = CLOSURE_NUM \* CLOSURE_DEN", sb)
+    m_30 = re.search(r"zhonglvClosure 30 ≡ (\d+)", fp) or re.search(r"zhonglvClosure 30 ≡ (\d+)", zc_src)
+    m_81 = re.search(r"zhonglvClosure 81 ≡ (\d+)", zc_src)
+    if not (m_def and m_num and m_den and m_lcm and m_30 and m_81):
+        print("Agda 仲吕: 未能解析定义/定理  🔴"); return False
+    num, den, z30, z81 = int(m_num.group(1)), int(m_den.group(1)), int(m_30.group(1)), int(m_81.group(1))
+    lcm = num * den
+    body = {}
+    for ln in read(BODY).splitlines():
+        ln = ln.strip()
+        m = re.match(r"zc(\d+)=(\d+)", ln)
+        if m: body[int(m.group(1))] = int(m.group(2))
+        m = re.match(r"sovereign_lcm=(\d+)", ln)
+        if m: body["lcm"] = int(m.group(1))
+        m = re.match(r"zc8_(-?\d+)=(\d+),abi=(-?\d+),same=(\d)", ln)
+        if m: body.setdefault("zc8", []).append((int(m.group(1)), int(m.group(2)), int(m.group(3)), int(m.group(4))))
+    exp = lambda a: (a * num) // den
+    ok = (body.get(30) == z30 and body.get(81) == z81 and body.get("lcm") == lcm)
+    # 8 次复合 = sov_zhonglv_step
+    comp_ok = True
+    for a0, v, abi, same in body.get("zc8", []):
+        a = a0
+        for _ in range(8): a = exp(a) % lcm
+        if a != v or v != abi or same != 1: comp_ok = False
+    print(f"Agda zhonglvClosure (acc×{num})/{den} ↔ ABI: zc(30)={body.get(30)}(Agda {z30}), "
+          f"zc(81)={body.get(81)}(Agda {z81}), LCM={body.get('lcm')}(Agda {lcm})"
+          + ("" if ok else "  🔴")
+          + f"; 8 次复合 == sov_zhonglv_step: {'✓' if comp_ok else '✗'}")
+    return ok and comp_ok
+
 def main():
     src = read(CHAIN)
     fail = 0
@@ -388,6 +427,7 @@ def main():
     if not check_dayan(fail): fail = 1
     if not check_trit(fail): fail = 1
     if not check_dc_mixedop(fail): fail = 1
+    if not check_zhonglv(fail): fail = 1
 
     print("\n" + ("PASS" if not fail else "FAIL"))
     return fail

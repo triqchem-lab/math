@@ -4,7 +4,7 @@
 > 三语言实现（cpp / rust / hs）**逐符号等价**，可由任意 C/C++/带 FFI 的宿主加载。
 > 单一事实源：`cpp/include/sov/*.h`（版本脚本 `cpp/packaging/sov_ffi.map` 由此自动生成）。
 
-## 一、符号清单（62 个，分 22 个设施头）
+## 一、符号清单（64 个，分 22 个设施头）
 
 | 头 | 符号数 | 符号 |
 |---|---|---|
@@ -16,7 +16,7 @@
 | `<sov/dayan.h>` | 2 | `sov_dayan_multiplier`, `sov_crt2` |
 | `<sov/adc.h>` | 1 | `sov_adc64` |
 | `<sov/bridge.h>` | 1 | `sov_lcm_step` |
-| `<sov/l6.h>` | 1 | `sov_zhonglv_step` |
+| `<sov/l6.h>` | 3 | `sov_zhonglv_step`, `sov_zhonglv_closure`, `sov_sovereign_lcm` |
 | `<sov/u384.h>` | 3 | `sov_u384_add`, `sov_u384_mul_u64`, `sov_u384_shr16` |
 | `<sov/nse.h>` | 8 | `sov_nse_new`, `sov_nse_step`, `sov_nse_density_q16`, `sov_nse_step_count`, `sov_nse_cell`, `sov_nse_component`, `sov_nse_set_component`, `sov_nse_free` |
 | `<sov/t6.h>` | 2 | `sov_t6_index`, `sov_is_standing_node` |
@@ -63,7 +63,7 @@
 | 闸门 | 命令 | 判据 |
 |---|---|---|
 | 导出面 | `engineering/verify_export_surface.sh` | 三语言 dynsym == 契约（缺/多皆红） |
-| 实现一致 | `engineering/ffi_conformance.sh` | 三语言同一向量 **959 行逐行相同** |
+| 实现一致 | `engineering/ffi_conformance.sh` | 三语言同一向量 **974 行逐行相同** |
 | 头合规 | `engineering/c99_compliance_check.py` | 保留标识符 / 自足性 / 版本闸门 |
 | 档位矩阵 | `engineering/c_standard_matrix.sh` | C99..C23 × C++11..23 × gcc/clang |
 | 安装 | `engineering/install_c_abi.sh` | `dist/` 标准布局 + pkg-config 三套 |
@@ -164,11 +164,13 @@ cpp 的 `NSESolver::step` 与 rust/hs 的 `step_once` 在 delta 公式上不同�
 | `sov_dc_crt` | 逐行解析 `Duodecimal.agda` 的 12 条 `crt12` 子句 + `toℕ₁₂` 表 | ✅ 12/12 |
 | `sov_trit_add`/`sov_trit_mul` | 解析 `Base/Trit.agda` 的 `_⊕_`/`_⊗_` 子句（按顺序模拟模式匹配，与 `_ ⊗ _ = T₁` 规范项一致） | ✅ 18/18 |
 | `sov_dc_mixedop` | 解析 `DuodecClock.agda` 的 `mulAlpha` 13 条子句 + 复用 ⊕ 表，组合出 144 项 | ✅ 144/144 |
+| `sov_zhonglv_closure` / `sov_sovereign_lcm` | 解析 `FixedPointQ16.agda` 的 `zhonglvClosure acc = (acc × CLOSURE_NUM) / CLOSURE_DEN` + `SunyiBase.agda` 的 `CLOSURE_NUM/DEN/SOVEREIGN_LCM` + 两条 refl 定理（`30→81`、`81→218`） | ✅ 定义一致；两条 refl 实例相等；LCM = 11609505792 |
+| `sov_zhonglv_step`（8 步） | 用 Agda 的**单次闭合**复合 8 次（每步 mod LCM）与 ABI 的 8 步实现对照 | ✅ 4/4 输入完全一致（含 `30→84981`、`987654321→6523580390`） |
 | `sov_dayan_multiplier` | 解析 `DayanState.agda` 的 `dayan-init`/`dayan-step` 原文形态；用 ℤ 版独立实现核对 ABI | ✅ 1101/1101 互素对（m≤60），校验和 823007911 |
 | `sov_crt2` | 广义二模 CRT：验证解满足两同余且唯一落在 [0,m₁m₂) | ✅ 576/576（模数对取自 {2,3,5,7,11}），物不知数 → 23 |
 
 核对器：`engineering/verify_agda_anchors.py`（直接读 Agda 源文件，**不读我方表**；已并入 `abi_check.sh` 第 4.5 步）。
-当前覆盖 **916 项**：十二律 12 + 损益 12 + 余数 12 + 闭合常数 2 + GF(9) 81 + Eisenstein 625 + CRT 12 + Trit 18 + DC mixedOp 144。
+当前覆盖 **925 项**：十二律 12 + 损益 12 + 余数 12 + 闭合常数 2 + GF(9) 81 + Eisenstein 625 + CRT 12 + Trit 18 + DC mixedOp 144 + 仲吕闭合 7。
 
 负向控制（已实测三条，判官确实会说「不」）：
 - 篡改余数 `124416→124417` → `不一致 1` FAIL
@@ -176,6 +178,7 @@ cpp 的 `NSESolver::step` 与 rust/hs 的 `step_once` 在 delta 公式上不同�
 - 篡改 CRT `(2,2)` 为 9（应为 2）→ `不一致 1` FAIL
 - 篡改 `trit22` 为 0（`T₂⊕T₂` 应为 1）→ `不一致 1` FAIL
 - 篡改 `mix_10_11` 相位为 2（应为 1）→ `不一致 1` FAIL
+- 篡改 `zc30` 为 82（Agda refl 定理为 81）/ `sovereign_lcm` 为 11609505793 → 立即判不一致 FAIL
 
 ⚠ 其余设施仍是**定义级对应**（未做逐条转写 + 全状态对照），不得声称已强验证。
 

@@ -55,6 +55,8 @@ module Sov.FFI
     -- 第三批
   , sov_adc64_wrapper
   , sov_zhonglv_step_wrapper
+  , sov_zhonglv_closure_wrapper
+  , sov_sovereign_lcm_wrapper
   , sov_t6_index_wrapper
   , sov_is_standing_node_wrapper
   , sov_chiral_collapse_wrapper
@@ -628,6 +630,23 @@ sov_adc64_wrapper a b carryIn sumOut carryOut
       poke carryOut (fromIntegral (c1 Data.Bits..|. c2))
       return 0
 foreign export ccall "sov_adc64" sov_adc64_wrapper :: CULLong -> CULLong -> CUChar -> Ptr CULLong -> Ptr CUChar -> IO CInt
+
+-- | 单次仲吕闭合 (Agda FixedPointQ16.zhonglvClosure)
+sov_zhonglv_closure_wrapper :: CULLong -> Ptr CULLong -> IO CInt
+sov_zhonglv_closure_wrapper acc out
+  | out == nullPtr = return (fromIntegral sovErrNull)
+  | otherwise = do
+      let q = (toInteger acc * 177147) `div` 65536
+      if q > 18446744073709551615 then return (fromIntegral sovErrRange)
+        else do poke out (fromIntegral q :: CULLong); return 0
+foreign export ccall "sov_zhonglv_closure" sov_zhonglv_closure_wrapper :: CULLong -> Ptr CULLong -> IO CInt
+
+-- | SOVEREIGN_LCM = 3^11 × 2^16
+sov_sovereign_lcm_wrapper :: Ptr CULLong -> IO CInt
+sov_sovereign_lcm_wrapper out
+  | out == nullPtr = return (fromIntegral sovErrNull)
+  | otherwise = do poke out 11609505792; return 0
+foreign export ccall "sov_sovereign_lcm" sov_sovereign_lcm_wrapper :: Ptr CULLong -> IO CInt
 
 -- | 仲吕步进: 8 次 a ← (a×177147)/2^16, 每次对 lcm 取模
 sov_zhonglv_step_wrapper :: CLLong -> CLLong -> Ptr CLLong -> IO CInt

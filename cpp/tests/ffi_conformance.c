@@ -596,6 +596,37 @@ int main(int argc, char **argv) {
         printf("crt_total=%d,ok=%d\n", crt_tot, crt_ok);
     }
 
+    /* ══ 第九批: 仲吕闭合单步 + SOVEREIGN_LCM (Agda 常量) ══ */
+    {
+        typedef int32_t (*fn_zc)(uint64_t, uint64_t *);
+        typedef int32_t (*fn_lc)(uint64_t *);
+        fn_zc zc = (fn_zc)sym("sov_zhonglv_closure");
+        fn_lc lc = (fn_lc)sym("sov_sovereign_lcm");
+        uint64_t lcm = 0; lc(&lcm);
+        printf("sovereign_lcm=%llu\n", (unsigned long long)lcm);
+        const uint64_t as[] = {0, 1, 29, 30, 31, 81, 218, 1000, 1000000};
+        for (unsigned i = 0; i < sizeof(as)/sizeof(as[0]); ++i) {
+            uint64_t o = 0; zc(as[i], &o);
+            printf("zc%llu=%llu\n", (unsigned long long)as[i], (unsigned long long)o);
+        }
+        /* 全域校验和 (0..2000) + 8 次复合与 sov_zhonglv_step 的一致性 */
+        { long long chk = 0;
+          for (uint64_t a = 0; a <= 2000; ++a) { uint64_t o; zc(a, &o); chk = (chk * 131 + (long long)o) % 1000000007LL; }
+          printf("zc_chk=%lld\n", chk); }
+        { typedef int32_t (*fn_zs)(int64_t, int64_t, int64_t *);
+          fn_zs zs = (fn_zs)sym("sov_zhonglv_step");
+          /* 8 次闭合 (每步 mod LCM) 与 ABI 的 sov_zhonglv_step 对照 */
+          const int64_t accs[] = {30, 81, 12345, 987654321};
+          for (unsigned i = 0; i < 4; ++i) {
+              uint64_t a = (uint64_t)accs[i];
+              for (int k = 0; k < 8; ++k) { uint64_t o; zc(a, &o); a = o % 11609505792ULL; }
+              int64_t got = 0; zs(accs[i], 11609505792LL, &got);
+              printf("zc8_%lld=%llu,abi=%lld,same=%d\n", (long long)accs[i],
+                     (unsigned long long)a, (long long)got,
+                     (a == (uint64_t)got) ? 1 : 0);
+          } }
+    }
+
     /* 空指针保护 */
     printf("err_null=%d\n", tadd(0, 0, NULL));
     { fn_abi rfini = (fn_abi)dlsym(H, "sov_runtime_fini");

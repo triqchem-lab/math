@@ -411,6 +411,22 @@ pub extern "C" fn sov_adc64(a: u64, b: u64, carry_in: u8,
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn sov_zhonglv_closure(acc: u64, out: *mut u64) -> i32 {
+    if out.is_null() { return ERR_NULL; }
+    let q = acc as u128 * 177147u128 >> 16;
+    if q > u64::MAX as u128 { return ERR_RANGE; }
+    unsafe { *out = q as u64; }
+    OK
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_sovereign_lcm(out: *mut u64) -> i32 {
+    if out.is_null() { return ERR_NULL; }
+    unsafe { *out = 11609505792; }
+    OK
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn sov_zhonglv_step(acc: i64, lcm: i64, out: *mut i64) -> i32 {
     if out.is_null() { return ERR_NULL; }
     if lcm <= 0 { return ERR_RANGE; }

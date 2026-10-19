@@ -387,6 +387,21 @@ int32_t sov_adc64(uint64_t a, uint64_t b, uint8_t carry_in, uint64_t* sum, uint8
     return SOV_OK;
 }
 
+int32_t sov_zhonglv_closure(uint64_t acc, uint64_t* out) {
+    if (!out) return SOV_ERR_NULL;
+    unsigned __int128 prod = (unsigned __int128)acc * 177147u;
+    unsigned __int128 q = prod >> 16;          /* ÷ 2^16 */
+    if (q > (unsigned __int128)UINT64_MAX) return SOV_ERR_RANGE;
+    *out = uint64_t(q);
+    return SOV_OK;
+}
+
+int32_t sov_sovereign_lcm(uint64_t* out) {
+    if (!out) return SOV_ERR_NULL;
+    *out = 11609505792ull;
+    return SOV_OK;
+}
+
 int32_t sov_zhonglv_step(int64_t acc, int64_t lcm, int64_t* out) {
     if (!out) return SOV_ERR_NULL;
     if (lcm <= 0) return SOV_ERR_RANGE;

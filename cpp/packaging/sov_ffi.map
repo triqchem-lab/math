@@ -42,6 +42,7 @@ SOV_FFI_1.0 {
     sov_soliton_phase;
     sov_soliton_rho_q16;
     sov_soliton_sin_q32;
+    sov_sovereign_lcm;
     sov_strerror;
     sov_sunyi_boundary;
     sov_sunyi_gain;
@@ -62,6 +63,7 @@ SOV_FFI_1.0 {
     sov_wide_const_pi;
     sov_wide_const_sqrt3;
     sov_wide_rho;
+    sov_zhonglv_closure;
     sov_zhonglv_step;
   local:
     *;
