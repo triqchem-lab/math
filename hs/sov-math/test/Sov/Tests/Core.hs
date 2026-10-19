@@ -20,6 +20,8 @@ import qualified Sov.Math.Topology.Soliton as Sol
 import qualified Sov.Math.Topology.Tower as Tw
 import qualified Sov.Validation.Zomega as ZW
 import qualified Sov.Validation.ChiInner as CI
+import qualified Sov.Validation.GF9Diag as G9
+import qualified Sov.Validation.GF4Magic as G4
 import Sov.Math.Nat
 import Sov.Math.Ring
 import Sov.Math.SunYi
@@ -262,6 +264,24 @@ allTests =
   , check "chi_irreducible"  CI.verifyChiIrreducible
   , check "chi_inner_exact"  -- ⟨χ₂',χ₂'⟩·|G| = (24,0) 精确
       (CI.innerNum CI.chi2' == Eis 24 0)
+
+  -- ── Validation: GF(9) 幻方链 (gf9_diag.rs) ──
+  , check "gf9_diag_all"     G9.verifyAll9
+  , check "gf9_diag_split"   -- 五节独立可见: 判据分裂三条件
+      (G9.verifyDiagonalClassification && G9.verifyAntiDiagonalEncoding
+       && G9.verifyOrthogonalMagicSquare && G9.verifyDegenerateCases)
+
+  -- ── Validation: GF(4) 幻方 (gf4_magic.rs 九节) ──
+  , check "gf4_enum240"      G4.verifyEnum240
+  , check "gf4_cellwise"     G4.verifyCellwiseOrthogonal
+  , check "gf4_sigma_fail"   G4.verifySigmaVariantsFail
+  , check "gf4_semi"         G4.verifySemiMagic
+  , check "gf4_superpose"    G4.verifySuperposeM4
+  , check "gf4_diag_lemma"   G4.verifyDiagonalLemma
+  , check "gf4_frobenius"    G4.verifyFrobeniusConjugation
+  , check "gf4_transpose"    G4.verifyTransposeSym
+  , check "gf4_durer"        G4.verifyDurerNegative
+  , check "gf4_all"          G4.verifyAll4
   ]
 
 -- ═══ 辅助 ═══
