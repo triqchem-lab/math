@@ -80,6 +80,22 @@ cabal run sov-validation  # 8 个验证组全绿 (镜像 rust main.rs)
 
 harness: engineering/bench_energy.py (RAPL 实测 + 空载基线扣除, 3 轮中位数)
 
+## 标准 C ABI (跨语言接口)
+
+唯一契约头: **`cpp/include/sov_ffi.h`** — 三语言各自实现同一份 ABI，可被任意 C/C++/任意 FFI 宿主加载：
+
+| 语言 | 产物 | 构建 |
+|---|---|---|
+| cpp | `libsov_ffi_cpp.so` | `g++ -shared -fPIC -I cpp/include cpp/src/sov_ffi_cpp.cpp` |
+| rust | `libsov_guard.so` (cdylib) | `cargo build --release -p sov-guard` |
+| hs | `libsovffi.so` (20 符号) | `hs/sov-math/engineering/build_ffi_hs.sh` |
+
+**契约要点**：全部函数返回 `int32_t` 状态码（0 OK / −1 TRIT / −2 RANGE / −4 NULL）；输出经调用方缓冲区回传（库内不分配，无 free 语义）；`sov_runtime_init/fini` 统一运行时生命周期（hs 调 `hs_init`，cpp/rust 空操作）。
+
+**验证**：`hs/sov-math/engineering/ffi_conformance.sh` 一键跑三语言 .so 的同一测试向量（GF(3) 18 + GF(9) 90 + 环 + DC 混合表 144 + σ/CRT/平移 + LCM 桥 20 步轨迹 + 宽定点 + 陈数 + 错误码）→ **311 行逐行一致**，golden 快照在 `engineering/results/ffi_conformance_expected.txt`。
+
+⚠ Haskell .so 的模块构造子在 **dlopen 期**即需 RTS 已初始化 ⇒ 宿主须先 `hs_init(NULL,NULL)` 再 dlopen（脚本用 GHC 链接版驱动实现；纯 C 宿主对标 cpp/rust 无需此步）。
+
 ## 工作区边界与外部锚定
 
 > **本仓库 = cpp + rust + hs 三语言实现**。Agda（`discrete-mathematics`）是**外部形式化参考项目**，

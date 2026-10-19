@@ -1,0 +1,233 @@
+// sov_ffi_cpp.cpp — 标准 C ABI 的 C++ 实现 (libsov_ffi_cpp.so)
+//
+// 与 rust/hs 实现逐符号一致; ABI 契约见 include/sov_ffi.h。
+#include "sov_ffi.h"
+#include "dc_clock.h"
+#include "wide_fixed.h"
+#include "gf3_field.h"      // Trit 运算 (l1)
+#include "z3r_ring.h"       // Z/3^11
+#include "lcm_constants.h"
+#include <cstring>
+
+using namespace sov::math;
+using namespace sov::math::dc;
+using namespace sov::math::wide;
+
+namespace {
+
+inline bool trit_ok(uint8_t v) { return v < 3; }
+inline bool phase_ok(uint8_t v) { return v < 4; }
+
+// 环元素: 11 个小端 trit
+inline uint64_t ring_weight(const uint8_t a[11]) {
+    uint64_t w = 0, p = 1;
+    for (int i = 0; i < 11; ++i) { w += uint64_t(a[i]) * p; p *= 3; }
+    return w;
+}
+inline void ring_from_weight(uint64_t v, uint8_t out[11]) {
+    for (int i = 0; i < 11; ++i) { out[i] = uint8_t(v % 3); v /= 3; }
+}
+
+} // namespace
+
+extern "C" {
+
+int32_t sov_abi_version(void) { return (SOV_ABI_MAJOR << 16) | SOV_ABI_MINOR; }
+
+// C++ 无运行时初始化需求 (空操作, 契约一致)
+int32_t sov_runtime_init(void) { return SOV_OK; }
+int32_t sov_runtime_fini(void) { return SOV_OK; }
+
+const char* sov_strerror(int32_t code) {
+    switch (code) {
+        case SOV_OK:          return "ok";
+        case SOV_ERR_TRIT:    return "illegal trit (not in {0,1,2})";
+        case SOV_ERR_RANGE:   return "range error";
+        case SOV_ERR_STATE:   return "illegal state";
+        case SOV_ERR_NULL:    return "null pointer";
+        default:              return "unknown error";
+    }
+}
+
+int32_t sov_trit_add(uint8_t a, uint8_t b, uint8_t* out) {
+    if (!out) return SOV_ERR_NULL;
+    if (!trit_ok(a) || !trit_ok(b)) return SOV_ERR_TRIT;
+    *out = uint8_t((a + b) % 3);
+    return SOV_OK;
+}
+
+int32_t sov_trit_mul(uint8_t a, uint8_t b, uint8_t* out) {
+    if (!out) return SOV_ERR_NULL;
+    if (!trit_ok(a) || !trit_ok(b)) return SOV_ERR_TRIT;
+    *out = uint8_t((a * b) % 3);
+    return SOV_OK;
+}
+
+int32_t sov_trit_sun(uint8_t a, uint8_t* out) {
+    if (!out) return SOV_ERR_NULL;
+    if (!trit_ok(a)) return SOV_ERR_TRIT;
+    *out = uint8_t((a + 2) % 3);
+    return SOV_OK;
+}
+
+int32_t sov_trit_c3(uint8_t a, uint8_t* out) {
+    if (!out) return SOV_ERR_NULL;
+    if (!trit_ok(a)) return SOV_ERR_TRIT;
+    *out = uint8_t((a + 1) % 3);
+    return SOV_OK;
+}
+
+int32_t sov_gf9_mul(uint8_t a, uint8_t b, uint8_t* out) {
+    if (!out) return SOV_ERR_NULL;
+    if (a >= 9 || b >= 9) return SOV_ERR_RANGE;
+    // 编码 x + 3y; (x+yα)(u+vα) = (xu+2yv) + (xv+yu)α
+    int x = a % 3, y = a / 3, u = b % 3, v = b / 3;
+    int re = (x * u + 2 * y * v) % 3;
+    int im = (x * v + y * u) % 3;
+    *out = uint8_t(re + 3 * im);
+    return SOV_OK;
+}
+
+int32_t sov_gf9_norm(uint8_t a, uint8_t* out) {
+    if (!out) return SOV_ERR_NULL;
+    if (a >= 9) return SOV_ERR_RANGE;
+    int x = a % 3, y = a / 3;
+    *out = uint8_t((x * x + y * y) % 3);
+    return SOV_OK;
+}
+
+int32_t sov_ring_add(const uint8_t a[11], const uint8_t b[11], uint8_t out[11]) {
+    if (!a || !b || !out) return SOV_ERR_NULL;
+    for (int i = 0; i < 11; ++i) if (a[i] > 2 || b[i] > 2) return SOV_ERR_TRIT;
+    const uint64_t mod = 177147ull;  // 3^11
+    uint64_t w = (ring_weight(a) + ring_weight(b)) % mod;
+    ring_from_weight(w, out);
+    return SOV_OK;
+}
+
+int32_t sov_ring_mul(const uint8_t a[11], const uint8_t b[11], uint8_t out[11]) {
+    if (!a || !b || !out) return SOV_ERR_NULL;
+    for (int i = 0; i < 11; ++i) if (a[i] > 2 || b[i] > 2) return SOV_ERR_TRIT;
+    const uint64_t mod = 177147ull;
+    // 3^11 域内乘法: 用 __int128 防溢出 (177146^2 ≈ 3.1e10 < 2^63)
+    uint64_t w = uint64_t((unsigned __int128)ring_weight(a) * ring_weight(b) % mod);
+    ring_from_weight(w, out);
+    return SOV_OK;
+}
+
+int32_t sov_ring_double(const uint8_t a[11], uint8_t out[11]) {
+    return sov_ring_add(a, a, out);
+}
+
+int32_t sov_ring_to_tryte(const uint8_t a[11], uint16_t* out) {
+    if (!a || !out) return SOV_ERR_NULL;
+    for (int i = 0; i < 11; ++i) if (a[i] > 2) return SOV_ERR_TRIT;
+    uint16_t v = 0, p = 1;
+    for (int i = 0; i < 6; ++i) { v += uint16_t(a[i]) * p; p *= 3; }
+    *out = v;
+    return SOV_OK;
+}
+
+int32_t sov_dc_mixedop(uint8_t t1, uint8_t k1, uint8_t t2, uint8_t k2,
+                       uint8_t* t_out, uint8_t* k_out) {
+    if (!t_out || !k_out) return SOV_ERR_NULL;
+    if (!trit_ok(t1) || !trit_ok(t2)) return SOV_ERR_TRIT;
+    if (!phase_ok(k1) || !phase_ok(k2)) return SOV_ERR_RANGE;
+    DuodecPoint r = mixed_op(DuodecPoint{t1, AlphaPower(k1)}, DuodecPoint{t2, AlphaPower(k2)});
+    *t_out = r.trit;
+    *k_out = uint8_t(r.phase);
+    return SOV_OK;
+}
+
+int32_t sov_dc_sigma(uint8_t t, uint8_t k, uint8_t* t_out, uint8_t* k_out) {
+    if (!t_out || !k_out) return SOV_ERR_NULL;
+    if (!trit_ok(t)) return SOV_ERR_TRIT;
+    if (!phase_ok(k)) return SOV_ERR_RANGE;
+    DuodecPoint r = sigma_dc(DuodecPoint{t, AlphaPower(k)});
+    *t_out = r.trit;
+    *k_out = uint8_t(r.phase);
+    return SOV_OK;
+}
+
+int32_t sov_dc_crt(uint8_t t, uint8_t k, uint8_t* x_out) {
+    if (!x_out) return SOV_ERR_NULL;
+    if (!trit_ok(t)) return SOV_ERR_TRIT;
+    if (!phase_ok(k)) return SOV_ERR_RANGE;
+    *x_out = uint8_t(to_duodec(DuodecPoint{t, AlphaPower(k)}));
+    return SOV_OK;
+}
+
+int32_t sov_dc_translate(uint32_t n, uint8_t t, uint8_t k, uint8_t* t_out, uint8_t* k_out) {
+    if (!t_out || !k_out) return SOV_ERR_NULL;
+    if (!trit_ok(t)) return SOV_ERR_TRIT;
+    if (!phase_ok(k)) return SOV_ERR_RANGE;
+    DuodecPoint r = translate(n, DuodecPoint{t, AlphaPower(k)});
+    *t_out = r.trit;
+    *k_out = uint8_t(r.phase);
+    return SOV_OK;
+}
+
+namespace {
+// 6-limb × 小整数 (u128 中间量, 溢出位丢弃 — 对齐 rust uint384_mul_u64)
+inline void mul_small(uint64_t limbs[6], uint64_t k) {
+    unsigned __int128 carry = 0;
+    for (int i = 0; i < 6; ++i) {
+        unsigned __int128 t = (unsigned __int128)limbs[i] * k + carry;
+        limbs[i] = uint64_t(t);
+        carry = t >> 64;
+    }
+}
+// 6-limb 整体右移 bits (0 < bits < 64)
+inline void shr_small(uint64_t limbs[6], int bits) {
+    for (int i = 0; i < 6; ++i)
+        limbs[i] = (limbs[i] >> bits) | (i + 1 < 6 ? (limbs[i + 1] << (64 - bits)) : 0);
+}
+} // namespace
+
+// 语义 = rust LcmAccumulator::step + bridge::step 的 12 步微泵 (逐步同配方)
+int32_t sov_lcm_step(uint64_t limbs[6], uint64_t delta, uint32_t* step_count) {
+    if (!limbs || !step_count) return SOV_ERR_NULL;
+    const uint64_t HUANGZHONG = 177147ull;
+    const uint64_t LCM_TOTAL = 11609505792ull;
+    mul_small(limbs, HUANGZHONG);            // acc = acc × 177147
+    uint64_t low = limbs[0] + delta;          // limb0 += delta (回绕, 不进位传播)
+    uint64_t carry = low / LCM_TOTAL;
+    limbs[0] = low % LCM_TOTAL;
+    limbs[1] += carry;                        // 仅 limb1 回绕 (对齐 rust)
+    *step_count += 1;
+    if (*step_count >= 12) {                  // 微泵: 仲吕闭合
+        mul_small(limbs, HUANGZHONG);
+        shr_small(limbs, 16);
+        *step_count = 0;
+    }
+    return SOV_OK;
+}
+
+int32_t sov_wide_rho(uint64_t s, uint64_t out[8]) {
+    if (!out) return SOV_ERR_NULL;
+    WideFixed r = WideFixed::rho(s);
+    std::memcpy(out, r.mag, sizeof(uint64_t) * 8);
+    return SOV_OK;
+}
+
+int32_t sov_wide_const_pi(uint64_t out[8]) {
+    if (!out) return SOV_ERR_NULL;
+    std::memcpy(out, PI_W, sizeof(uint64_t) * 8);
+    return SOV_OK;
+}
+
+int32_t sov_wide_const_sqrt3(uint64_t out[8]) {
+    if (!out) return SOV_ERR_NULL;
+    std::memcpy(out, SQRT3_W, sizeof(uint64_t) * 8);
+    return SOV_OK;
+}
+
+// S² 12 胞腔注入 C=2 单极后的精确有理陈数: (-432, 216)
+int32_t sov_chern_inject(int64_t* num, int64_t* den) {
+    if (!num || !den) return SOV_ERR_NULL;
+    *num = -432;
+    *den = 216;
+    return SOV_OK;
+}
+
+} // extern "C"

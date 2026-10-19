@@ -10,6 +10,13 @@ use crate::l1_field;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AlphaPower { A0, A1, A2, A3 }
 
+impl AlphaPower {
+    /// 编码 → 相位 (0..3); 越界按 mod 4 归约 (调用方在 FFI 层先做范围检查)
+    pub fn from_u8(v: u8) -> AlphaPower {
+        ALL_ALPHA[(v % 4) as usize]
+    }
+}
+
 pub const ALL_ALPHA: [AlphaPower; 4] = [AlphaPower::A0, AlphaPower::A1, AlphaPower::A2, AlphaPower::A3];
 
 /// mulAlpha: 旋转复合 = (k₁+k₂) mod 4
