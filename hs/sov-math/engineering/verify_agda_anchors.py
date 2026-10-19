@@ -515,6 +515,45 @@ def check_geometry(fail):
           + ("" if ok else "  🔴"))
     return ok
 
+ROTBRIDGE = "/data/work/discrete-mathematics/bridge-from-sov-math/RotBridge.agda"
+
+def check_rot_bridge(fail):
+    """Agda RotBridge (新增): Rot ≅ ⟨α⟩ 矩阵桥 —— 核对模块存在且关键定理为 refl
+
+    该模块是本会话补上的形式化：R=[[0,-1],[1,0]], Rot(a0..a3)=I,R,-I,-R,
+    Rot-hom (16 refl) / Rot-injective (经 decode 左逆) / R²≡−I / R⁴≡I。
+    ABI 侧的几何层 (sov_dc_phase_vec/rotate_vec) 即此桥的实现侧。
+    """
+    import os
+    if not os.path.exists(ROTBRIDGE):
+        print("Agda RotBridge: 模块缺失 (未补形式化)  🔴")
+        return False
+    src = read(ROTBRIDGE)
+    has_R = bool(re.search(r"R = mat \(\+ 0\) \(-\[1\+ 0 \]\) \(\+ 1\) \(\+ 0\)", src))
+    has_rot = bool(re.search(r"Rot a0 = idM", src)) and bool(re.search(r"Rot a3 = negM R", src))
+    has_hom = bool(re.search(r"Rot-hom : ∀ \(a b : AlphaPower\)", src))
+    n_refl = len(re.findall(r"Rot-hom a\d a\d = refl", src))
+    has_inj = bool(re.search(r"Rot-injective :", src))
+    has_r2 = bool(re.search(r"R²≡−I : mulM R R ≡ negM idM", src)) and bool(re.search(r"R²≡−I = refl", src))
+    has_r4 = bool(re.search(r"R⁴≡I : mulM \(mulM R R\) \(mulM R R\) ≡ idM", src)) and bool(re.search(r"R⁴≡I = refl", src))
+    body = read(BODY)
+    # ABI 侧矩阵值须与 Rot 的定义一致: k=0→I(1,0), 1→R((0,1) 作用于 (1,0)), 2→−I, 3→−R
+    pvec = {}
+    for ln in body.splitlines():
+        m = re.match(r"pvec(\d)=(-?\d),(-?\d)", ln.strip())
+        if m: pvec[int(m.group(1))] = (int(m.group(2)), int(m.group(3)))
+    rot2 = re.search(r"rot2_neg=(-?\d+),(-?\d+)", body)
+    rot4 = re.search(r"rot4_id=(-?\d+),(-?\d+)", body)
+    abi_ok = (pvec == {0: (1, 0), 1: (0, 1), 2: (-1, 0), 3: (0, -1)}
+              and rot2 and (rot2.group(1), rot2.group(2)) == ("-1", "0")
+              and rot4 and (rot4.group(1), rot4.group(2)) == ("3", "-2"))
+    ok = has_R and has_rot and has_hom and n_refl == 16 and has_inj and has_r2 and has_r4 and abi_ok
+    print(f"Agda RotBridge (新增形式化): R 定义 {'✓' if has_R else '✗'}, Rot 四值 {'✓' if has_rot else '✗'}, "
+          f"Rot-hom refl {n_refl}/16, Rot-injective {'✓' if has_inj else '✗'}, R²≡−I {'✓' if has_r2 else '✗'}, "
+          f"R⁴≡I {'✓' if has_r4 else '✗'}; ABI 几何层一致 {'✓' if abi_ok else '✗'}"
+          + ("" if ok else "  🔴"))
+    return ok
+
 def main():
     src = read(CHAIN)
     fail = 0
@@ -554,6 +593,8 @@ def main():
     if not check_width(fail): fail = 1
     if not check_joint_period(fail): fail = 1
     if not check_geometry(fail): fail = 1
+    # 该模块由本会话新增于 Agda 侧 bridge-from-sov-math/ (0 postulate / 0 hole, agda exit 0)
+    if not check_rot_bridge(fail): fail = 1
 
     print("\n" + ("PASS" if not fail else "FAIL"))
     return fail

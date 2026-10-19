@@ -305,9 +305,22 @@ g^k: 00   11   22   03   10   21   02   13   20   01   12   23   00
 - `R⁴ = I`（(3,−2) 连转四次复原）
 - 相位矢量 = `R^k(1,0)`（矢量↔旋转一致，0 反例）
 
-### ⚠ 诚实边界（必须说清）
+### ✅ 形式化桥已补齐：`RotBridge`（Agda，0 postulate / 0 hole，内核 exit 0）
 
-Agda 的 `PhaseSubgroup.rot` 是 **`GF(9)*` 上乘 α 的群作用**（`rot x = x *s sα`，`rot-orbit`/`rot-4-id`/`rot-2-is-neg` 全 refl），
-**不是**矩阵/球谐实现。本轮的矢量化是**新加的几何层**（ABI 侧），验证方式是**精确整数矩阵恒等**（`RᵏRʲ=Rᵏ⁺ʲ`、`R²=−I`、`R⁴=I`）
-与 orbit 结构一致（0→1→2→3→0），**不是**「Agda 证过 Rᵏ 矩阵」。
-若要形式化这条桥，需在 Agda 侧新增 `Rot` 矩阵表示并证同构——目前**未做**。
+原缺口（Agda 只有 `PhaseSubgroup.rot = 乘 α` 的纯群作用，没有矩阵实现）已补上。
+新增模块 `/data/work/discrete-mathematics/bridge-from-sov-math/RotBridge.agda`：
+
+| 内容 | 形式 |
+|---|---|
+| 2×2 整数矩阵 + 乘法/单位/取负 | `record Mat2`、`mulM`、`idM`、`negM` |
+| 90° 旋转 | `R = mat (+ 0) (-[1+ 0 ]) (+ 1) (+ 0)` |
+| 相位映射 | `Rot a0 = idM`、`Rot a1 = R`、`Rot a2 = negM idM`、`Rot a3 = negM R` |
+| **群同态** | `Rot-hom : ∀ a b → Rot (mulAlpha a b) ≡ mulM (Rot a) (Rot b)` — **16/16 refl** |
+| **单射** | `Rot-injective`（经 `decode` 左逆：`decode-Rot : ∀ a → decode (Rot a) ≡ just (toFin a)`，4 个 refl） |
+| **阶恰为 4** | `R²≡−I`、`R⁴≡I` 均 `refl` |
+
+⇒ 「⟨α⟩ ≅ ⟨R⟩」现在是**内核判定的事实**，而不再只是 ABI 侧的矩阵恒等检查。
+核对器 `verify_agda_anchors.py` 会检查该模块存在、关键定理为 refl、且 ABI 几何层取值与 `Rot` 一致。
+
+**诚实边界（收窄后）**：`RotBridge` 证明的是 **矩阵桥**（⟨α⟩ ≅ ⟨R⟩ ⊂ SL(2,ℤ)），
+**不是**「与 SO(2)/球谐的连续实现等价」——连续旋转仍属投影层（无浮点、不入基座）。
