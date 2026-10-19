@@ -1049,6 +1049,47 @@ def check_adc_lcm_chain(fail):
           + ("" if ok else "  🔴"))
     return ok
 
+def check_eis_misc(fail):
+    """Eisenstein 小域穷尽 (21⁴ 乘 / 441² 范数乘性) + 定义层设施 + 版本/错误串"""
+    MOD7 = 1000000007
+    body = read(BODY)
+    # 独立复算 Eisenstein 乘法与范数
+    c_m = 0
+    bad_expected = 0
+    for a in range(-10, 11):
+        for b in range(-10, 11):
+            for c in range(-10, 11):
+                for d in range(-10, 11):
+                    xre = a * c - b * d
+                    xim = a * d + b * c - b * d
+                    c_m = (c_m * 131 + xre * 7 + xim) % MOD7
+    c_n = 0
+    for a in range(-10, 11):
+        for b in range(-10, 11):
+            c_n = (c_n * 131 + (a * a - a * b + b * b)) % MOD7
+    m = re.search(r"eis_mul_full_bad=(\d+),chk=(\d+)", body)
+    n = re.search(r"eis_norm_full_bad=(\d+),chk=(\d+),norm_mul_bad=(\d+)", body)
+    one = re.search(r"eis_one=(-?\d+),(-?\d+)", body)
+    comm = re.search(r"eis_comm=(\d+)", body)
+    st = re.search(r"standing_full_bad=(\d+),chk=(\d+)", body)
+    cc = re.search(r"chiral_thresh_bad=(\d+)", body)
+    ver = re.search(r"abi_version=(\d+),major=(\d+),minor=(\d+)", body)
+    se = re.search(r"strerror_ok=(\d+),trit=(\d+)", body)
+    se_unk = re.search(r"strerror_unknown_nonnull=(\d+)", body)
+    ok = (m and m.group(1) == "0" and int(m.group(2)) == c_m
+          and n and n.group(1) == "0" and int(n.group(2)) == c_n and n.group(3) == "0"
+          and one and one.groups() == ("3", "-5") and comm and comm.group(1) == "1"
+          and st and st.group(1) == "0"
+          and cc and cc.group(1) == "0"
+          and ver and ver.groups() == ("65536", "1", "0")
+          and se and se.groups() == ("1", "1") and se_unk and se_unk.group(1) == "1")
+    print(f"Eisenstein: 乘 21⁴ {'✓' if m and m.group(1)=='0' else '✗'} (独立复算 {'✓' if m and int(m.group(2))==c_m else '✗'}), "
+          f"范数 441 + 乘性 441² {'✓' if n and n.group(1)=='0' and n.group(3)=='0' else '✗'}, 单位元 (3,−5) {'✓' if one and one.groups()==('3','-5') else '✗'}, 交换 {'✓' if comm and comm.group(1)=='1' else '✗'}; "
+          f"standing 12 {'✓' if st and st.group(1)=='0' else '✗'}, chiral 7 阈值 {'✓' if cc and cc.group(1)=='0' else '✗'}, "
+          f"版本 1.0 {'✓' if ver and ver.groups()==('65536','1','0') else '✗'}, strerror {'✓' if se and se.groups()==('1','1') else '✗'}"
+          + ("" if ok else "  🔴"))
+    return ok
+
 def main():
     src = read(CHAIN)
     fail = 0
@@ -1101,6 +1142,7 @@ def main():
     if not check_wide_constants(fail): fail = 1
     if not check_soliton(fail): fail = 1
     if not check_adc_lcm_chain(fail): fail = 1
+    if not check_eis_misc(fail): fail = 1
 
     print("\n" + ("PASS" if not fail else "FAIL"))
     return fail

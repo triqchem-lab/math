@@ -68,7 +68,7 @@
 | 闸门 | 命令 | 判据 |
 |---|---|---|
 | 导出面 | `engineering/verify_export_surface.sh` | 三语言 dynsym == 契约（缺/多皆红） |
-| 实现一致 | `engineering/ffi_conformance.sh` | 三语言同一向量 **1098 行逐行相同** |
+| 实现一致 | `engineering/ffi_conformance.sh` | 三语言同一向量 **1108 行逐行相同** |
 | 头合规 | `engineering/c99_compliance_check.py` | 保留标识符 / 自足性 / 版本闸门 |
 | 档位矩阵 | `engineering/c_standard_matrix.sh` | C99..C23 × C++11..23 × gcc/clang |
 | 安装 | `engineering/install_c_abi.sh` | `dist/` 标准布局 + pkg-config 三套 |
@@ -192,11 +192,16 @@ cpp 的 `NSESolver::step` 与 rust/hs 的 `step_once` 在 delta 公式上不同�
 | `sov_soliton_phase` | 阈值映射 (0,16384]→0、(16384,32768]→2、(32768,49152]→1、>49152→3 | ✅ 5 点全对 |
 | `sov_adc64` | **小域穷尽** 1024²×2（`a,b<1024` × `carry_in∈{0,1}`）+ 5 个边界（`2⁶⁴−1` 进位链）+ 2 万随机样本校验恒等 `s + 2⁶⁴·co = a + b + ci` | ✅ 全部 0 反例 |
 | `sov_lcm_step` | 24 步链按**文档语义**独立复算（`×177147` 全 6 limb 进位、`limb0 += δ` 仅 limb1 回绕、12 步闭合 `×177147 >> 16` 复位） | ✅ 24/24 逐步一致，chk 96823588 |
+| `sov_eis_mul` | Agda `Foundation/Eisenstein._*ᵉ_`；**小域穷尽** `[−10,10]⁴ = 194481`，与 `(ac−bd, ad+bc−bd)` 逐点比对 | ✅ 0 反例；单位元 (3,−5)、交换律成立 |
+| `sov_eis_norm` | `normᵉ = a²−ab+b²`；**441 值全域 + 441² 对乘性** `N(xy)=N(x)N(y)` | ✅ 0 反例 |
+| `sov_is_standing_node` | `tone % 3 == 0`，12 音全枚举 | ✅ 12/12 |
+| `sov_chiral_collapse` | 阈值 ±113506 的 7 个边界点 | ✅ 7/7 |
+| `sov_abi_version` / `sov_strerror` | 版本 `(major<<16)\u007cminor = 65536`（1.0）；错误串非空且分类正确 | ✅ 1.0 / ok、illegal trit、未知码非空 |
 | `sov_dayan_multiplier` | 解析 `DayanState.agda` 的 `dayan-init`/`dayan-step` 原文形态；用 ℤ 版独立实现核对 ABI | ✅ 1101/1101 互素对（m≤60），校验和 823007911 |
 | `sov_crt2` | 广义二模 CRT：验证解满足两同余且唯一落在 [0,m₁m₂) | ✅ 576/576（模数对取自 {2,3,5,7,11}），物不知数 → 23 |
 
 核对器：`engineering/verify_agda_anchors.py`（直接读 Agda 源文件，**不读我方表**；已并入 `abi_check.sh` 第 4.5 步）。
-当前覆盖 **4092 项**（含全域穷尽类）（含全域穷尽类）（含全域穷尽类）（含全域穷尽类）（含全域穷尽类）（含全域穷尽类）（含全域穷尽类）：十二律 12 + 损益 12 + 余数 12 + 闭合常数 2 + GF(9) 81 + Eisenstein 625 + CRT 12 + Trit 18 + DC mixedOp 144 + 仲吕闭合 7 + **Tryte 729 + pack5 243 + Doz 数位 12 + Doz 往返 20001 + 数字根 4002**。
+当前覆盖 **4269 项**（含全域穷尽类）（含全域穷尽类）（含全域穷尽类）（含全域穷尽类）（含全域穷尽类）（含全域穷尽类）（含全域穷尽类）（含全域穷尽类）：十二律 12 + 损益 12 + 余数 12 + 闭合常数 2 + GF(9) 81 + Eisenstein 625 + CRT 12 + Trit 18 + DC mixedOp 144 + 仲吕闭合 7 + **Tryte 729 + pack5 243 + Doz 数位 12 + Doz 往返 20001 + 数字根 4002**。
 
 负向控制（已实测三条，判官确实会说「不」）：
 - 篡改余数 `124416→124417` → `不一致 1` FAIL

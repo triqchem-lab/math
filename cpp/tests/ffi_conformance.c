@@ -1222,6 +1222,89 @@ int main(int argc, char **argv) {
         printf("lcmchain_chk=%lld\n", chk);
     }
 
+    /* ══ Eisenstein 小域穷尽 + 范数乘性; 其余定义层设施 ══ */
+    {
+        typedef int32_t (*fn_em)(int64_t, int64_t, int64_t, int64_t, int64_t *, int64_t *);
+        typedef int32_t (*fn_en)(int64_t, int64_t, int64_t *);
+        fn_em em = (fn_em)sym("sov_eis_mul");
+        fn_en en = (fn_en)sym("sov_eis_norm");
+        /* ① 乘法: a,b,c,d ∈ [−10,10] 全域 (21⁴ = 194481) — 与 (ac−bd, ad+bc−bd) 逐点核对 */
+        { int bad = 0; long long chk = 0;
+          for (int a = -10; a <= 10; ++a) for (int b = -10; b <= 10; ++b)
+          for (int c = -10; c <= 10; ++c) for (int d = -10; d <= 10; ++d) {
+              int64_t re = 0, im = 0;
+              if (em(a, b, c, d, &re, &im) != 0) { ++bad; continue; }
+              int64_t er = (int64_t)a * c - (int64_t)b * d;
+              int64_t ei = (int64_t)a * d + (int64_t)b * c - (int64_t)b * d;
+              if (re != er || im != ei) ++bad;
+              chk = (chk * 131 + re * 7 + im) % 1000000007LL;
+          }
+          printf("eis_mul_full_bad=%d,chk=%lld\n", bad, chk); }
+        /* ② 范数: 全域 [−10,10]² + 乘性 N(xy)=N(x)N(y) 全域 441² = 194481 */
+        { int bad = 0, bad_mul = 0; long long chk = 0;
+          for (int a = -10; a <= 10; ++a) for (int b = -10; b <= 10; ++b) {
+              int64_t n = 0; en(a, b, &n);
+              if (n != (int64_t)a * a - (int64_t)a * b + (int64_t)b * b) ++bad;
+              chk = (chk * 131 + n) % 1000000007LL;
+          }
+          for (int a = -10; a <= 10; ++a) for (int b = -10; b <= 10; ++b)
+          for (int c = -10; c <= 10; ++c) for (int d = -10; d <= 10; ++d) {
+              int64_t re, im, nx, ny, nxy;
+              em(a, b, c, d, &re, &im);
+              en(a, b, &nx); en(c, d, &ny); en((int)re, (int)im, &nxy);
+              if (nxy != nx * ny) ++bad_mul;
+          }
+          printf("eis_norm_full_bad=%d,chk=%lld,norm_mul_bad=%d\n", bad, chk, bad_mul); }
+        /* ③ 单位元/交换律抽检 */
+        { int64_t re, im;
+          em(1, 0, 3, -5, &re, &im); printf("eis_one=%lld,%lld\n", (long long)re, (long long)im);
+          em(2, 3, 4, 5, &re, &im);
+          int64_t re2, im2; em(4, 5, 2, 3, &re2, &im2);
+          printf("eis_comm=%d\n", (re == re2 && im == im2)); }
+    }
+    {
+        typedef int32_t (*fn_sn)(uint8_t, uint8_t *);
+        typedef int32_t (*fn_cc)(int32_t, uint8_t *);
+        typedef int32_t (*fn_hg)(uint32_t, uint32_t, int32_t *);
+        fn_sn sn = (fn_sn)sym("sov_is_standing_node");
+        fn_cc cc = (fn_cc)sym("sov_chiral_collapse");
+        fn_hg hg = (fn_hg)sym("sov_holographic");
+        /* standing node: tone%3==0, 12 全枚举 */
+        { int bad = 0; long long chk = 0;
+          for (int t = 0; t < 12; ++t) {
+              uint8_t o = 9; sn((uint8_t)t, &o);
+              if (o != (t % 3 == 0 ? 1 : 0)) ++bad;
+              chk = (chk * 131 + o) % 1000000007LL;
+          }
+          printf("standing_full_bad=%d,chk=%lld\n", bad, chk); }
+        /* chiral collapse: 阈值 ±113506 */
+        { int bad = 0;
+          const int32_t probe[] = {-113507, -113506, -1, 0, 1, 113506, 113507};
+          const uint8_t exp[]   = {1,       0,       0,  0, 0, 0,      1};
+          for (unsigned i = 0; i < 7; ++i) {
+              uint8_t o = 9; cc(probe[i], &o);
+              if (o != exp[i]) ++bad;
+          }
+          printf("chiral_thresh_bad=%d\n", bad); }
+        /* holographic: 定义层抽检 (Q16 对数投影) */
+        { int32_t o1 = 0, o2 = 0, o3 = 0;
+          hg(0, 1, &o1); hg(1, 1, &o2); hg(144, 46, &o3);
+          printf("holo=%d,%d,%d\n", o1, o2, o3); }
+    }
+    /* 版本与错误串 */
+    {
+        typedef int32_t (*fn_ver)(void);
+        typedef const char* (*fn_se)(int32_t);
+        fn_ver ver = (fn_ver)sym("sov_abi_version");
+        fn_se se = (fn_se)sym("sov_strerror");
+        int32_t v = ver();
+        printf("abi_version=%d,major=%d,minor=%d\n", v, (v >> 16) & 0xFFFF, v & 0xFFFF);
+        { const char* s0 = se(0); const char* s1 = se(-1);
+          printf("strerror_ok=%d,trit=%d\n", s0 && s0[0] == 'o', s1 && s1[0] == 'i'); }
+        /* 未知码: 应返回非空串 (实现约定) */
+        { const char* s = se(-99); printf("strerror_unknown_nonnull=%d\n", s != 0); }
+    }
+
     /* 空指针保护 */
     printf("err_null=%d\n", tadd(0, 0, NULL));
     { fn_abi rfini = (fn_abi)dlsym(H, "sov_runtime_fini");

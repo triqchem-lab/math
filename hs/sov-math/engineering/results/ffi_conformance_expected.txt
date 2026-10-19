@@ -1094,5 +1094,15 @@ lcmchain22=10182055267,16999718988948848720,10
 lcmchain23=9677009170,18249702237403045205,11
 lcmchain24=17101856648846452159,2855063727281983623,0
 lcmchain_chk=96823588
+eis_mul_full_bad=0,chk=447110962
+eis_norm_full_bad=0,chk=749628421,norm_mul_bad=0
+eis_one=3,-5
+eis_comm=1
+standing_full_bad=0,chk=431363297
+chiral_thresh_bad=0
+holo=399134,399134,10587846
+abi_version=65536,major=1,minor=0
+strerror_ok=1,trit=1
+strerror_unknown_nonnull=1
 err_null=-4
 runtime_fini=0
