@@ -6,6 +6,15 @@
 #include <stdint.h>
 #include <stddef.h>
 
+/* C99/C23 版本闸门 (ISO/IEC 9899 §6.10.3.5): 本库要求 C99 及以上。
+ * C++ 编译单元不受此限 (由 <cstdint> 提供等价的定长类型)。 */
+#if !defined(__cplusplus) && defined(__STDC_VERSION__) && (__STDC_VERSION__ < 199901L)
+#  error "sov: ISO C99 or later required (__STDC_VERSION__ >= 199901L)"
+#endif
+#if !defined(__cplusplus) && !defined(__STDC_VERSION__)
+#  error "sov: conforming C99 compiler required (no __STDC_VERSION__)"
+#endif
+
 /* ABI 版本 (契约头一致; 改 ABI 必须同时升 minor 并同步三实现) */
 #define SOV_ABI_MAJOR 1
 #define SOV_ABI_MINOR 0
