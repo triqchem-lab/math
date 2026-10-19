@@ -11,8 +11,11 @@
 #include <sov/gf9.h>
 #include <sov/ring.h>
 #include <sov/dc.h>
+#include <sov/t6.h>
+#include <sov/adc.h>
 #include <sov/bridge.h>
 #include <sov/wide.h>
+#include <sov/l6.h>
 #include <sov/chern.h>
 #include <sov/sunyi.h>
 #include <sov/eis.h>

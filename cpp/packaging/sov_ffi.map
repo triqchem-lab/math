@@ -2,10 +2,12 @@
 SOV_FFI_1.0 {
   global:
     sov_abi_version;
+    sov_adc64;
     sov_chern_compute;
     sov_chern_detect;
     sov_chern_inject;
     sov_chern_inject_monopole;
+    sov_chiral_collapse;
     sov_dc_crt;
     sov_dc_mixedop;
     sov_dc_sigma;
@@ -17,6 +19,7 @@ SOV_FFI_1.0 {
     sov_gf9_mul;
     sov_gf9_norm;
     sov_holographic;
+    sov_is_standing_node;
     sov_lcm_step;
     sov_ring_add;
     sov_ring_double;
@@ -28,6 +31,7 @@ SOV_FFI_1.0 {
     sov_sunyi_boundary;
     sov_sunyi_gain;
     sov_sunyi_length;
+    sov_t6_index;
     sov_trit_add;
     sov_trit_c3;
     sov_trit_mul;
@@ -38,6 +42,7 @@ SOV_FFI_1.0 {
     sov_wide_const_pi;
     sov_wide_const_sqrt3;
     sov_wide_rho;
+    sov_zhonglv_step;
   local:
     *;
 };

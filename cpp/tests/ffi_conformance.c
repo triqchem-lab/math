@@ -262,6 +262,52 @@ int main(int argc, char **argv) {
         printf("err_chern_trit=%d\n", cc(bad, 864, &n, &d));
     }
 
+    /* ══ 第三批: ADC / 仲吕 / T⁶ / 驻波 / 手性坍缩 ══ */
+    {
+        typedef int32_t (*fn_adc)(uint64_t, uint64_t, uint8_t, uint64_t *, uint8_t *);
+        fn_adc adc = (fn_adc)sym("sov_adc64");
+        const uint64_t as[] = {0, 1, 0xFFFFFFFFFFFFFFFFULL, 0x8000000000000000ULL, 12345};
+        const uint64_t bs[] = {0, 1, 1, 0x8000000000000000ULL, 67890};
+        for (unsigned i = 0; i < 5; ++i) for (uint8_t ci = 0; ci < 2; ++ci) {
+            uint64_t sm = 0; uint8_t co = 9;
+            int32_t rc = adc(as[i], bs[i], ci, &sm, &co);
+            printf("adc%u%d=%d:%llx,c%d\n", i, ci, rc, (unsigned long long)sm, co);
+        }
+        { uint64_t sm; uint8_t co; printf("err_adc=%d\n", adc(0, 0, 2, &sm, &co)); }
+    }
+    {
+        typedef int32_t (*fn_zl)(int64_t, int64_t, int64_t *);
+        fn_zl zl = (fn_zl)sym("sov_zhonglv_step");
+        const int64_t accs[] = {0, 1, 65536, 123456789, -98765};
+        const int64_t lcms[] = {11609505792LL, 177147, 4096, 1000, 11609505792LL};
+        for (unsigned i = 0; i < 5; ++i) {
+            int64_t o = 0; zl(accs[i], lcms[i], &o);
+            printf("zl%u=%lld\n", i, (long long)o);
+        }
+        { int64_t o; printf("err_zl=%d\n", zl(1, 0, &o)); }
+    }
+    {
+        typedef int32_t (*fn_t6)(uint32_t, uint32_t, uint16_t *);
+        fn_t6 t6 = (fn_t6)sym("sov_t6_index");
+        const uint32_t ps[] = {0, 1, 143, 144, 145, 287};
+        const uint32_t ts[] = {0, 45, 46, 47, 91, 0};
+        for (unsigned i = 0; i < 6; ++i) {
+            uint16_t o = 9999; t6(ps[i], ts[i], &o);
+            printf("t6_%u_%u=%u\n", ps[i], ts[i], o);
+        }
+    }
+    {
+        typedef int32_t (*fn_sn)(uint8_t, uint8_t *);
+        fn_sn sn = (fn_sn)sym("sov_is_standing_node");
+        for (int t = 0; t < 12; ++t) { uint8_t o = 9; sn(t, &o); printf("node%d=%d\n", t, o); }
+    }
+    {
+        typedef int32_t (*fn_cc)(int32_t, uint8_t *);
+        fn_cc ccol = (fn_cc)sym("sov_chiral_collapse");
+        const int32_t tv[] = {0, 113506, 113507, -113506, -113507, 200000};
+        for (unsigned i = 0; i < 6; ++i) { uint8_t o = 9; ccol(tv[i], &o); printf("collapse%d=%d\n", tv[i], o); }
+    }
+
     /* 空指针保护 */
     printf("err_null=%d\n", tadd(0, 0, NULL));
     { fn_abi rfini = (fn_abi)dlsym(H, "sov_runtime_fini");

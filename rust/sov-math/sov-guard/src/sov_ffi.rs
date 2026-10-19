@@ -387,6 +387,50 @@ pub extern "C" fn sov_tryte_value(t6: *const u8, out: *mut u16) -> i32 {
     OK
 }
 
+// ══ 第三批 ══
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_adc64(a: u64, b: u64, carry_in: u8,
+                           sum: *mut u64, carry_out: *mut u8) -> i32 {
+    if sum.is_null() || carry_out.is_null() { return ERR_NULL; }
+    if carry_in > 1 { return ERR_RANGE; }
+    let (s1, c1) = a.overflowing_add(b);
+    let (s2, c2) = s1.overflowing_add(carry_in as u64);
+    unsafe { *sum = s2; *carry_out = if c1 || c2 { 1 } else { 0 }; }
+    OK
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_zhonglv_step(acc: i64, lcm: i64, out: *mut i64) -> i32 {
+    if out.is_null() { return ERR_NULL; }
+    if lcm <= 0 { return ERR_RANGE; }
+    let mut a = acc;
+    for _ in 0..8 { a = (a.wrapping_mul(177147)) / 65536; a = ((a % lcm) + lcm) % lcm; }
+    unsafe { *out = a; }
+    OK
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_t6_index(p: u32, t: u32, out: *mut u16) -> i32 {
+    if out.is_null() { return ERR_NULL; }
+    unsafe { *out = ((p % 144) * 46 + (t % 46)) as u16; }
+    OK
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_is_standing_node(tone: u8, out: *mut u8) -> i32 {
+    if out.is_null() { return ERR_NULL; }
+    unsafe { *out = if tone % 3 == 0 { 1 } else { 0 }; }
+    OK
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_chiral_collapse(torque_q16: i32, out: *mut u8) -> i32 {
+    if out.is_null() { return ERR_NULL; }
+    unsafe { *out = if torque_q16 > 113506 || torque_q16 < -113506 { 1 } else { 0 }; }
+    OK
+}
+
 #[unsafe(no_mangle)]
 pub extern "C" fn sov_chern_inject(num: *mut i64, den: *mut i64) -> i32 {
     if num.is_null() || den.is_null() { return ERR_NULL; }

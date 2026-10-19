@@ -51,9 +51,17 @@ module Sov.FFI
   , sov_tryte_value_wrapper
   , sov_chern_inject_monopole_wrapper
   , sov_chern_compute_wrapper
+    -- 第三批
+  , sov_adc64_wrapper
+  , sov_zhonglv_step_wrapper
+  , sov_t6_index_wrapper
+  , sov_is_standing_node_wrapper
+  , sov_chiral_collapse_wrapper
   ) where
 
 import Data.Bits    (shiftL, shiftR, (.&.), (.|.))
+import qualified Data.Bits
+import qualified Data.Bits as Data.Bits
 import Data.Int     (Int32, Int64)
 import Data.Word    (Word64, Word8, Word16)
 import Foreign
@@ -555,3 +563,65 @@ toVec6 xs = toTrit (xs !! 0) V.:> toTrit (xs !! 1) V.:> toTrit (xs !! 2) V.:>
   where toTrit 0 = T0
         toTrit 1 = T1
         toTrit _ = T2
+
+
+-- ═══ 第三批 ═══
+
+-- | 64 位加法 + 进位链
+sov_adc64_wrapper :: CULLong -> CULLong -> CUChar -> Ptr CULLong -> Ptr CUChar -> IO CInt
+sov_adc64_wrapper a b carryIn sumOut carryOut
+  | sumOut == nullPtr || carryOut == nullPtr = return (fromIntegral sovErrNull)
+  | carryIn > 1 = return (fromIntegral sovErrRange)
+  | otherwise = do
+      let wa = fromIntegral a :: Word64
+          wb = fromIntegral b :: Word64
+          wc = fromIntegral carryIn :: Word64
+          s1 = wa + wb
+          c1 = if s1 < wa then 1 else 0 :: Word8
+          s2 = s1 + wc
+          c2 = if s2 < s1 then 1 else 0 :: Word8
+      poke sumOut (fromIntegral s2)
+      poke carryOut (fromIntegral (c1 Data.Bits..|. c2))
+      return 0
+foreign export ccall "sov_adc64" sov_adc64_wrapper :: CULLong -> CULLong -> CUChar -> Ptr CULLong -> Ptr CUChar -> IO CInt
+
+-- | 仲吕步进: 8 次 a ← (a×177147)/2^16, 每次对 lcm 取模
+sov_zhonglv_step_wrapper :: CLLong -> CLLong -> Ptr CLLong -> IO CInt
+sov_zhonglv_step_wrapper acc lcm out
+  | out == nullPtr = return (fromIntegral sovErrNull)
+  | lcm <= 0 = return (fromIntegral sovErrRange)
+  | otherwise = do
+      let l = toInteger lcm
+          step a = let a' = (a * 177147) `quot` 65536 in ((a' `mod` l) + l) `mod` l
+          r = iterate step (toInteger acc) !! 8
+      poke out (fromIntegral r)
+      return 0
+foreign export ccall "sov_zhonglv_step" sov_zhonglv_step_wrapper :: CLLong -> CLLong -> Ptr CLLong -> IO CInt
+
+-- | T⁶ 环面索引 (144 × 46)
+sov_t6_index_wrapper :: CUInt -> CUInt -> Ptr CUShort -> IO CInt
+sov_t6_index_wrapper p t out
+  | out == nullPtr = return (fromIntegral sovErrNull)
+  | otherwise = do
+      poke out (fromIntegral (((fromIntegral p `mod` 144) * 46) + (fromIntegral t `mod` 46) :: Int))
+      return 0
+foreign export ccall "sov_t6_index" sov_t6_index_wrapper :: CUInt -> CUInt -> Ptr CUShort -> IO CInt
+
+-- | 驻波节点 (tone 是 3 的倍数)
+sov_is_standing_node_wrapper :: CUChar -> Ptr CUChar -> IO CInt
+sov_is_standing_node_wrapper tone out
+  | out == nullPtr = return (fromIntegral sovErrNull)
+  | otherwise = do
+      poke out (if fromIntegral tone `mod` (3 :: Int) == 0 then 1 else 0 :: CUChar)
+      return 0
+foreign export ccall "sov_is_standing_node" sov_is_standing_node_wrapper :: CUChar -> Ptr CUChar -> IO CInt
+
+-- | 手性扭矩坍缩 (阈值 113506 = 2×|T_max|)
+sov_chiral_collapse_wrapper :: CInt -> Ptr CUChar -> IO CInt
+sov_chiral_collapse_wrapper torque out
+  | out == nullPtr = return (fromIntegral sovErrNull)
+  | otherwise = do
+      let tv = fromIntegral torque :: Int
+      poke out (if tv > 113506 || tv < -113506 then 1 else 0 :: CUChar)
+      return 0
+foreign export ccall "sov_chiral_collapse" sov_chiral_collapse_wrapper :: CInt -> Ptr CUChar -> IO CInt

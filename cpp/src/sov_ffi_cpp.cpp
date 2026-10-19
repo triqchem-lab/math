@@ -361,6 +361,47 @@ int32_t sov_chern_compute(const uint8_t* data, size_t len, int64_t* num, int64_t
     return SOV_OK;
 }
 
+/* ══ 第三批 ══ */
+
+int32_t sov_adc64(uint64_t a, uint64_t b, uint8_t carry_in, uint64_t* sum, uint8_t* carry_out) {
+    if (!sum || !carry_out) return SOV_ERR_NULL;
+    if (carry_in > 1) return SOV_ERR_RANGE;
+    uint64_t s1 = a + b;
+    uint8_t c1 = (s1 < a) ? 1 : 0;
+    uint64_t s2 = s1 + carry_in;
+    uint8_t c2 = (s2 < s1) ? 1 : 0;
+    *sum = s2;
+    *carry_out = uint8_t(c1 | c2);
+    return SOV_OK;
+}
+
+int32_t sov_zhonglv_step(int64_t acc, int64_t lcm, int64_t* out) {
+    if (!out) return SOV_ERR_NULL;
+    if (lcm <= 0) return SOV_ERR_RANGE;
+    int64_t a = acc;
+    for (int i = 0; i < 8; ++i) { a = (a * 177147) / 65536; a = ((a % lcm) + lcm) % lcm; }
+    *out = a;
+    return SOV_OK;
+}
+
+int32_t sov_t6_index(uint32_t p, uint32_t t, uint16_t* out) {
+    if (!out) return SOV_ERR_NULL;
+    *out = uint16_t((p % 144u) * 46u + (t % 46u));
+    return SOV_OK;
+}
+
+int32_t sov_is_standing_node(uint8_t tone, uint8_t* out) {
+    if (!out) return SOV_ERR_NULL;
+    *out = (tone % 3 == 0) ? 1 : 0;
+    return SOV_OK;
+}
+
+int32_t sov_chiral_collapse(int32_t torque_q16, uint8_t* out) {
+    if (!out) return SOV_ERR_NULL;
+    *out = (torque_q16 > 113506 || torque_q16 < -113506) ? 1 : 0;
+    return SOV_OK;
+}
+
 int32_t sov_tryte_value(const uint8_t t6[6], uint16_t* out) {
     if (!t6 || !out) return SOV_ERR_NULL;
     uint16_t v = 0, p = 1;

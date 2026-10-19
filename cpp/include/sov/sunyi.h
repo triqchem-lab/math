@@ -13,6 +13,9 @@ extern "C" {
 int32_t sov_sunyi_length(uint8_t tone, uint16_t* out) SOV_API;   /* tone∈[0,12) → 81,54,72,…,30 */
 int32_t sov_sunyi_gain(uint8_t step, uint8_t* out) SOV_API;   /* 损益序列: 0=损(Sun) 1=益(Yi) */
 int32_t sov_sunyi_boundary(uint8_t step, uint8_t* out) SOV_API;   /* step%12==11 → 1 (仲吕边界) */
+/* 手性扭矩坍缩: |torque_q16| > 113506 (= 2×|T_max|) → 1 */
+#define SOV_CHIRAL_COLLAPSE_THRESHOLD 113506
+int32_t sov_chiral_collapse(int32_t torque_q16, uint8_t* out) SOV_API;
 
 #ifdef __cplusplus
 }
