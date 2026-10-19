@@ -80,6 +80,18 @@ cabal run sov-validation  # 8 个验证组全绿 (镜像 rust main.rs)
 
 harness: engineering/bench_energy.py (RAPL 实测 + 空载基线扣除, 3 轮中位数)
 
+## 工作区边界与外部锚定
+
+> **本仓库 = cpp + rust + hs 三语言实现**。Agda（`discrete-mathematics`）是**外部形式化参考项目**，
+> 不是本仓库的组成部分，也不作为本仓库的构建依赖。
+
+等价性锚定分两层：
+1. **仓库内**：三语言 dump 对账（`engineering/oracle_reconcile.py`，3146969 行）+ 测试套；
+2. **外部参考**：`SpecAnchor.agda` + `crosscheck.py` 已转交 Agda 项目侧
+   （`/data/work/discrete-mathematics/bridge-from-sov-math/`，不提交其仓库），
+   内核回执 `ace0e46a…`，30/30 锚点与本仓库 dump 一致。
+   证据快照见 `engineering/results/agda_anchor_evidence.json`。
+
 ## 跨语言对齐说明
 
 - **陈数精确性已三语言对齐**: 注入 C=2 单极 → Haskell `computeChernExact = (−432, 216)`
