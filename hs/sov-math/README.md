@@ -80,6 +80,26 @@ cabal run sov-validation  # 8 个验证组全绿 (镜像 rust main.rs)
 
 harness: engineering/bench_energy.py (RAPL 实测 + 空载基线扣除, 3 轮中位数)
 
+## C23 支持 (标准档位矩阵)
+
+**支持 C23，也向下兼容到 C99**。头文件在 19 个「标准档位 × 编译器」组合下全部通过严格检查
+（`-pedantic-errors -Wall -Wextra -Werror`，17/17 头各自单独 include）：
+
+| | gcc | clang | g++ | clang++ |
+|---|---|---|---|---|
+| `-std=c99/c11/c17/c23` | 17/17 | 17/17 | — | — |
+| `-std=c++11/14/17/20/23` | — | — | 17/17 | 17/17 |
+
+复跑：`hs/sov-math/engineering/c_standard_matrix.sh`（依据 ISO/IEC 9899 §6.10.3.5）。
+
+头内提供**语言档位探测**：`SOV_HAS_C99/C11/C17/C23`、`SOV_HAS_CXX11/17/23`、`SOV_LANG_LEVEL`；
+C23 消费示例 [examples/c/hello_sov_c23.c](<examples/c/hello_sov_c23.c>) 演示 `constexpr`、`static_assert`、
+`nullptr`、`[[nodiscard]]`（实测：忽略 `[[nodiscard]]` 返回值会被 `-Werror` 拦下，证明属性真的生效）。
+
+⚠ 一处诚实边界：ISO C 没有「符号可见性」属性，**C23 的 `[[...]]` 标准语法在 GCC 上对函数不生效**
+（实测 `[[gnu::visibility("default")]] int f(void);` 被忽略并告警），故 `SOV_API` 统一用 GNU 扩展属性
+`__attribute__((visibility("default")))`——它在上述全部档位均有效。
+
 ## 标准 C ABI (跨语言接口)
 
 > **可以作为标准 C 库消费**：公共头纯 C99（只依赖 `<stdint.h>`/`<stddef.h>`，不含任何语言运行时头），

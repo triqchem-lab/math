@@ -30,7 +30,32 @@
 #define SOV_TONE_COUNT  12      /* 十二律 */
 #define SOV_NAYIN_COUNT 60      /* 纳音 */
 
-/* 符号可见性: 编译库时以 -fvisibility=hidden 收紧, 公共 API 用 SOV_API 显式导出 */
+/* 语言档位探测 (ISO/IEC 9899 §6.10.3.5) */
+#if defined(__cplusplus)
+#  define SOV_LANG_CXX      1
+#  define SOV_LANG_LEVEL    __cplusplus
+#else
+#  define SOV_LANG_CXX      0
+#  ifdef __STDC_VERSION__
+#    define SOV_LANG_LEVEL  __STDC_VERSION__
+#  else
+#    define SOV_LANG_LEVEL  0L
+#  endif
+#endif
+
+#define SOV_HAS_C99   (!SOV_LANG_CXX && SOV_LANG_LEVEL >= 199901L)
+#define SOV_HAS_C11   (!SOV_LANG_CXX && SOV_LANG_LEVEL >= 201112L)
+#define SOV_HAS_C17   (!SOV_LANG_CXX && SOV_LANG_LEVEL >= 201710L)
+#define SOV_HAS_C23   (!SOV_LANG_CXX && SOV_LANG_LEVEL >= 202311L)
+#define SOV_HAS_CXX11 (SOV_LANG_CXX && SOV_LANG_LEVEL >= 201103L)
+#define SOV_HAS_CXX17 (SOV_LANG_CXX && SOV_LANG_LEVEL >= 201703L)
+#define SOV_HAS_CXX23 (SOV_LANG_CXX && SOV_LANG_LEVEL >= 202302L)
+
+/* 符号可见性: 编译库时以 -fvisibility=hidden 收紧, 公共 API 用 SOV_API 显式导出。
+ *
+ * 注: ISO C 无"可见性"属性; C23 的 [[...]] 标准语法在 GCC 上对函数不生效
+ * (实测 `[[gnu::visibility("default")]] int f(void);` 被忽略), 故统一用 GNU 扩展属性 —
+ * 它在 C99/C11/C17/C23 与 C++11~23 全档位均有效 (见 engineering/c_standard_matrix.sh)。 */
 #if defined(_WIN32) || defined(__CYGWIN__)
 #  define SOV_API __declspec(dllexport)
 #elif defined(__GNUC__) || defined(__clang__)

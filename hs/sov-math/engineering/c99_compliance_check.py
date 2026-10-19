@@ -95,7 +95,17 @@ def main():
     else:
         print(f"✅ §7.1.2 自足性: {len(hdrs)}/{len(hdrs)} 头在 -std=c99 -pedantic-errors -Werror 下单独编译通过")
 
-    # 4) __STDC_VERSION__ 闸门存在
+    # 4) 语言档位宏 (SOV_HAS_C99..C23)
+    t0 = open(os.path.join(HDR_DIR, "types.h"), encoding="utf-8").read()
+    missing = [m for m in ("SOV_HAS_C99","SOV_HAS_C11","SOV_HAS_C17","SOV_HAS_C23",
+                           "SOV_HAS_CXX11","SOV_HAS_CXX17","SOV_HAS_CXX23","SOV_LANG_LEVEL")
+               if m not in t0]
+    if missing:
+        print(f"🔴 types.h 缺语言档位宏: {missing}"); fail = 1
+    else:
+        print("✅ §6.10.3.5 语言档位宏: SOV_HAS_C99/C11/C17/C23 + C++11/17/23 + SOV_LANG_LEVEL 齐备")
+
+    # 5) __STDC_VERSION__ 闸门存在
     t = open(os.path.join(HDR_DIR, "types.h"), encoding="utf-8").read()
     if "__STDC_VERSION__" in t:
         print("✅ §6.10.3.5 __STDC_VERSION__ 闸门已在 types.h 声明 C99 下限")
