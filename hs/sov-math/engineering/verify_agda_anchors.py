@@ -613,6 +613,9 @@ def check_hopf_lift(fail):
         "phaseAct²非平凡 (R²=2I)": bool(re.search(r"phaseAct²-nontrivial :", src)),
         "等变: 保 A₄ 轨道": bool(re.search(r"phase-equivariant :", src)) and bool(re.search(r"H\.action-in-orbit g x", src)),
         "det ρ(R)=1 (∈SL(2,3))": bool(re.search(r"detR≡1 : RB\.detM RB\.R ≡i T₁", src)),
+        "g₀ = Flip zero 实例化": bool(re.search(r"g0 = A4\.Flip zero", src)),
+        "a4Action 二次作用=id": bool(re.search(r"a4Action-twice : ∀ \(x : H\.TotalSpace\)", src)),
+        "四次回位无参数假设": bool(re.search(r"phaseAct⁴≡id-inst = phaseAct⁴≡id g0 a4Action-twice", src)),
     }
     ok = all(checks.values())
     print("Agda HopfSpinLift (2A₄ 提升): " + ", ".join(f"{k} {'✓' if v else '✗'}" for k, v in checks.items())
