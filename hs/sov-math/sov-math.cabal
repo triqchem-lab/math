@@ -69,6 +69,12 @@ executable sov-validation
     default-language: GHC2021
     ghc-options:      -Wall -Werror
 
+executable precision-dump
+    main-is:          PrecisionDump.hs
+    hs-source-dirs:   app
+    build-depends:    base >=4 && <5, sov-math
+    default-language: GHC2021
+
 executable dump-tables
     main-is:          DumpTables.hs
     hs-source-dirs:   app
