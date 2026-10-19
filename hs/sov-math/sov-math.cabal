@@ -32,6 +32,7 @@ library
                       Sov.Math.Block
                       Sov.Math.Guard.Chern
                       Sov.Math.Guard.L7L8
+                      Sov.Math.Guard.NSE
                       Sov.Math.Chiral
                       Sov.Math.Topology.T6
                       Sov.Math.Topology.TimeCrystal

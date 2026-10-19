@@ -24,6 +24,7 @@ import qualified Sov.Validation.GF9Diag as G9
 import qualified Sov.Validation.GF4Magic as G4
 import qualified Sov.Validation.Magic as MG
 import qualified Sov.Validation.EM as EM
+import qualified Sov.Math.Guard.NSE as NS
 import Sov.Math.Nat
 import Sov.Math.Ring
 import Sov.Math.SunYi
@@ -314,6 +315,23 @@ allTests =
   , check "em_diff_comm"       EM.verifyDiffComm
   , check "em_all_freq"        EM.verifyAllEMFreq
   , check "em_all_action"      EM.verifyAllEMAction
+
+  -- ── Guard.NSE (sov-guard 运行时层) ──
+  , check "grid_zero"        (NS.gridCount NS.gridZero == 0 && NS.gridDensityQ16 NS.gridZero == 0)
+  , check "grid_couette"     (NS.gridCount (NS.gridInitCouette NS.gridZero) > 0)
+  , check "nse_step"         (NS.nseStep (NS.nseStepOnce NS.nseNew) == 1)  -- rust test_nse
+  , check "nse_zhonglv"      -- 12 步后仲吕闭合计数 +1
+      (NS.nseZhonglv (foldl (\s (_ :: Int) -> NS.nseStepOnce s) NS.nseNew [1 .. 13]) == 1)
+  , check "sov_serial"       -- 序列化 + 头校验 (头 4-8 字节须为 magic/version, 语义同 rust load_sov)
+      (let hdr = NS.le32Pub NS.sovMagic ++ NS.le32Pub NS.sovVersion ++ replicate 64 0
+           bytes = NS.sovSerialize hdr [1, 2, 3]
+       in NS.sovCheckHeader bytes && length bytes == 72 + 3 + 16)
+  , check "vacuum_q16"       -- 尾数 Q16 对账: 0.74×65536=48497, 3.55×65536=58353, 5.16×65536=67291
+      (NS.vacuumLeonovLQ0 == (48497, -25) && NS.vacuumLeonovRho0 == (232653, 75)
+       && NS.vacuumHarameinRhoV == (338166, 96))
+  , check "holo_progress"    (NS.lcmProgressQ16 NS.holoNew == 0)
+  , check "constitution_audit" NS.fullConstitutionalAudit
+  , check "counter_examples" (length (NS.counterExamples) == 5)
   ]
 
 -- ═══ 辅助 ═══
