@@ -219,6 +219,140 @@ def check_dayan(fail):
           + ("" if ok else "  🔴"))
     return ok
 
+TRIT = f"{SRC}/Sovereign/Base/Trit.agda"
+CLOCK = f"{SRC}/Sovereign/Algebra/GroupTheory/DuodecClock.agda"
+
+def mini_eval(clauses, lit_check):
+    """按 Agda 子句顺序求值: clauses = [(pat_l, pat_r, rhs)]; 支持 _ 与变量绑定"""
+    def match(pat, val, bindings):
+        if pat == "_":
+            return True
+        if re.fullmatch(r"[a-z][a-z0-9']*", pat):   # 变量
+            if pat in bindings:
+                return bindings[pat] == val
+            bindings[pat] = val
+            return True
+        return pat == val
+    def apply(l, r):
+        for pl, pr, rhs in clauses:
+            b = {}
+            if match(pl, l, b) and match(pr, r, b):
+                if rhs in b: return b[rhs]
+                if re.fullmatch(r"[a-z][a-z0-9']*", rhs):
+                    return None                      # 未绑定变量 → 不应发生
+                return rhs
+        return None
+    return apply
+
+def _clause_lines(path, op=None, head=None):
+    """取定义子句: 中缀(op) 或 前缀(head); 过滤证明行 (含 ≡ / refl / cong 等)"""
+    out = []
+    for ln in read(path).splitlines():
+        raw = ln.split("--")[0].strip()
+        if "=" not in raw or "≡" in raw:
+            continue
+        lhs, rhs = [x.strip() for x in raw.split("=", 1)]
+        if any(k in lhs for k in ("refl", "cong", "begin", "∎")):
+            continue
+        if op is not None:
+            if op not in lhs:
+                continue
+            parts = [x.strip() for x in lhs.split(op)]
+            if len(parts) != 2:
+                continue
+            out.append((parts[0], parts[1], rhs))
+        else:
+            if not lhs.startswith(head):
+                continue
+            toks = lhs[len(head):].split()
+            if len(toks) != 2:
+                continue
+            out.append((toks[0], toks[1], rhs))
+    return out
+
+def mini_eval(clauses, lits=frozenset()):
+    """按子句顺序求值 (支持 _ 与变量绑定)
+
+    lits = 构造子名集合 (如 {'a0','a1','a2','a3'})。否则形如 a0 的小写名
+    会被误当变量绑定 —— 这是本核对器第一版踩过的坑。
+    """
+    def is_var(tok):
+        return bool(re.fullmatch(r"[a-z][a-z0-9']*", tok)) and tok not in lits
+    def match(pat, val, b):
+        if pat == "_":
+            return True
+        if is_var(pat):
+            if pat in b: return b[pat] == val
+            b[pat] = val; return True
+        return pat == val
+    def apply(l, r):
+        for pl, pr, rhs in clauses:
+            b = {}
+            if match(pl, l, b) and match(pr, r, b):
+                if rhs in b: return b[rhs]
+                if is_var(rhs): return None
+                return rhs
+        return None
+    return apply
+
+def check_trit(fail):
+    """GF(3): 解析 _⊕_ / _⊗_ 子句, 求 9+9 表, 与 ABI 比对"""
+    src = read(TRIT)
+    add_cl = _clause_lines(TRIT, op="⊕")
+    mul_cl = _clause_lines(TRIT, op="⊗")
+    if not add_cl or not mul_cl:
+        print("Agda Trit: 未能解析 ⊕/⊗ 子句  🔴"); return False
+    add = mini_eval(add_cl, frozenset({"T₀","T₁","T₂"}))
+    mul = mini_eval(mul_cl, frozenset({"T₀","T₁","T₂"}))
+    T = ["T₀", "T₁", "T₂"]; idx = {t: i for i, t in enumerate(T)}
+    got = {}
+    for ln in read(BODY).splitlines():
+        m = re.match(r"trit(\d)(\d)=(\d)/(\d),(\d)/(\d)", ln.strip())
+        if m:
+            a, b = int(m.group(1)), int(m.group(2))
+            got[(a, b)] = (int(m.group(3)), int(m.group(4)), int(m.group(5)), int(m.group(6)))
+    bad = []
+    for a in range(3):
+        for b in range(3):
+            ra = add(T[a], T[b]); rm = mul(T[a], T[b])
+            exp = (0, idx.get(ra, -1), 0, idx.get(rm, -1))
+            if got.get((a, b)) != exp:
+                bad.append(((a, b), exp, got.get((a, b))))
+    ok = not bad
+    print(f"Agda _⊕_/_⊗_ 子句 ↔ ABI sov_trit_*: 18 项, 不一致 {len(bad)}"
+          + ("" if not bad else f" → {bad[:2]}") + ("" if ok else "  🔴"))
+    return ok
+
+def check_dc_mixedop(fail):
+    """DC: 解析 mulAlpha 表 + 用 ⊕ 表, 组合出 144 项 mixedOp, 与 ABI 比对"""
+    add_cl = _clause_lines(TRIT, op="⊕")
+    ma_cl = _clause_lines(CLOCK, head="mulAlpha")
+    if not add_cl or not ma_cl:
+        print("Agda DuodecClock: 未能解析 mulAlpha 子句  🔴"); return False
+    add = mini_eval(add_cl, frozenset({"T₀","T₁","T₂"}))
+    ma = mini_eval(ma_cl, frozenset({"a0","a1","a2","a3"}))
+    T = ["T₀", "T₁", "T₂"]; A = ["a0", "a1", "a2", "a3"]
+    ti = {t: i for i, t in enumerate(T)}; ai = {a: i for i, a in enumerate(A)}
+    got = {}
+    for ln in read(BODY).splitlines():
+        m = re.match(r"mix_(\d)(\d)_(\d)(\d)=(\d)(\d)", ln.strip())
+        if m:
+            got[(int(m.group(1)), int(m.group(2)), int(m.group(3)), int(m.group(4)))] = \
+                (int(m.group(5)), int(m.group(6)))
+    bad = []
+    for t1 in range(3):
+        for k1 in range(4):
+            for t2 in range(3):
+                for k2 in range(4):
+                    rs = add(T[t1], T[t2]); rp = ma(A[k1], A[k2])
+                    exp = (ti[rs], ai[rp])
+                    if got.get((t1, k1, t2, k2)) != exp:
+                        bad.append(((t1, k1, t2, k2), exp, got.get((t1, k1, t2, k2))))
+    ok = not bad
+    print(f"Agda mulAlpha+⊕ ↔ ABI sov_dc_mixedop: 144 项, 不一致 {len(bad)}"
+          + ("" if not bad else f" → {bad[:2]}") + ("" if ok else "  🔴"))
+    return ok
+
 def main():
     src = read(CHAIN)
     fail = 0
@@ -252,6 +386,8 @@ def main():
     if not check_eisenstein(fail): fail = 1
     if not check_dc_crt(fail): fail = 1
     if not check_dayan(fail): fail = 1
+    if not check_trit(fail): fail = 1
+    if not check_dc_mixedop(fail): fail = 1
 
     print("\n" + ("PASS" if not fail else "FAIL"))
     return fail

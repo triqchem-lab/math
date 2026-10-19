@@ -162,16 +162,20 @@ cpp 的 `NSESolver::step` 与 rust/hs 的 `step_once` 在 delta 公式上不同�
 | `sov_gf9_mul` | 解析 `GF9.agda`（`α² = −1`、`GF9 = GF3 × GF3`）→ 独立评估 81 项乘法表 | ✅ 81/81 |
 | `sov_eis_mul` | 解析 `Eisenstein.agda` 的 `_*ᵉ_` 公式原文并断言规范形 `(a*c-b*d, a*d+b*c-b*d)`；再用该公式独立评估 625 乘积校验和 | ✅ 公式逐字一致；625/625 校验和相同（694701810） |
 | `sov_dc_crt` | 逐行解析 `Duodecimal.agda` 的 12 条 `crt12` 子句 + `toℕ₁₂` 表 | ✅ 12/12 |
+| `sov_trit_add`/`sov_trit_mul` | 解析 `Base/Trit.agda` 的 `_⊕_`/`_⊗_` 子句（按顺序模拟模式匹配，与 `_ ⊗ _ = T₁` 规范项一致） | ✅ 18/18 |
+| `sov_dc_mixedop` | 解析 `DuodecClock.agda` 的 `mulAlpha` 13 条子句 + 复用 ⊕ 表，组合出 144 项 | ✅ 144/144 |
 | `sov_dayan_multiplier` | 解析 `DayanState.agda` 的 `dayan-init`/`dayan-step` 原文形态；用 ℤ 版独立实现核对 ABI | ✅ 1101/1101 互素对（m≤60），校验和 823007911 |
 | `sov_crt2` | 广义二模 CRT：验证解满足两同余且唯一落在 [0,m₁m₂) | ✅ 576/576（模数对取自 {2,3,5,7,11}），物不知数 → 23 |
 
 核对器：`engineering/verify_agda_anchors.py`（直接读 Agda 源文件，**不读我方表**；已并入 `abi_check.sh` 第 4.5 步）。
-当前覆盖 **754 项**：十二律 12 + 损益 12 + 余数 12 + 闭合常数 2 + GF(9) 81 + Eisenstein 625 + CRT 12。
+当前覆盖 **916 项**：十二律 12 + 损益 12 + 余数 12 + 闭合常数 2 + GF(9) 81 + Eisenstein 625 + CRT 12 + Trit 18 + DC mixedOp 144。
 
 负向控制（已实测三条，判官确实会说「不」）：
 - 篡改余数 `124416→124417` → `不一致 1` FAIL
 - 篡改 `gf9_3_3` 为 7（α·α 应为 2）→ `不一致 1` FAIL
 - 篡改 CRT `(2,2)` 为 9（应为 2）→ `不一致 1` FAIL
+- 篡改 `trit22` 为 0（`T₂⊕T₂` 应为 1）→ `不一致 1` FAIL
+- 篡改 `mix_10_11` 相位为 2（应为 1）→ `不一致 1` FAIL
 
 ⚠ 其余设施仍是**定义级对应**（未做逐条转写 + 全状态对照），不得声称已强验证。
 
