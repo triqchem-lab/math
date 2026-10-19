@@ -27,6 +27,12 @@ module Sov.Math.DuodecClock
   , jointPeriod12
   , jointGeneratorPeriod
   , allPoints
+  , toDuodec
+  , fromDuodec
+  , crt12Roundtrip
+  , crt12Hom144
+  , successor12
+  , dozDigit
   ) where
 
 
@@ -119,3 +125,43 @@ zeroOblivion =
   , ("sigmaDCInvolution", _sigmaInvolution)
   , ("jointGeneratorPeriod12", jointGeneratorPeriod)
   ]
+
+-- ═══ CRT 正交分解: DC ≅ Z/12 (投影层同构, 对齐 Duodecimal.agda crt12) ═══
+-- ⚠ 本体论红线: Z/12 是 DC 的**投影** (C₁₂), 非本体; crt12 是投影映射不是"DC 就是 Z/12"。
+
+-- | toDuodec: x ≡ t (mod 3), x ≡ k (mod 4), x ∈ [0,12) — CRT 唯一解
+toDuodec :: DuodecPoint -> Int
+toDuodec (DP t a) =
+  let tv = fromEnum t   -- 0,1,2
+      kv = fromEnum a   -- 0..3
+      -- x = tv + 3·m, tv + 3m ≡ kv (mod 4) → m ≡ (kv − tv)·3⁻¹ ≡ (kv − tv)·3 (mod 4)
+      m  = ((kv - tv) * 3) `mod` 4
+  in (tv + 3 * m) `mod` 12
+
+-- | fromDuodec: x mod 3 → trit, x mod 4 → phase
+fromDuodec :: Int -> DuodecPoint
+fromDuodec x = DP (toEnum (x `mod` 3)) (toEnum (x `mod` 4))
+
+-- crt12-roundtrip: 双向往返 12 点全枚举
+crt12Roundtrip :: Bool
+crt12Roundtrip =
+  all (\p -> fromDuodec (toDuodec p) == p) allPoints
+  && all (\x -> toDuodec (fromDuodec x) == x `mod` 12) [0 .. 11]
+
+-- | 同态: toDuodec(mixedOp p q) = (toDuodec p + toDuodec q) mod 12
+--   12² = 144 case 全枚举 (对齐 cpp/tests/test_duodec_crt.cpp ① 与 Agda 144 case)
+crt12Hom144 :: Bool
+crt12Hom144 =
+  and [ toDuodec (mixedOp p q) == (toDuodec p + toDuodec q) `mod` 12
+      | p <- allPoints, q <- allPoints ]
+
+-- | +1 后继: +1¹² = id (Duodecimal.agda +1^12-id — 记数法层后继, 与 translate 平移同分布)
+successor12 :: Int -> Int
+successor12 x = (x + 1) `mod` 12
+
+-- | Doz 单位数字渲染 (A=10, B=11 — 记数法层, docs/duodecimal/22 §render)
+dozDigit :: Int -> String
+dozDigit d
+  | d < 0 || d >= 12 = error "dozDigit: 超出一位 (TRAP bad-doz)"
+  | d >= 10          = [toEnum (fromEnum 'A' + d - 10)]
+  | otherwise        = [toEnum (fromEnum '0' + d)]

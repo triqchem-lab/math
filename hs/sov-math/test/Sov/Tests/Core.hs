@@ -347,6 +347,18 @@ allTests =
   , check "dc_mixedop_assoc"  -- 结合律 12³ = 1728 case 全枚举 (对齐 mixedOp-assoc)
       (and [ DC.mixedOp (DC.mixedOp p q) r == DC.mixedOp p (DC.mixedOp q r)
            | p <- DC.allPoints, q <- DC.allPoints, r <- DC.allPoints ])
+
+  -- ── DC CRT 投影 (Duodecimal.agda crt12) ──
+  , check "dc_crt_roundtrip"  DC.crt12Roundtrip    -- 12 + 12 case
+  , check "dc_crt_hom_144"    DC.crt12Hom144       -- 144 case 全枚举
+  , check "dc_crt_anchors"    -- CRT 锚点: e→0, g=(T₁,a₁)→1 (=+1), (T₀,α)→9 (≡0m3,≡1m4), (T₁,a₀)→4
+      (DC.toDuodec DC.duodecE == 0 && DC.toDuodec DC.jointGenerator == 1
+       && DC.toDuodec (DC.DP T0 DC.A1) == 9
+       && DC.toDuodec (DC.DP T1 DC.A0) == 4)
+  , check "dc_successor_12"   -- +1¹² = id (记数法层后继归零)
+      (all (\x -> iterate DC.successor12 x !! 12 == x) [0 .. 11])
+  , check "dc_doz_digits"     -- Doz 单位数字: A=10, B=11
+      (DC.dozDigit 10 == "A" && DC.dozDigit 11 == "B" && DC.dozDigit 3 == "3")
   ]
 
 -- ═══ 辅助 ═══
