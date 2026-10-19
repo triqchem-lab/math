@@ -99,8 +99,10 @@ accStep delta acc =
       total  = headV m + delta                  -- limb[0] += delta (回绕语义同 rust)
       modVal = total `mod` lcmTotal
       carry  = total `div` lcmTotal
-      -- 上位 limb 加 carry: 借一位 0 作 limb[0], 加完后取尾 (镜像 rust limbs[1] += carry)
-      bumped5 = tailV (u384Add (0 :> tailV m) (u384FromU64 carry))
+      -- 精确镜像 rust `limbs[1] += carry`: 仅 limb1 回绕相加, 不向更高位传播
+      -- (dump_tables 对账发现: 初版经 u384Add 链式传播, 与 rust 语义分歧)
+      rest   = tailV m
+      bumped5 = let l1 = headV rest + carry in l1 :> tailV rest
   in acc { accValue     = modVal :> bumped5
          , accStepCount = accStepCount acc + 1
          }

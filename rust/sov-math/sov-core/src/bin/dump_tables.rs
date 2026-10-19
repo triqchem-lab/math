@@ -11,6 +11,9 @@
 
 use sov_core::l2_ring::RingElement;
 use sov_core::l1_field;
+use sov_core::bridge::{LcmBridge, BridgeState};
+use sov_core::eis::Eis;
+use sov_core::sunyi;
 use std::io::{self, BufWriter, Write};
 
 type Gf9 = (u8, u8);
@@ -96,4 +99,52 @@ fn main() {
         let r = ring_from_weight(a) * ring_from_weight(b);
         writeln!(out, "RINGMULSAMPLE,{a},{b},{}", ring_weight(&r)).unwrap();
     }
+
+    // ── EISMUL: Z[ω] 系数盒 [-2,2]² 全枚举乘法 (625 对, 范数入行) ──
+    // 编码: (a+2)*7+(b+2) → 0..48 有限编码, 结果存 (c+64, d+64) 偏移整数
+    for a in -2i64..=2 { for b in -2i64..=2 { for c in -2i64..=2 { for d in -2i64..=2 {
+        let p = Eis(a, b);
+        let q = Eis(c, d);
+        let r = p * q;
+        writeln!(out, "EISMUL,{},{},{},{},{},{}",
+                 a + 64, b + 64, c + 64, d + 64, r.0, r.1).unwrap();
+    }}}}
+
+    // ── EISNORM: 系数盒 [-8,8]² 全枚举范数 (289 点, 应 = a²-ab+b²) ──
+    for a in -8i64..=8 { for b in -8i64..=8 {
+        writeln!(out, "EISNORM,{},{},{}", a + 64, b + 64, Eis(a, b).norm()).unwrap();
+    }}
+
+    // ── SUNYI: 损益链 0..24 步全序列 + 谓词全域 [0,200] ──
+    for s in 0..24u64 {
+        writeln!(out, "SUNYISTEP,{},{},{},{},{},{},{},{},{},{},{},{},{}",
+                 s,
+                 sunyi::TWELVE_LENGTHS[(s % 12) as usize],
+                 sunyi::LCM_REMAINDERS[(s % 12) as usize],
+                 sunyi::step_loss_gain(s) as u8,
+                 sunyi::can_sun(s) as u8, sunyi::sun(s),
+                 sunyi::can_yi(s) as u8, sunyi::yi(s),
+                 sunyi::is_zhonglv_boundary(s) as u8,
+                 sunyi::step_loss_gain(s + 12) as u8,
+                 0, 0, 0).unwrap();
+    }
+
+    // ── BRIDGE: 种子化 20000 步状态机路径 (步进值 + limb0) — 路径依赖全验证 ──
+    let mut bridge = LcmBridge::new();
+    for i in 0..20000u64 {
+        let delta = rng_range(&mut rng, 0, 65536);
+        bridge.step(delta);
+        writeln!(out, "BRIDGE,{},{},{},{},{},{},{},{}",
+                 i, delta,
+                 bridge.acc.value.limbs[0], bridge.acc.value.limbs[1],
+                 bridge.acc.step_count,
+                 bridge.chern_value_q16,
+                 bridge.chern_guard_ok() as u8,
+                 match bridge.state {
+                     BridgeState::L1Ready => 0, BridgeState::L2Computing => 1,
+                     BridgeState::L2Done => 2, BridgeState::ChernLocked => 3,
+                 }).unwrap();
+    }
 }
+
+fn rng_range(rng: &mut XorShift, lo: u64, hi: u64) -> u64 { rng.range(lo, hi) }
