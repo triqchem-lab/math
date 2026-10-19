@@ -11,6 +11,8 @@ import Sov.Math.FixedComplex
 import Sov.Math.Layer1
 import Sov.Math.L2Ops
 import Sov.Math.Block
+import Sov.Math.Guard.Chern
+import Sov.Math.Guard.L7L8
 import Sov.Math.Nat
 import Sov.Math.Ring
 import Sov.Math.SunYi
@@ -142,6 +144,32 @@ allTests =
   , check "layer_tag_values"
       (layerTagValue TagL1Gf3Tensor == 0x10000001 && layerTagValue TagTopologyGrid == 0x40000004)
   , check "sov_block_zero"  (sbQs sovBlockZero == replicateV n6 T0)
+
+  -- ── Guard.Chern (sov-guard/chern.rs, test_chern_exact.rs) ──
+  , check "zero_proto_chern_is_zero"  (computeChernExact protoZero == (0, 216))
+  , check "monopole_inject_count"
+      (let (p, n) = injectC2Monopole protoZero in n == 24 && computeChernExact p == (-432, 216))
+  , check "chern_exactly_minus_two"
+      (let (p, _) = injectC2Monopole protoZero
+       in chernEquals (detectChern p) (-2) 1)
+  , check "wilson_holonomy_is_unit"
+      (let (p, _) = injectC2Monopole protoZero
+       in all (\cell -> normE (cellWilsonHolonomy p 0 cell) == 1
+                         && unitIndex (cellWilsonHolonomy p 0 cell) /= Nothing)
+              [0 .. s2Cells - 1])
+  , check "cell0_holonomy_trivial"   -- 和乐 = ω^12 = 1 (mod 3 平凡), 缠绕数承载拓扑
+      (let (p, _) = injectC2Monopole protoZero
+       in unitIndex (cellWilsonHolonomy p 0 0) == Just 0
+          && unitIndex (cellWilsonHolonomy p 0 2) == Just 0)
+
+  -- ── Guard.L7L8 (sov-guard/lib.rs) ──
+  , check "l7_pass"      (chernVerdict (-131072) == Pass && chernValid (-131072))
+  , check "l7_collapse"  (chernVerdict 0 == FailTopologicalCollapse)   -- |0| < 0.5
+  , check "l7_drift"     (chernVerdict 200000 == WarnDrift)
+  , check "holographic"  (computeHolographic 0 0 96 0 > 0)             -- z=96/12=8 → 正标度
+  , check "band_ladder"  (spectralBand 100000 == Audio && spectralBand 700000 == Infrared
+                          && spectralBand 2000000 == UltraHigh)
+  , check "digital_root" (digitalRoot 38 == 2 && digitalRoot 81 == 9 && digitalRoot 9 == 9)
   ]
 
 -- ═══ 辅助 ═══

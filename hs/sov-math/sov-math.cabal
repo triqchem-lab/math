@@ -30,6 +30,8 @@ library
                       Sov.Math.Layer1
                       Sov.Math.L2Ops
                       Sov.Math.Block
+                      Sov.Math.Guard.Chern
+                      Sov.Math.Guard.L7L8
     hs-source-dirs:   src
     build-depends:    base >=4 && <5
     default-language: GHC2021
