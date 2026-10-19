@@ -13,6 +13,9 @@ import Sov.Math.L2Ops
 import Sov.Math.Block
 import Sov.Math.Guard.Chern
 import Sov.Math.Guard.L7L8
+import Sov.Math.Chiral
+import qualified Sov.Math.Topology.T6 as T6
+import qualified Sov.Math.Topology.TimeCrystal as TC
 import Sov.Math.Nat
 import Sov.Math.Ring
 import Sov.Math.SunYi
@@ -170,6 +173,40 @@ allTests =
   , check "band_ladder"  (spectralBand 100000 == Audio && spectralBand 700000 == Infrared
                           && spectralBand 2000000 == UltraHigh)
   , check "digital_root" (digitalRoot 38 == 2 && digitalRoot 81 == 9 && digitalRoot 9 == 9)
+
+  -- ── Chiral (sov-chiral 6 项 rust 测试) ──
+  , check "chiral_conj"      (chiralConj T0 == T0 && chiralConj T1 == T2 && chiralConj T2 == T1)
+  , check "chiral_involutive" (all (\t -> chiralConj (chiralConj t) == t) allTrits)
+  , check "self_conj"        (isSelfConj T0 && not (isSelfConj T1) && not (isSelfConj T2))
+  , check "wuxing_structure" -- 对角+相生环=1, 相克=ω, 其余=ω²; 且 1+ω+ω² 每行 5 格齐备
+      (let t = wuxingTable
+       in all (\(i, j) -> let v = cellOf t i j in
+               if i == j || j == (i + 1) `mod` 5 then v == qcOne
+               else if (i + 2) `mod` 5 == j then v == qcOmega
+               else v == qcOmega2)
+              [(i, j) | i <- [0 .. 4], j <- [0 .. 4]])
+  , check "coupling"         (couplingFromPower 0 == Idle && couplingFromPower 1 == Meshed
+                              && couplingFromPower 6 == Decoupled)
+  , check "separation"       (isChiralSeparated 4 && not (isChiralSeparated 1))
+
+  -- ── T6 / ZhongLv (sov-topology 纯整数) ──
+  , check "t6_index"         (T6.t6Index 0 0 == 0 && T6.t6Index 0 1 == 1 && T6.t6Index 144 46 == 0)
+  , check "t6_total"         (T6.t6Total == 6624)
+  , check "zhonglv_ratio"    (T6.c3ZhonglvRatio == 125)
+  , check "zhonglv_step" -- 0 恒 0; 8 步迭代 1→2→5→13→35→94→254→686→1854 (手算对照)
+      (T6.zhonglvStep 0 11609505792 == 0 && T6.zhonglvStep 1 11609505792 == 1854)
+  , check "harmonics_exact"  -- Integer 精确: base=1, maxA=2, maxB=1 → 6 项, max = 2²×3 = 12
+      (T6.harmonicsAnalysis 1 2 1 == (6, 12) && T6.frequencyOctave 3 4 == 48)
+
+  -- ── TimeCrystal / N14 ──
+  , check "time_crystal"     (TC.timeCrystalPhaseStep 0 == 0 && TC.timeCrystalPhaseStep 500 == 500
+                              && TC.timeCrystalPhaseStep 1000 == 1000)
+  , check "phase_jump"       (TC.phaseJump 0 == 500 && TC.phaseJump 500 == 1000 && TC.phaseJump 1000 == 0)
+  , check "dv_norm"          (TC.dvNormSq (TC.DynamicVectorQ16 2 3 6) == 49)
+  , check "active_force"     -- base=81 (step 0): x=81, y=54
+      (let f = TC.getActiveForce 0 in TC.dvX f == 81 && TC.dvY f == 54)
+  , check "n14_closure"      (TC.n14IsClosureZero C.grandPump && not (TC.n14IsClosureZero 1)
+                              && TC.n14VirtualPhase C.grandPump == 0)
   ]
 
 -- ═══ 辅助 ═══
@@ -180,6 +217,14 @@ toEnum' i = toEnum (i `mod` 3)
 fromJust' :: Maybe a -> a
 fromJust' (Just x) = x
 fromJust' Nothing  = error "test: expected Just"
+
+cellOf :: Vec N5 (Vec N5 Q16Complex) -> Int -> Int -> Q16Complex
+cellOf tbl i j =
+  let row = vecAt i tbl
+  in vecAt j row
+  where
+    vecAt :: Int -> Vec n a -> a
+    vecAt k v = maybe (error "test: vec index") id (indexV k v)
 
 approxEq :: Q16Complex -> Q16Complex -> Bool
 approxEq (Q16Complex a b) (Q16Complex c d) =

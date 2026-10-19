@@ -27,6 +27,7 @@ module Sov.Math.Constants
   , wuxingCount
   , c3CycleSteps
   , zhonglvPeriod
+  , zhonglvMultiSteps
   , chernGuardTolerance
   ) where
 
@@ -107,6 +108,9 @@ c3CycleSteps = 1500
 -- 仲吕 (L6)
 zhonglvPeriod :: Int
 zhonglvPeriod = 12
+
+zhonglvMultiSteps :: Int
+zhonglvMultiSteps = 8
 
 -- 陈数守卫容差 (bridge.rs: ±655)
 chernGuardTolerance :: Int32
