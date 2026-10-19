@@ -4,7 +4,7 @@
 > 三语言实现（cpp / rust / hs）**逐符号等价**，可由任意 C/C++/带 FFI 的宿主加载。
 > 单一事实源：`cpp/include/sov/*.h`（版本脚本 `cpp/packaging/sov_ffi.map` 由此自动生成）。
 
-## 一、符号清单（68 个，分 23 个设施头）
+## 一、符号清单（70 个，分 23 个设施头）
 
 | 头 | 符号数 | 符号 |
 |---|---|---|
@@ -12,7 +12,7 @@
 | `<sov/trit.h>` | 4 | `sov_trit_add`, `sov_trit_mul`, `sov_trit_sun`, `sov_trit_c3` |
 | `<sov/gf9.h>` | 2 | `sov_gf9_mul`, `sov_gf9_norm` |
 | `<sov/ring.h>` | 4 | `sov_ring_add`, `sov_ring_mul`, `sov_ring_double`, `sov_ring_to_tryte` |
-| `<sov/dc.h>` | 4 | `sov_dc_mixedop`, `sov_dc_sigma`, `sov_dc_crt`, `sov_dc_translate` |
+| `<sov/dc.h>` | 6 | `sov_dc_mixedop`, `sov_dc_sigma`, `sov_dc_crt`, `sov_dc_translate`, `sov_dc_phase_vec`, `sov_dc_rotate_vec` |
 | `<sov/dayan.h>` | 2 | `sov_dayan_multiplier`, `sov_crt2` |
 | `<sov/width.h>` | 4 | `sov_width_capacity_trits`, `sov_width_capacity_bits`, `sov_width_trits_for_bits`, `sov_width_bits_for_trits` |
 | `<sov/adc.h>` | 1 | `sov_adc64` |
@@ -64,7 +64,7 @@
 | 闸门 | 命令 | 判据 |
 |---|---|---|
 | 导出面 | `engineering/verify_export_surface.sh` | 三语言 dynsym == 契约（缺/多皆红） |
-| 实现一致 | `engineering/ffi_conformance.sh` | 三语言同一向量 **1001 行逐行相同** |
+| 实现一致 | `engineering/ffi_conformance.sh` | 三语言同一向量 **1011 行逐行相同** |
 | 头合规 | `engineering/c99_compliance_check.py` | 保留标识符 / 自足性 / 版本闸门 |
 | 档位矩阵 | `engineering/c_standard_matrix.sh` | C99..C23 × C++11..23 × gcc/clang |
 | 安装 | `engineering/install_c_abi.sh` | `dist/` 标准布局 + pkg-config 三套 |
@@ -278,3 +278,36 @@ g^k: 00   11   22   03   10   21   02   13   20   01   12   23   00
   ⇒ **C₄ 而非 V₄**（若相位是 V₄，α² 就会等于 e）
 
 核对器断言解析 `joint-period-12`、`mixedOp-12-cycle`、`alpha-order-exactly-4` 三处原文后与上表比对。
+
+## 十三、相位信息的三层：信息 / 结构 / 几何（回应「是否丢失相位」）
+
+| 层 | 是否丢失 | 依据 |
+|---|---|---|
+| **信息**（12 个元素 + 群律） | **不丢** | CRT 双射：`crt12` 12/12 与 ABI `sov_dc_crt` 一致；`mixedOp` 144/144 与 Agda `mixedOp`（分量 ⊕ / `mulAlpha`）一致 |
+| **结构**（哪一分量加法、哪一分量乘法） | **不丢，但 C₁₂ 投影会遮住** | `sov_dc_mixedop` 是**分量式**运算（trit ⊕、相位 `mulAlpha`），不是 mod-12 数值加法；而 `sov_dc_crt`/`translate` 是数值投影（`g^k=(T_{k%3},a_{k%4})`）—— 后者确实抹掉了「乘法 vs 加法」的区别，读 `x ∈ [0,12)` 看不出这一点 |
+| **几何**（旋转作为矢量/球谐） | **原先缺失，本轮补上** | 见下 |
+
+### 几何层：C₄ 的 90° 整数旋转（ℓ=1 实球谐双峰）
+
+`R = [[0,−1],[1,0]]`（元素全为 `{0,±1}`，**无浮点**）：
+
+| k | 相位矢量 (x,y) | 含义 |
+|---|---|---|
+| 0 | (1, 0) | 0° |
+| 1 | (0, 1) | 90° |
+| 2 | (−1, 0) | 180°（= 取负） |
+| 3 | (0, −1) | 270° |
+
+新符号 `sov_dc_phase_vec` / `sov_dc_rotate_vec`。实测：
+
+- **群同态**：`R^k ∘ R^j = R^(k+j mod 4)`，4×4×3 组输入**全枚举 0 反例**
+- `R² = −I`（(1,0) → (−1,0)）⇒ **C₄ 而非 V₄**（V₄ 的每个元素平方都是 I）
+- `R⁴ = I`（(3,−2) 连转四次复原）
+- 相位矢量 = `R^k(1,0)`（矢量↔旋转一致，0 反例）
+
+### ⚠ 诚实边界（必须说清）
+
+Agda 的 `PhaseSubgroup.rot` 是 **`GF(9)*` 上乘 α 的群作用**（`rot x = x *s sα`，`rot-orbit`/`rot-4-id`/`rot-2-is-neg` 全 refl），
+**不是**矩阵/球谐实现。本轮的矢量化是**新加的几何层**（ABI 侧），验证方式是**精确整数矩阵恒等**（`RᵏRʲ=Rᵏ⁺ʲ`、`R²=−I`、`R⁴=I`）
+与 orbit 结构一致（0→1→2→3→0），**不是**「Agda 证过 Rᵏ 矩阵」。
+若要形式化这条桥，需在 Agda 侧新增 `Rot` 矩阵表示并证同构——目前**未做**。

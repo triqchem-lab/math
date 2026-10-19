@@ -9,6 +9,8 @@ sov_crt2
 sov_dayan_multiplier
 sov_dc_crt
 sov_dc_mixedop
+sov_dc_phase_vec
+sov_dc_rotate_vec
 sov_dc_sigma
 sov_dc_translate
 sov_digital_root

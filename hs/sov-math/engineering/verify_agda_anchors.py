@@ -480,6 +480,41 @@ def check_joint_period(fail):
           + ("" if ok else "  🔴"))
     return ok
 
+def check_geometry(fail):
+    """相位几何层: Agda PhaseSubgroup 的 rot/rot-orbit/rot-4-id/rot-2-is-neg ↔ ABI 的矢量化实现
+
+    ⚠ 诚实边界: Agda 的 rot 是「乘 α」的群作用, 不是矩阵/球谐实现; 本核对只验证
+    二者作为 C₄ 作用在**orbit 结构**上一致 (4-循环 + 二次 = 反向), 不声称 Agda 证过矩阵恒等。
+    """
+    ps = read(f"{SRC}/Sovereign/Algebra/GroupTheory/PhaseSubgroup.agda")
+    has_rot = bool(re.search(r"rot x = x \*s sα", ps))
+    has_orbit = bool(re.search(r"rot s1 ≡ sα\) × \(rot sα ≡ s2", ps.replace("\n", " ")))
+    has_4id = "rot-4-id" in ps
+    has_2neg = "rot-2-is-neg" in ps
+    body = read(BODY)
+    pvec = {}
+    for ln in body.splitlines():
+        m = re.match(r"pvec(\d)=(-?\d),(-?\d)", ln.strip())
+        if m: pvec[int(m.group(1))] = (int(m.group(2)), int(m.group(3)))
+    # Agda rot 的 4-循环在 GF(9)* 上: s1→sα→s2→s2α→s1 (相位索引 0→1→2→3→0)
+    exp = {0: (1, 0), 1: (0, 1), 2: (-1, 0), 3: (0, -1)}
+    orbit_ok = pvec == exp
+    hom = re.search(r"rot_hom_bad=(\d+)", body)
+    neg = re.search(r"rot2_neg=(-?\d+),(-?\d+)", body)
+    r4 = re.search(r"rot4_id=(-?\d+),(-?\d+)", body)
+    cons = re.search(r"pvec_rot_consistent_bad=(\d+)", body)
+    ok = (has_rot and has_orbit and has_4id and has_2neg and orbit_ok
+          and hom and hom.group(1) == "0"
+          and neg and (neg.group(1), neg.group(2)) == ("-1", "0")
+          and r4 and (r4.group(1), r4.group(2)) == ("3", "-2")
+          and cons and cons.group(1) == "0")
+    print(f"Agda PhaseSubgroup rot/rot-orbit/rot-4-id/rot-2-is-neg: "
+          f"{'✓' if has_rot else '✗'}{'✓' if has_orbit else '✗'}{'✓' if has_4id else '✗'}{'✓' if has_2neg else '✗'}; "
+          f"ABI 相位矢量 4-循环 {'✓' if orbit_ok else '✗'}; RᵏRʲ=Rᵏ⁺ʲ 全枚举 {'✓' if hom and hom.group(1)=='0' else '✗'}; "
+          f"R²=−I {'✓' if neg else '✗'}; R⁴=I {'✓' if r4 else '✗'}; 矢量↔旋转一致 {'✓' if cons and cons.group(1)=='0' else '✗'}"
+          + ("" if ok else "  🔴"))
+    return ok
+
 def main():
     src = read(CHAIN)
     fail = 0
@@ -518,6 +553,7 @@ def main():
     if not check_zhonglv(fail): fail = 1
     if not check_width(fail): fail = 1
     if not check_joint_period(fail): fail = 1
+    if not check_geometry(fail): fail = 1
 
     print("\n" + ("PASS" if not fail else "FAIL"))
     return fail

@@ -997,5 +997,15 @@ ord4_a1=11
 ord4_a2=22
 ord4_a4=10
 comp_periods=trit3:1,phase4:1
+pvec0=1,0
+pvec1=0,1
+pvec2=-1,0
+pvec3=0,-1
+rot_hom_bad=0,chk=416597209
+rot2_neg=-1,0
+rot4_id=3,-2
+rot2_compose=-1,0
+pvec_rot_consistent_bad=0
+err_pvec=-2
 err_null=-4
 runtime_fini=0

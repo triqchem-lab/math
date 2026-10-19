@@ -198,6 +198,26 @@ pub extern "C" fn sov_dc_sigma(t: u8, k: u8, t_out: *mut u8, k_out: *mut u8) -> 
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn sov_dc_phase_vec(k: u8, x: *mut i8, y: *mut i8) -> i32 {
+    if x.is_null() || y.is_null() { return ERR_NULL; }
+    if k > 3 { return ERR_RANGE; }
+    const VX: [i8; 4] = [1, 0, -1, 0];
+    const VY: [i8; 4] = [0, 1, 0, -1];
+    unsafe { *x = VX[k as usize]; *y = VY[k as usize]; }
+    OK
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_dc_rotate_vec(k: u8, x: i32, y: i32, xo: *mut i32, yo: *mut i32) -> i32 {
+    if xo.is_null() || yo.is_null() { return ERR_NULL; }
+    if k > 3 { return ERR_RANGE; }
+    let (mut a, mut b) = (x, y);
+    for _ in 0..k { let nx = -b; let ny = a; a = nx; b = ny; }
+    unsafe { *xo = a; *yo = b; }
+    OK
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn sov_dc_crt(t: u8, k: u8, x_out: *mut u8) -> i32 {
     if x_out.is_null() { return ERR_NULL; }
     if !trit_ok(t) { return ERR_TRIT; }
