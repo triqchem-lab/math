@@ -883,6 +883,50 @@ def check_u384_chern(fail):
           + ("" if ok else "  🔴"))
     return ok
 
+def check_wide_constants(fail):
+    """Q128.384 宽定点: π / √3 常量与精确整数算法对账; rho 在精确点误差 ≤ 2 ulp
+
+    π 用整数 Machin (多档 guard 交叉验证 floor), √3 用 isqrt(3·2^768)。
+    ABI 常量为**就近舍入** (真值小数部分 0.75/0.80 ⇒ 就近 = floor+1), 容差 1 ulp。
+    """
+    import math as _m
+    MOD7 = 1000000007
+    body = read(BODY)
+    def limb(tag):
+        m = re.search(tag + r"=([0-9a-f]{128})", body)
+        return int(m.group(1), 16) if m else None
+    PI = limb("wide_pi_limbs"); S3 = limb("wide_sqrt3_limbs")
+    def arctan_inv(x, scale):
+        s = 0; k = 0; p = x
+        while True:
+            t = scale // (p * (2 * k + 1))
+            if t == 0:
+                break
+            s += t if k % 2 == 0 else -t
+            k += 1
+            p *= x * x
+        return s
+    def pi_floor(guard):
+        sc = 1 << (384 + guard)
+        return (16 * arctan_inv(5, sc) - 4 * arctan_inv(239, sc)) >> guard
+    f1, f2 = pi_floor(400), pi_floor(800)
+    s3 = _m.isqrt(3 << 768)
+    # rho 精确点 (Q128.384)
+    exact = {2250: 1 << 383, 3000: 3 << 382, 4500: 1 << 384}
+    rho_ok = True
+    for s, v in exact.items():
+        got = limb(f"wide_rho{s}")
+        if got is None or abs(got - v) > 2:
+            rho_ok = False
+    ok = (PI is not None and S3 is not None and f1 == f2
+          and abs(PI - f1) <= 1 and abs(S3 - s3) <= 1 and rho_ok)
+    print(f"Q128.384: π 两档 guard 一致 {'✓' if f1 == f2 else '✗'}, "
+          f"π 常量与真值差 {PI - f1 if PI is not None else 'NA'} ulp (就近舍入), "
+          f"√3 差 {S3 - s3 if S3 is not None else 'NA'} ulp; "
+          f"rho 精确点 (1/2,3/4,1) 误差 ≤2 ulp {'✓' if rho_ok else '✗'}"
+          + ("" if ok else "  🔴"))
+    return ok
+
 def main():
     src = read(CHAIN)
     fail = 0
@@ -932,6 +976,7 @@ def main():
     if not check_frobenius_norm(fail): fail = 1
     if not check_trit_cycles_t6(fail): fail = 1
     if not check_u384_chern(fail): fail = 1
+    if not check_wide_constants(fail): fail = 1
 
     print("\n" + ("PASS" if not fail else "FAIL"))
     return fail

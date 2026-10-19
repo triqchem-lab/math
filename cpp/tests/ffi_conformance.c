@@ -1103,6 +1103,30 @@ int main(int argc, char **argv) {
           printf("u384_shr32_chk=%lld\n", chk2); }
     }
 
+    /* ══ 宽定点 Q128.384: 全 limb 输出 (供精确整数对账) ══ */
+    {
+        typedef int32_t (*fn_wc)(uint64_t *);
+        typedef int32_t (*fn_wide)(uint64_t, uint64_t *);
+        fn_wc wpi = (fn_wc)sym("sov_wide_const_pi");
+        fn_wc ws3 = (fn_wc)sym("sov_wide_const_sqrt3");
+        fn_wide wr = (fn_wide)sym("sov_wide_rho");
+        uint64_t o[8];
+        wpi(o); printf("wide_pi_limbs=");
+        for (int i = 7; i >= 0; --i) printf("%016llx", (unsigned long long)o[i]);
+        printf("\n");
+        ws3(o); printf("wide_sqrt3_limbs=");
+        for (int i = 7; i >= 0; --i) printf("%016llx", (unsigned long long)o[i]);
+        printf("\n");
+        /* 精确点: s=0 → 0; 2250 → 1/2; 3000 → 3/4; 4500 → 1 (Q128.384) */
+        const uint64_t pts[] = {0, 2250, 3000, 4500};
+        for (unsigned i = 0; i < 4; ++i) {
+            wr(pts[i], o);
+            printf("wide_rho%llu=", (unsigned long long)pts[i]);
+            for (int j = 7; j >= 0; --j) printf("%016llx", (unsigned long long)o[j]);
+            printf("\n");
+        }
+    }
+
     /* 空指针保护 */
     printf("err_null=%d\n", tadd(0, 0, NULL));
     { fn_abi rfini = (fn_abi)dlsym(H, "sov_runtime_fini");

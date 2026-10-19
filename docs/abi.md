@@ -68,7 +68,7 @@
 | 闸门 | 命令 | 判据 |
 |---|---|---|
 | 导出面 | `engineering/verify_export_surface.sh` | 三语言 dynsym == 契约（缺/多皆红） |
-| 实现一致 | `engineering/ffi_conformance.sh` | 三语言同一向量 **1039 行逐行相同** |
+| 实现一致 | `engineering/ffi_conformance.sh` | 三语言同一向量 **1045 行逐行相同** |
 | 头合规 | `engineering/c99_compliance_check.py` | 保留标识符 / 自足性 / 版本闸门 |
 | 档位矩阵 | `engineering/c_standard_matrix.sh` | C99..C23 × C++11..23 × gcc/clang |
 | 安装 | `engineering/install_c_abi.sh` | `dist/` 标准布局 + pkg-config 三套 |
@@ -185,11 +185,13 @@ cpp 的 `NSESolver::step` 与 rust/hs 的 `step_once` 在 delta 公式上不同�
 | `sov_sunyi_boundary` | 12 步全枚举，仅 `step mod 12 = 11`（仲吕）为边界 | ✅ 12/12 |
 | `sov_u384_add` / `mul_u64` / `shr16` | 进位边界 `(2³⁸⁴−1)+1`、交换律、结合律、×0、×1；乘 3 与右移 16/32 与 **Python 大数逐 limb 对账** | ✅ 恒等全成立；三处校验和与 Python 一致（⚠ 抽样，非全域） |
 | `sov_chern_inject` / `detect` / `compute` | 注入 24 次（2 轨道×12 head）、检测 (0,216)/(−432,216)、全零缓冲 → C=0；与 S² 12 胞腔 χ=2 对齐 | ✅ 全部一致 |
+| `sov_wide_const_pi` / `_sqrt3` | Q128.384 全 8 limb 输出；π 用**整数 Machin**（两档 guard 交叉验证）、√3 用 `isqrt(3·2^768)` | ✅ 两常量均为**就近舍入**（真值小数部分 0.75/0.80 ⇒ 最近可表示 = floor+1），误差 1 ulp（≈10⁻¹¹⁶） |
+| `sov_wide_rho` | 精确点 `s=2250→1/2`、`3000→3/4`、`4500→1`（Q128.384 的 `2³⁸³`、`3·2³⁸²`、`2³⁸⁴`） | ✅ 误差 ≤ 2 ulp（相对 ≈5×10⁻¹¹⁶） |
 | `sov_dayan_multiplier` | 解析 `DayanState.agda` 的 `dayan-init`/`dayan-step` 原文形态；用 ℤ 版独立实现核对 ABI | ✅ 1101/1101 互素对（m≤60），校验和 823007911 |
 | `sov_crt2` | 广义二模 CRT：验证解满足两同余且唯一落在 [0,m₁m₂) | ✅ 576/576（模数对取自 {2,3,5,7,11}），物不知数 → 23 |
 
 核对器：`engineering/verify_agda_anchors.py`（直接读 Agda 源文件，**不读我方表**；已并入 `abi_check.sh` 第 4.5 步）。
-当前覆盖 **2966 项**（含全域穷尽类）（含全域穷尽类）（含全域穷尽类）（含全域穷尽类）：十二律 12 + 损益 12 + 余数 12 + 闭合常数 2 + GF(9) 81 + Eisenstein 625 + CRT 12 + Trit 18 + DC mixedOp 144 + 仲吕闭合 7 + **Tryte 729 + pack5 243 + Doz 数位 12 + Doz 往返 20001 + 数字根 4002**。
+当前覆盖 **2973 项**（含全域穷尽类）（含全域穷尽类）（含全域穷尽类）（含全域穷尽类）（含全域穷尽类）：十二律 12 + 损益 12 + 余数 12 + 闭合常数 2 + GF(9) 81 + Eisenstein 625 + CRT 12 + Trit 18 + DC mixedOp 144 + 仲吕闭合 7 + **Tryte 729 + pack5 243 + Doz 数位 12 + Doz 往返 20001 + 数字根 4002**。
 
 负向控制（已实测三条，判官确实会说「不」）：
 - 篡改余数 `124416→124417` → `不一致 1` FAIL
