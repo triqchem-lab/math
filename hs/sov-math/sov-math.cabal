@@ -83,6 +83,11 @@ executable precision-dump
     build-depends:    base >=4 && <5, sov-math
     default-language: GHC2021
 
+executable wide-bench
+    main-is:          WideBench.hs
+    hs-source-dirs:   app
+    build-depends:    base >=4 && <5, sov-math
+    ghc-options:      -O2
 executable dump-tables
     main-is:          DumpTables.hs
     hs-source-dirs:   app
