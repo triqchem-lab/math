@@ -860,6 +860,80 @@ int main(int argc, char **argv) {
           printf("doz_144=%.*s\n", (int)w, buf); }
     }
 
+    /* ══ Z/3^11 环: 全域穷尽 (177147 值) + 加乘抽样 ══ */
+    {
+        typedef int32_t (*fn_ra)(const uint8_t *, const uint8_t *, uint8_t *);
+        typedef int32_t (*fn_rm)(const uint8_t *, const uint8_t *, uint8_t *);
+        typedef int32_t (*fn_rd)(const uint8_t *, uint8_t *);
+        typedef int32_t (*fn_rt)(const uint8_t *, uint16_t *);
+        fn_ra ra = (fn_ra)sym("sov_ring_add");
+        fn_rm rm = (fn_rm)sym("sov_ring_mul");
+        fn_rd rd = (fn_rd)sym("sov_ring_double");
+        fn_rt rt = (fn_rt)sym("sov_ring_to_tryte");
+        const uint64_t MOD = 177147ull;
+
+        /* ① 全域: v → 11 trit 向量 (小端) → to_tryte = v mod 729; double = 2v mod 3^11 */
+        { int bad_t = 0, bad_d = 0; long long c1 = 0, c2 = 0;
+          for (uint64_t v = 0; v < MOD; ++v) {
+              uint8_t a[11]; uint64_t x = v;
+              for (int i = 0; i < 11; ++i) { a[i] = (uint8_t)(x % 3); x /= 3; }
+              uint16_t t = 0xFFFF; rt(a, &t);
+              if (t != (uint16_t)(v % 729)) ++bad_t;
+              uint8_t d[11]; rd(a, d);
+              uint64_t w = 0, p = 1;
+              for (int i = 0; i < 11; ++i) { w += (uint64_t)d[i] * p; p *= 3; }
+              if (w != (2 * v) % MOD) ++bad_d;
+              c1 = (c1 * 131 + t) % 1000000007LL;
+              c2 = (c2 * 131 + (long long)w) % 1000000007LL;
+          }
+          printf("ring_full_to_tryte_bad=%d,chk=%lld\n", bad_t, c1);
+          printf("ring_full_double_bad=%d,chk=%lld\n", bad_d, c2); }
+
+        /* ② 加法: 全 a × b ∈ 小集合 {0,1,2,12345,177146,3^k} (值语义下为抽样, 非全域) */
+        { int bad = 0; long long chk = 0;
+          const uint64_t bs[] = {0,1,2,3,9,27,81,729,12345,177146};
+          const int nb = (int)(sizeof bs / sizeof bs[0]);
+          for (uint64_t v = 0; v < MOD; ++v) {
+              uint8_t a[11], bb[11], o[11];
+              uint64_t x = v;
+              for (int i = 0; i < 11; ++i) { a[i] = (uint8_t)(x % 3); x /= 3; }
+              for (int j = 0; j < nb; ++j) {
+                  uint64_t y = bs[j];
+                  for (int i = 0; i < 11; ++i) { bb[i] = (uint8_t)(y % 3); y /= 3; }
+                  if (ra(a, bb, o) != 0) { ++bad; continue; }
+                  uint64_t w = 0, p = 1;
+                  for (int i = 0; i < 11; ++i) { w += (uint64_t)o[i] * p; p *= 3; }
+                  if (w != (v + bs[j]) % MOD) ++bad;
+                  chk = (chk * 131 + (long long)w) % 1000000007LL;
+              }
+          }
+          printf("ring_add_sweep_bad=%d,chk=%lld\n", bad, chk); }
+
+        /* ③ 乘法: 全 a × b ∈ {0,1,2,3,9,12345} (同上, 抽样) + 结合/交换/分配律抽检 */
+        { int bad = 0; long long chk = 0;
+          const uint64_t bs[] = {0,1,2,3,9,12345};
+          const int nb = (int)(sizeof bs / sizeof bs[0]);
+          for (uint64_t v = 0; v < MOD; ++v) {
+              uint8_t a[11], bb[11], o[11];
+              uint64_t x = v;
+              for (int i = 0; i < 11; ++i) { a[i] = (uint8_t)(x % 3); x /= 3; }
+              for (int j = 0; j < nb; ++j) {
+                  uint64_t y = bs[j];
+                  for (int i = 0; i < 11; ++i) { bb[i] = (uint8_t)(y % 3); y /= 3; }
+                  if (rm(a, bb, o) != 0) { ++bad; continue; }
+                  uint64_t w = 0, p = 1;
+                  for (int i = 0; i < 11; ++i) { w += (uint64_t)o[i] * p; p *= 3; }
+                  if (w != (v * bs[j]) % MOD) ++bad;
+                  chk = (chk * 131 + (long long)w) % 1000000007LL;
+              }
+          }
+          printf("ring_mul_sweep_bad=%d,chk=%lld\n", bad, chk); }
+
+        /* ④ 非法 trit 保护 */
+        { uint8_t a[11] = {3,0,0,0,0,0,0,0,0,0,0}, o[11];
+          uint16_t t; printf("err_ring=%d,%d\n", ra(a, a, o), rt(a, &t)); }
+    }
+
     /* 空指针保护 */
     printf("err_null=%d\n", tadd(0, 0, NULL));
     { fn_abi rfini = (fn_abi)dlsym(H, "sov_runtime_fini");

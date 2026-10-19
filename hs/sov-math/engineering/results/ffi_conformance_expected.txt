@@ -1015,5 +1015,10 @@ pack5_full_bad=0,byte_collision=0,chk=427376971
 doz_digit_full_bad=0,chk=869419033
 doz_roundtrip_bad=0,chk=212699976
 doz_144=100
+ring_full_to_tryte_bad=0,chk=256118661
+ring_full_double_bad=0,chk=440005957
+ring_add_sweep_bad=0,chk=350098737
+ring_mul_sweep_bad=0,chk=997820492
+err_ring=-1,-1
 err_null=-4
 runtime_fini=0

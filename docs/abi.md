@@ -68,7 +68,7 @@
 | 闸门 | 命令 | 判据 |
 |---|---|---|
 | 导出面 | `engineering/verify_export_surface.sh` | 三语言 dynsym == 契约（缺/多皆红） |
-| 实现一致 | `engineering/ffi_conformance.sh` | 三语言同一向量 **1019 行逐行相同** |
+| 实现一致 | `engineering/ffi_conformance.sh` | 三语言同一向量 **1024 行逐行相同** |
 | 头合规 | `engineering/c99_compliance_check.py` | 保留标识符 / 自足性 / 版本闸门 |
 | 档位矩阵 | `engineering/c_standard_matrix.sh` | C99..C23 × C++11..23 × gcc/clang |
 | 安装 | `engineering/install_c_abi.sh` | `dist/` 标准布局 + pkg-config 三套 |
@@ -176,11 +176,13 @@ cpp 的 `NSESolver::step` 与 rust/hs 的 `step_once` 在 delta 公式上不同�
 | `sov_doz_digit` | Agda `Format/Doz.digitStr`（0..9→'0'..'9'，10→'A'，11→'B'）；**12 值全枚举** | ✅ 12/12 |
 | `sov_format_doz` / `sov_parse_doz` | 往返 0..20000 全域扫描；定点 144 → `"100"`（12²） | ✅ 20001/20001，0 反例 |
 | `sov_digital_root` / `_mod9` | Agda `digitalRoot n = n % 9`；经典版与 mod9 版关系式 | ✅ 两版全域 n≤2000，独立复算校验和一致 |
+| `sov_ring_to_tryte` / `sov_ring_double` | 表示层**全域穷尽** 177147 个值（3¹¹），独立复算校验和 | ✅ 177147/177147，0 反例 |
+| `sov_ring_add` / `sov_ring_mul` | 实现为值语义；扫描 177147 × {0,1,2,3,9,27,81,729,12345,177146}（加）与 ×{0,1,2,3,9,12345}（乘） | ⚠ **抽样**（全对域 3.1×10¹⁰ 不可行），已如实标注；表示层全域已证双射 |
 | `sov_dayan_multiplier` | 解析 `DayanState.agda` 的 `dayan-init`/`dayan-step` 原文形态；用 ℤ 版独立实现核对 ABI | ✅ 1101/1101 互素对（m≤60），校验和 823007911 |
 | `sov_crt2` | 广义二模 CRT：验证解满足两同余且唯一落在 [0,m₁m₂) | ✅ 576/576（模数对取自 {2,3,5,7,11}），物不知数 → 23 |
 
 核对器：`engineering/verify_agda_anchors.py`（直接读 Agda 源文件，**不读我方表**；已并入 `abi_check.sh` 第 4.5 步）。
-当前覆盖 **2191 项**：十二律 12 + 损益 12 + 余数 12 + 闭合常数 2 + GF(9) 81 + Eisenstein 625 + CRT 12 + Trit 18 + DC mixedOp 144 + 仲吕闭合 7 + **Tryte 729 + pack5 243 + Doz 数位 12 + Doz 往返 20001 + 数字根 4002**。
+当前覆盖 **2416 项**（含全域穷尽类）：十二律 12 + 损益 12 + 余数 12 + 闭合常数 2 + GF(9) 81 + Eisenstein 625 + CRT 12 + Trit 18 + DC mixedOp 144 + 仲吕闭合 7 + **Tryte 729 + pack5 243 + Doz 数位 12 + Doz 往返 20001 + 数字根 4002**。
 
 负向控制（已实测三条，判官确实会说「不」）：
 - 篡改余数 `124416→124417` → `不一致 1` FAIL

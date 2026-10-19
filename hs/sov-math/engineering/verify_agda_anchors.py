@@ -710,6 +710,49 @@ def check_small_domains(fail):
           + ("" if ok else "  🔴"))
     return ok
 
+def check_ring_z3_11(fail):
+    """Z/3^11 环: 表示层全域穷尽 (177147) + 加乘扫描 (抽样, 如实标注)
+
+    实现是值语义: weight(a) → (op mod 3^11) → 重建, 故表示层双射可全域验证;
+    但对 (a,b) 全对 (3.1e10) 不可行 ⇒ 加/乘仅为 b 取小集合的扫描, 不是全域证明。
+    """
+    MOD = 177147
+    MOD7 = 1000000007
+    body = read(BODY)
+    t = re.search(r"ring_full_to_tryte_bad=(\d+),chk=(\d+)", body)
+    d = re.search(r"ring_full_double_bad=(\d+),chk=(\d+)", body)
+    a = re.search(r"ring_add_sweep_bad=(\d+),chk=(\d+)", body)
+    m = re.search(r"ring_mul_sweep_bad=(\d+),chk=(\d+)", body)
+    # 独立复算
+    c_t = 0
+    for v in range(MOD):
+        c_t = (c_t * 131 + (v % 729)) % MOD7
+    c_d = 0
+    for v in range(MOD):
+        c_d = (c_d * 131 + (2 * v) % MOD) % MOD7
+    bs_add = [0, 1, 2, 3, 9, 27, 81, 729, 12345, 177146]
+    c_a = 0
+    for v in range(MOD):
+        for b in bs_add:
+            c_a = (c_a * 131 + (v + b) % MOD) % MOD7
+    bs_mul = [0, 1, 2, 3, 9, 12345]
+    c_m = 0
+    for v in range(MOD):
+        for b in bs_mul:
+            c_m = (c_m * 131 + (v * b) % MOD) % MOD7
+    ok = bool(t and d and a and m)
+    ok = ok and t.group(1) == "0" and int(t.group(2)) == c_t
+    ok = ok and d.group(1) == "0" and int(d.group(2)) == c_d
+    ok = ok and a.group(1) == "0" and int(a.group(2)) == c_a
+    ok = ok and m.group(1) == "0" and int(m.group(2)) == c_m
+    print(f"Z/3^11: 表示层全域 177147 (to_tryte {'✓' if t and t.group(1)=='0' else '✗'}, "
+          f"double {'✓' if d and d.group(1)=='0' else '✗'}, 独立复算 {'✓' if t and d and int(t.group(2))==c_t and int(d.group(2))==c_d else '✗'}); "
+          f"加法扫描 177147×{len(bs_add)} {'✓' if a and a.group(1)=='0' else '✗'}; "
+          f"乘法扫描 177147×{len(bs_mul)} {'✓' if m and m.group(1)=='0' else '✗'}"
+          f" ⚠ 加/乘为抽样 (非全对域)"
+          + ("" if ok else "  🔴"))
+    return ok
+
 def main():
     src = read(CHAIN)
     fail = 0
@@ -755,6 +798,7 @@ def main():
     if not check_hopf_lift(fail): fail = 1
     if not check_digital_root(fail): fail = 1
     if not check_small_domains(fail): fail = 1
+    if not check_ring_z3_11(fail): fail = 1
 
     print("\n" + ("PASS" if not fail else "FAIL"))
     return fail
