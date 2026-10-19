@@ -491,6 +491,44 @@ int32_t sov_soliton_phase(int32_t rho_q16, uint8_t* out) {
     return SOV_OK;
 }
 
+/* ══ 第六批: 384 位定点原语 ══ */
+
+int32_t sov_u384_add(const uint64_t a[6], const uint64_t b[6],
+                     uint64_t out[6], uint8_t* carry_out) {
+    if (!a || !b || !out || !carry_out) return SOV_ERR_NULL;
+    unsigned __int128 carry = 0;
+    for (int i = 0; i < 6; ++i) {
+        unsigned __int128 t = (unsigned __int128)a[i] + b[i] + carry;
+        out[i] = uint64_t(t);
+        carry = t >> 64;
+    }
+    *carry_out = uint8_t(carry);
+    return SOV_OK;
+}
+
+int32_t sov_u384_mul_u64(const uint64_t a[6], uint64_t k,
+                         uint64_t out[6], uint64_t* carry_out) {
+    if (!a || !out || !carry_out) return SOV_ERR_NULL;
+    unsigned __int128 carry = 0;
+    for (int i = 0; i < 6; ++i) {
+        unsigned __int128 t = (unsigned __int128)a[i] * k + carry;
+        out[i] = uint64_t(t);
+        carry = t >> 64;
+    }
+    *carry_out = uint64_t(carry);
+    return SOV_OK;
+}
+
+int32_t sov_u384_shr16(const uint64_t a[6], uint64_t out[6]) {
+    if (!a || !out) return SOV_ERR_NULL;
+    for (int i = 0; i < 6; ++i) {
+        uint64_t lo = a[i] >> 16;
+        uint64_t hi = (i + 1 < 6) ? (a[i + 1] << 48) : 0;
+        out[i] = lo | hi;
+    }
+    return SOV_OK;
+}
+
 int32_t sov_tryte_value(const uint8_t t6[6], uint16_t* out) {
     if (!t6 || !out) return SOV_ERR_NULL;
     uint16_t v = 0, p = 1;

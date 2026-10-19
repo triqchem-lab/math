@@ -403,6 +403,55 @@ int main(int argc, char **argv) {
           printf("phase_assert=%d\n", (a==0 && b==2 && c==1 && d==3) ? 1 : 0); }
     }
 
+    /* ══ 第六批: 384 位定点原语 ══ */
+    {
+        typedef int32_t (*fn_add)(const uint64_t *, const uint64_t *, uint64_t *, uint8_t *);
+        typedef int32_t (*fn_mul)(const uint64_t *, uint64_t, uint64_t *, uint64_t *);
+        typedef int32_t (*fn_shr)(const uint64_t *, uint64_t *);
+        fn_add uadd = (fn_add)sym("sov_u384_add");
+        fn_mul umul = (fn_mul)sym("sov_u384_mul_u64");
+        fn_shr ushr = (fn_shr)sym("sov_u384_shr16");
+
+        /* 跨 limb 进位传播: 每 limb 全 1 + 1 ⇒ 逐 limb 进位到 carry_out */
+        { uint64_t a[6] = {~0ULL,~0ULL,~0ULL,~0ULL,~0ULL,~0ULL};
+          uint64_t b[6] = {1,0,0,0,0,0};
+          uint64_t o[6] = {0}; uint8_t c = 9;
+          int32_t rc = uadd(a, b, o, &c);
+          printf("u384_carry=%d:c%d,limbs", rc, c);
+          for (int i = 0; i < 6; ++i) printf("%s%llx", i ? "," : "", (unsigned long long)o[i]);
+          printf("\n"); }
+        /* 全 1 + 全 1 ⇒ carry=1, 结果全 0xFE.. */
+        { uint64_t a[6]; for (int i=0;i<6;++i) a[i]=~0ULL;
+          uint64_t o[6]; uint8_t c=9;
+          uadd(a, a, o, &c);
+          printf("u384_max=%d:c%d,l0=%llx\n", 0, c, (unsigned long long)o[0]); }
+        /* 标量乘: 1×2^320 × 65536 ⇒ 进位 65536 回传 (信息不丢) */
+        { uint64_t a[6] = {0,0,0,0,0,1};
+          uint64_t o[6]; uint64_t c = 999;
+          int32_t rc = umul(a, 65536, o, &c);
+          printf("u384_mul=%d:c%llu,l5=%llx\n", rc, (unsigned long long)c, (unsigned long long)o[5]); }
+        /* 乘 0 / 乘 1 边界 */
+        { uint64_t a[6] = {123,456,789,10,11,12};
+          uint64_t o[6]; uint64_t c=9;
+          umul(a, 0, o, &c);
+          printf("u384_mul0=%llu,%llu;", (unsigned long long)o[0], (unsigned long long)c);
+          umul(a, 1, o, &c);
+          printf("mul1=%llu,%llu\n", (unsigned long long)o[5], (unsigned long long)c); }
+        /* 右移 16: 低位丢失, 高位跨 limb 补入 */
+        { uint64_t a[6] = {0xFFFFFFFFFFFFFFFFULL, 0x0000000000000001ULL, 0, 0, 0, 0};
+          uint64_t o[6]; int32_t rc = ushr(a, o);
+          printf("u384_shr16=%d:l0=%llx,l1=%llx\n", rc,
+                 (unsigned long long)o[0], (unsigned long long)o[1]); }
+        /* 与 sov_lcm_step 互操作: 乘黄钟后再右移 16 == 仲吕闭合的两步 */
+        { uint64_t a[6] = {12345,0,0,0,0,0};
+          uint64_t m[6]; uint64_t c=0;
+          umul(a, 177147, m, &c);
+          uint64_t sh[6]; ushr(m, sh);
+          printf("u384_chain=%llu,%llu\n", (unsigned long long)sh[0], (unsigned long long)c); }
+        /* 空指针 */
+        { uint64_t o[6]; uint8_t c; printf("err_u384=%d\n", uadd(NULL, NULL, o, &c)); }
+    }
+
     /* 空指针保护 */
     printf("err_null=%d\n", tadd(0, 0, NULL));
     { fn_abi rfini = (fn_abi)dlsym(H, "sov_runtime_fini");

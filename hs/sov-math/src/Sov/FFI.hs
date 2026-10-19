@@ -65,6 +65,10 @@ module Sov.FFI
   , sov_soliton_sin_q32_wrapper
   , sov_soliton_rho_q16_wrapper
   , sov_soliton_phase_wrapper
+    -- 第六批
+  , sov_u384_add_wrapper
+  , sov_u384_mul_u64_wrapper
+  , sov_u384_shr16_wrapper
   ) where
 
 import Data.Bits    (shiftL, shiftR, (.&.), (.|.))
@@ -732,3 +736,61 @@ sov_soliton_phase_wrapper rho out
       poke out (fromIntegral p :: CUChar)
       return 0
 foreign export ccall "sov_soliton_phase" sov_soliton_phase_wrapper :: CInt -> Ptr CUChar -> IO CInt
+
+
+-- ═══ 第六批: 384 位定点原语 ═══
+
+readU384 :: Ptr CULLong -> IO [Word64]
+readU384 p = mapM (\i -> fromIntegral <$> (peekElemOff p i :: IO CULLong)) [0 .. 5]
+
+writeU384 :: Ptr CULLong -> [Word64] -> IO ()
+writeU384 p xs = mapM_ (\(i, v) -> pokeElemOff p i (fromIntegral v :: CULLong)) (zip [0 ..] xs)
+
+-- | out = a + b (mod 2^384), carry_out = 溢出位
+sov_u384_add_wrapper :: Ptr CULLong -> Ptr CULLong -> Ptr CULLong -> Ptr CUChar -> IO CInt
+sov_u384_add_wrapper a b out carryOut
+  | a == nullPtr || b == nullPtr || out == nullPtr || carryOut == nullPtr = return (fromIntegral sovErrNull)
+  | otherwise = do
+      av <- readU384 a; bv <- readU384 b
+      let go [] [] c = ([], c)
+          go (x:xs) (y:ys) c =
+            let t = toInteger x + toInteger y + toInteger c
+                lo = fromIntegral (t `mod` 18446744073709551616)
+                hi = t `quot` 18446744073709551616
+            in let (rest, cf) = go xs ys hi in (lo : rest, cf)
+          (sums, carry) = go av bv (0 :: Integer)
+      writeU384 out sums
+      poke carryOut (fromIntegral carry :: CUChar)
+      return 0
+foreign export ccall "sov_u384_add" sov_u384_add_wrapper :: Ptr CULLong -> Ptr CULLong -> Ptr CULLong -> Ptr CUChar -> IO CInt
+
+-- | out = a × k (mod 2^384), carry_out = 溢出到 2^384 之上的高 64 位
+sov_u384_mul_u64_wrapper :: Ptr CULLong -> CULLong -> Ptr CULLong -> Ptr CULLong -> IO CInt
+sov_u384_mul_u64_wrapper a k out carryOut
+  | a == nullPtr || out == nullPtr || carryOut == nullPtr = return (fromIntegral sovErrNull)
+  | otherwise = do
+      av <- readU384 a
+      let kk = toInteger (fromIntegral k :: Word64)
+          go [] c = ([], c)
+          go (x:xs) c =
+            let t = toInteger x * kk + toInteger c
+                lo = fromIntegral (t `mod` 18446744073709551616)
+                hi = t `quot` 18446744073709551616
+            in let (rest, cf) = go xs hi in (lo : rest, cf)
+          (prod, carry) = go av (0 :: Integer)
+      writeU384 out prod
+      poke carryOut (fromIntegral carry :: CULLong)
+      return 0
+foreign export ccall "sov_u384_mul_u64" sov_u384_mul_u64_wrapper :: Ptr CULLong -> CULLong -> Ptr CULLong -> Ptr CULLong -> IO CInt
+
+-- | out = a >> 16 (跨 limb 整体右移)
+sov_u384_shr16_wrapper :: Ptr CULLong -> Ptr CULLong -> IO CInt
+sov_u384_shr16_wrapper a out
+  | a == nullPtr || out == nullPtr = return (fromIntegral sovErrNull)
+  | otherwise = do
+      av <- readU384 a
+      let shifted = [ (av !! i) `shiftR` 16 .|. (if i + 1 < 6 then (av !! (i + 1)) `shiftL` 48 else 0)
+                    | i <- [0 .. 5] ]
+      writeU384 out shifted
+      return 0
+foreign export ccall "sov_u384_shr16" sov_u384_shr16_wrapper :: Ptr CULLong -> Ptr CULLong -> IO CInt

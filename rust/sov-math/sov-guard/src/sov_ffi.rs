@@ -538,6 +538,50 @@ pub extern "C" fn sov_soliton_phase(rho_q16: i32, out: *mut u8) -> i32 {
     OK
 }
 
+// ══ 第六批: 384 位定点原语 ══
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn sov_u384_add(a: *const u64, b: *const u64,
+                                      out: *mut u64, carry_out: *mut u8) -> i32 {
+    if a.is_null() || b.is_null() || out.is_null() || carry_out.is_null() { return ERR_NULL; }
+    let (av, bv) = unsafe { (std::slice::from_raw_parts(a, 6), std::slice::from_raw_parts(b, 6)) };
+    let mut carry: u128 = 0;
+    for i in 0..6 {
+        let t = av[i] as u128 + bv[i] as u128 + carry;
+        unsafe { *out.add(i) = t as u64; }
+        carry = t >> 64;
+    }
+    unsafe { *carry_out = carry as u8; }
+    OK
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn sov_u384_mul_u64(a: *const u64, k: u64,
+                                          out: *mut u64, carry_out: *mut u64) -> i32 {
+    if a.is_null() || out.is_null() || carry_out.is_null() { return ERR_NULL; }
+    let av = unsafe { std::slice::from_raw_parts(a, 6) };
+    let mut carry: u128 = 0;
+    for i in 0..6 {
+        let t = av[i] as u128 * k as u128 + carry;
+        unsafe { *out.add(i) = t as u64; }
+        carry = t >> 64;
+    }
+    unsafe { *carry_out = carry as u64; }
+    OK
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn sov_u384_shr16(a: *const u64, out: *mut u64) -> i32 {
+    if a.is_null() || out.is_null() { return ERR_NULL; }
+    let av = unsafe { std::slice::from_raw_parts(a, 6) };
+    for i in 0..6 {
+        let lo = av[i] >> 16;
+        let hi = if i + 1 < 6 { av[i + 1] << 48 } else { 0 };
+        unsafe { *out.add(i) = lo | hi; }
+    }
+    OK
+}
+
 #[unsafe(no_mangle)]
 pub extern "C" fn sov_chern_inject(num: *mut i64, den: *mut i64) -> i32 {
     if num.is_null() || den.is_null() { return ERR_NULL; }

@@ -45,6 +45,9 @@ SOV_FFI_1.0 {
     sov_trit_unpack5;
     sov_tryte_unpack;
     sov_tryte_value;
+    sov_u384_add;
+    sov_u384_mul_u64;
+    sov_u384_shr16;
     sov_wide_const_pi;
     sov_wide_const_sqrt3;
     sov_wide_rho;

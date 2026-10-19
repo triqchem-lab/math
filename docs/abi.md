@@ -4,7 +4,7 @@
 > 三语言实现（cpp / rust / hs）**逐符号等价**，可由任意 C/C++/带 FFI 的宿主加载。
 > 单一事实源：`cpp/include/sov/*.h`（版本脚本 `cpp/packaging/sov_ffi.map` 由此自动生成）。
 
-## 一、符号清单（48 个，分 19 个设施头）
+## 一、符号清单（51 个，分 20 个设施头）
 
 | 头 | 符号数 | 符号 |
 |---|---|---|
@@ -16,6 +16,7 @@
 | `<sov/adc.h>` | 1 | `sov_adc64` |
 | `<sov/bridge.h>` | 1 | `sov_lcm_step` |
 | `<sov/l6.h>` | 1 | `sov_zhonglv_step` |
+| `<sov/u384.h>` | 3 | `sov_u384_add`, `sov_u384_mul_u64`, `sov_u384_shr16` |
 | `<sov/t6.h>` | 2 | `sov_t6_index`, `sov_is_standing_node` |
 | `<sov/wide.h>` | 3 | `sov_wide_rho`, `sov_wide_const_pi`, `sov_wide_const_sqrt3` |
 | `<sov/chern.h>` | 4 | `sov_chern_inject`, `sov_chern_detect`, `sov_chern_inject_monopole`, `sov_chern_compute` |
@@ -59,7 +60,7 @@
 | 闸门 | 命令 | 判据 |
 |---|---|---|
 | 导出面 | `engineering/verify_export_surface.sh` | 三语言 dynsym == 契约（缺/多皆红） |
-| 实现一致 | `engineering/ffi_conformance.sh` | 三语言同一向量 **880 行逐行相同** |
+| 实现一致 | `engineering/ffi_conformance.sh` | 三语言同一向量 **889 行逐行相同** |
 | 头合规 | `engineering/c99_compliance_check.py` | 保留标识符 / 自足性 / 版本闸门 |
 | 档位矩阵 | `engineering/c_standard_matrix.sh` | C99..C23 × C++11..23 × gcc/clang |
 | 安装 | `engineering/install_c_abi.sh` | `dist/` 标准布局 + pkg-config 三套 |
@@ -75,6 +76,7 @@
 | Doz 大小写 | 只接受大写 `A`/`B`；小写 → `SOV_ERR_RANGE`（bad-doz TRAP 的解析端对应） | — |
 | Doz 溢出 | 解析累加超出 `uint64` → `SOV_ERR_RANGE`（18 位 `B`×18 = 12^18−1 > 2^64−1） | 初版测试用了 12^16（≈1.85e17，**未溢出**）⇒ 分支未被覆盖，已换真溢出向量 |
 | Doz 缓冲 | `cap < digits + 1` → `SOV_ERR_RANGE`；结果 NUL 结尾，`written` 不含 NUL | — |
+| **128 位中间量** | `sov_u384_*` 的进位/溢出**不丢失**：`carry_out` 回传超出 2^384 的部分（`u384_add` 传 1 位、`mul_u64` 传 64 位） | 与 `sov_lcm_step` 的「只回绕 limb1」语义不同 —— 后者是既有状态机语义，前者是纯算术原语，二者并存且都显式文档化 |
 | **定点中间量宽度** | Q32 正弦 Taylor 与 ρ 的 `sq²` **必须 128 位中间量**（C: `__int128`；Rust: `i128`） | int64 溢出：`x²≈4.55e19 > 2^63`、`2^32² = 2^64` ⇒ cpp/rust 得 `-32768` 而 hs（`Integer` 任意精度）得 `32768`；一致性测试抓出 |
 | 相态编号 | **沿用 cpp/rust 既有语义：0(Solid) < 2(Liquid) < 1(Curie) < 3(Superfluid) —— 非单调** | **人类裁决「兼容优先」：保持既有编号不重编号**；头文件以 `SOV_PHASE_NUMBERING_FROZEN` 显式冻结，改动需升 MAJOR |
 
