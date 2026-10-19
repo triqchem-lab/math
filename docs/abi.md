@@ -68,7 +68,7 @@
 | 闸门 | 命令 | 判据 |
 |---|---|---|
 | 导出面 | `engineering/verify_export_surface.sh` | 三语言 dynsym == 契约（缺/多皆红） |
-| 实现一致 | `engineering/ffi_conformance.sh` | 三语言同一向量 **1028 行逐行相同** |
+| 实现一致 | `engineering/ffi_conformance.sh` | 三语言同一向量 **1031 行逐行相同** |
 | 头合规 | `engineering/c99_compliance_check.py` | 保留标识符 / 自足性 / 版本闸门 |
 | 档位矩阵 | `engineering/c_standard_matrix.sh` | C99..C23 × C++11..23 × gcc/clang |
 | 安装 | `engineering/install_c_abi.sh` | `dist/` 标准布局 + pkg-config 三套 |
@@ -180,11 +180,14 @@ cpp 的 `NSESolver::step` 与 rust/hs 的 `step_once` 在 delta 公式上不同�
 | `sov_ring_add` / `sov_ring_mul` | 实现为值语义；扫描 177147 × {0,1,2,3,9,27,81,729,12345,177146}（加）与 ×{0,1,2,3,9,12345}（乘） | ⚠ **抽样**（全对域 3.1×10¹⁰ 不可行），已如实标注；表示层全域已证双射 |
 | `sov_dc_sigma` | Agda `DCGroup.sigmaDC (t , a) = (t , alphaInv a)` + `sigmaDC-involution`；**全域穷尽** 12 点 + σ²=id | ✅ 12/12，σ²=id 12/12 |
 | `sov_gf9_norm` | Agda `GF9.galoisNorm` + `norm-mul`；**全域穷尽** 9 值 + **81 对乘性** `N(xy)=N(x)N(y)` | ✅ 9/9、81/81 |
+| `sov_trit_sun` / `sov_trit_c3` | Agda `Trit.c3-cw x = x ⊕ T₁`、`c3-ccw x = x ⊕ T₂`、`c3-cw³`；全域 3 值 + 阶/逆关系 | ✅ 3/3（**修复后**才真正验证，见 §18） |
+| `sov_t6_index` | 索引 = `(polar mod 144)·46 + (toroidal mod 46)`，值域 < 6624；扫描 288×92 | ✅ 0 反例，独立复算校验和一致 |
+| `sov_sunyi_boundary` | 12 步全枚举，仅 `step mod 12 = 11`（仲吕）为边界 | ✅ 12/12 |
 | `sov_dayan_multiplier` | 解析 `DayanState.agda` 的 `dayan-init`/`dayan-step` 原文形态；用 ℤ 版独立实现核对 ABI | ✅ 1101/1101 互素对（m≤60），校验和 823007911 |
 | `sov_crt2` | 广义二模 CRT：验证解满足两同余且唯一落在 [0,m₁m₂) | ✅ 576/576（模数对取自 {2,3,5,7,11}），物不知数 → 23 |
 
 核对器：`engineering/verify_agda_anchors.py`（直接读 Agda 源文件，**不读我方表**；已并入 `abi_check.sh` 第 4.5 步）。
-当前覆盖 **2539 项**（含全域穷尽类）（含全域穷尽类）：十二律 12 + 损益 12 + 余数 12 + 闭合常数 2 + GF(9) 81 + Eisenstein 625 + CRT 12 + Trit 18 + DC mixedOp 144 + 仲吕闭合 7 + **Tryte 729 + pack5 243 + Doz 数位 12 + Doz 往返 20001 + 数字根 4002**。
+当前覆盖 **2951 项**（含全域穷尽类）（含全域穷尽类）（含全域穷尽类）：十二律 12 + 损益 12 + 余数 12 + 闭合常数 2 + GF(9) 81 + Eisenstein 625 + CRT 12 + Trit 18 + DC mixedOp 144 + 仲吕闭合 7 + **Tryte 729 + pack5 243 + Doz 数位 12 + Doz 往返 20001 + 数字根 4002**。
 
 负向控制（已实测三条，判官确实会说「不」）：
 - 篡改余数 `124416→124417` → `不一致 1` FAIL
@@ -445,3 +448,22 @@ abi_dr(n) = 0            (n = 0)
 （`9 | n ⇒ mod9 = 0 ∧ 经典 = 9`；`9 ∤ n ⇒ 两版相等`，0 反例）。
 
 ⚠ 这是本轮唯一发现的**语义分歧**（其余设施均为定义级一致），已如实登记，未掩饰。
+
+## 十八、⚠ 找到一处「假验证」：printf 参数求值顺序（已修）
+
+`cpp/tests/ffi_conformance.c` 旧代码：
+
+```c
+printf("sun%d=%d/%d c3=%d/%d\n", a, tsun(a, &o1), o1, tc3(a, &o2), o2);
+```
+
+C 的**函数实参求值顺序未指定** ⇒ `o1`/`o2` 可能在调用**之前**被读出，
+打印的永远是初值哨兵 `0xFF = 255`。三语言都这么写、都打印同样的 255，
+**逐行比对因此永远通过** —— 典型的共模失效：判官与实现同源错误。
+
+- **影响**：`sov_trit_sun` / `sov_trit_c3` 在修复前**从未被真正验证**（打印的是哨兵，不是返回值）。
+- **修复**：拆成独立语句后打印真实值：`sun0=0/2 c3=0/1`、`sun1=0/0 c3=0/2`、`sun2=0/1 c3=0/0`。
+- **顺带修正**：我第一版检查把 `sun² = id` 写成断言 —— 数学上错的（`sun(a)=a+2`，故 `sun²= a+1 = c3`）。
+  正确关系是 `sun³ = id`、`c3³ = id`、`sun ∘ c3 = id`，已按此断言（0 反例）。
+- **教训入册**：凡是「调用 + 读出」写在同一表达式里的核对，都可能是假验证；
+  核对器现已**要求真实取值出现**（`sun0=0/2` 等），打印哨兵即 FAIL。

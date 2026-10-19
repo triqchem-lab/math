@@ -63,7 +63,31 @@ int main(int argc, char **argv) {
     fn_t1 tsun = (fn_t1)sym("sov_trit_sun"), tc3 = (fn_t1)sym("sov_trit_c3");
     for (int a = 0; a < 3; ++a) {
         uint8_t o1 = 0xFF, o2 = 0xFF;
-        printf("sun%d=%d/%d c3=%d/%d\n", a, tsun(a, &o1), o1, tc3(a, &o2), o2);
+        /* ⚠ 必须分语句: printf 参数求值顺序未指定, 把调用与读出写在同一参数表
+         *   会打印出未初始化的哨兵值 (历史 bug: 曾打印 255, 等于没验证) */
+        int32_t r1 = tsun(a, &o1);
+        int32_t r2 = tc3(a, &o2);
+        printf("sun%d=%d/%d c3=%d/%d rc=%d/%d\n", a, r1, o1, r2, o2, r1, r2);
+    }
+    /* 宪法损/顺时针: 全域 3 值 + 三次回位 */
+    {
+        int bad = 0;
+        for (int a = 0; a < 3; ++a) {
+            uint8_t s1 = 9, c1 = 9, c2 = 9, c3v = 9;
+            tsun((uint8_t)a, &s1); tc3((uint8_t)a, &c1);
+            if (s1 != (uint8_t)((a + 2) % 3)) ++bad;
+            if (c1 != (uint8_t)((a + 1) % 3)) ++bad;
+            tc3(c1, &c2); tc3(c2, &c3v);
+            if (c3v != (uint8_t)a) ++bad;             /* c3³ = id */
+            /* sun = c3² （按宪法「损」= 加二），故 sun³ = id 且 sun∘c3 = id */
+            uint8_t s2 = 9, s3v = 9;
+            tsun(s1, &s2); tsun(s2, &s3v);
+            if (s3v != (uint8_t)a) ++bad;             /* sun³ = id */
+            uint8_t sc = 9;
+            tsun(c1, &sc);
+            if (sc != (uint8_t)a) ++bad;              /* sun ∘ c3 = id */
+        }
+        printf("sun_c3_full_bad=%d\n", bad);
     }
     /* 错误码 */
     { uint8_t o; printf("err_trit=%d\n", tadd(3, 0, &o)); }
@@ -985,6 +1009,32 @@ int main(int argc, char **argv) {
               chk = (chk * 131 + nc) % 1000000007LL;
           }
           printf("gf9_norm_mul_bad=%d,chk=%lld\n", bad, chk); }
+    }
+
+    /* ══ T⁶ 索引 / 十二律边界: 全域穷尽 ══ */
+    {
+        typedef int32_t (*fn_t6)(uint32_t, uint32_t, uint16_t *);
+        typedef int32_t (*fn_sb)(uint8_t, uint8_t *);
+        fn_t6 t6 = (fn_t6)sym("sov_t6_index");
+        fn_sb sb = (fn_sb)sym("sov_sunyi_boundary");
+        /* T⁶ 索引 = (polar mod 144)*46 + (toroidal mod 46), 值域 [0, 6624) */
+        { int bad = 0, bad_range = 0; long long chk = 0;
+          for (uint32_t p = 0; p < 288; ++p) for (uint32_t t = 0; t < 92; ++t) {
+              uint16_t o = 0xFFFF; t6(p, t, &o);
+              uint32_t exp = (p % 144) * 46 + (t % 46);
+              if (o != exp) ++bad;
+              if (o >= 6624) ++bad_range;
+              chk = (chk * 131 + o) % 1000000007LL;
+          }
+          printf("t6_index_full_bad=%d,bad_range=%d,chk=%lld\n", bad, bad_range, chk); }
+        /* 十二律边界: 12 步全枚举, 仅 step%12==11 为 1 */
+        { int bad = 0; long long chk = 0;
+          for (int s = 0; s < 12; ++s) {
+              uint8_t o = 9; sb((uint8_t)s, &o);
+              if (o != (s == 11 ? 1 : 0)) ++bad;
+              chk = (chk * 131 + o) % 1000000007LL;
+          }
+          printf("sunyi_boundary_full_bad=%d,chk=%lld\n", bad, chk); }
     }
 
     /* 空指针保护 */

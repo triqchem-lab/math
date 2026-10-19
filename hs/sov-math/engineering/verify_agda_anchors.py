@@ -803,6 +803,40 @@ def check_frobenius_norm(fail):
           + ("" if ok else "  🔴"))
     return ok
 
+def check_trit_cycles_t6(fail):
+    """trit 循环 (sun/c3) 与 T⁶ 索引 / 十二律边界
+
+    ⚠ 重要: 旧测试把调用与读出写在同一 printf 参数表 ⇒ 打印的是哨兵 255,
+      sun/c3 实际**从未被验证**。本函数要求 ABI 输出为真实值 (sun0=0/2 等)。
+    """
+    trit = read(f"{SRC}/Sovereign/Base/Trit.agda")
+    has_c3cw = bool(re.search(r"c3-cw x = x ⊕ T₁", trit))
+    has_c3ccw = bool(re.search(r"c3-ccw x = x ⊕ T₂", trit))
+    has_cube = bool(re.search(r"c3-cw³ : ∀ x → c3-cw \(c3-cw \(c3-cw x\)\) ≡ x", trit))
+    body = read(BODY)
+    MOD7 = 1000000007
+    # 真实取值必须出现 (旧 bug 会打印 255)
+    real = all(f"sun{a}=" in body for a in range(3))
+    sun_ok = bool(re.search(r"sun0=0/2 c3=0/1", body)) and bool(re.search(r"sun1=0/0 c3=0/2", body)) and bool(re.search(r"sun2=0/1 c3=0/0", body))
+    full = re.search(r"sun_c3_full_bad=(\d+)", body)
+    t6 = re.search(r"t6_index_full_bad=(\d+),bad_range=(\d+),chk=(\d+)", body)
+    sb = re.search(r"sunyi_boundary_full_bad=(\d+),chk=(\d+)", body)
+    c_t6 = 0
+    for p in range(288):
+        for t in range(92):
+            c_t6 = (c_t6 * 131 + (p % 144) * 46 + (t % 46)) % MOD7
+    ok = (has_c3cw and has_c3ccw and has_cube and real and sun_ok
+          and full and full.group(1) == "0"
+          and t6 and t6.group(1) == "0" and t6.group(2) == "0" and int(t6.group(3)) == c_t6
+          and sb and sb.group(1) == "0" and int(sb.group(2)) == 1)
+    print(f"Agda Trit c3-cw/c3-ccw/c3-cw³ {'✓' if (has_c3cw and has_c3ccw and has_cube) else '✗'}; "
+          f"ABI sun/c3 真实值 {('✓' if sun_ok else '✗')} (非哨兵), sun³=id 且 sun∘c3=id {'✓' if full and full.group(1)=='0' else '✗'}; "
+          f"T⁶ 索引 288×92 {'✓' if t6 and t6.group(1)=='0' else '✗'} (独立复算 {'✓' if t6 and int(t6.group(3))==c_t6 else '✗'}), "
+          f"值域<6624 {'✓' if t6 and t6.group(2)=='0' else '✗'}; "
+          f"十二律边界 12 步 {'✓' if sb and sb.group(1)=='0' else '✗'}"
+          + ("" if ok else "  🔴"))
+    return ok
+
 def main():
     src = read(CHAIN)
     fail = 0
@@ -850,6 +884,7 @@ def main():
     if not check_small_domains(fail): fail = 1
     if not check_ring_z3_11(fail): fail = 1
     if not check_frobenius_norm(fail): fail = 1
+    if not check_trit_cycles_t6(fail): fail = 1
 
     print("\n" + ("PASS" if not fail else "FAIL"))
     return fail

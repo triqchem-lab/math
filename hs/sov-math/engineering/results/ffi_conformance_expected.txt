@@ -9,9 +9,10 @@ trit12=0/0,0/2
 trit20=0/2,0/0
 trit21=0/0,0/2
 trit22=0/1,0/1
-sun0=0/255 c3=0/255
-sun1=0/255 c3=0/255
-sun2=0/255 c3=0/255
+sun0=0/2 c3=0/1 rc=0/0
+sun1=0/0 c3=0/2 rc=0/0
+sun2=0/1 c3=0/0 rc=0/0
+sun_c3_full_bad=0
 err_trit=-1
 gf9_0_0=0
 gf9_0_1=0
@@ -1024,5 +1025,7 @@ sigma_full_bad=0,chk=891216330
 sigma_involution_bad=0
 gf9_norm_full_bad=0,chk=703378107
 gf9_norm_mul_bad=0,chk=777517667
+t6_index_full_bad=0,bad_range=0,chk=553190244
+sunyi_boundary_full_bad=0,chk=1
 err_null=-4
 runtime_fini=0
