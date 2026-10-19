@@ -12,6 +12,9 @@ extern "C" {
 
 int32_t sov_digital_root(uint64_t n, uint8_t* out) SOV_API;   /* 数字根 ∈ [0,10) */
 int32_t sov_doz_digit(uint8_t d, char* out) SOV_API;   /* d∈[0,12) → 0-9,A,B */
+/* 模 9 数字根：**与 Agda Foundation/DigitalRoot.digitalRoot 逐点相同**（n % 9，故 9↦0）。
+ * 与 sov_digital_root（经典数字根，9↦9）的关系见 docs/abi.md §17。 */
+int32_t sov_digital_root_mod9(uint64_t n, uint8_t* out) SOV_API;
 
 #ifdef __cplusplus
 }

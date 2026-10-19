@@ -14,6 +14,7 @@ sov_dc_rotate_vec
 sov_dc_sigma
 sov_dc_translate
 sov_digital_root
+sov_digital_root_mod9
 sov_doz_digit
 sov_eis_mul
 sov_eis_norm

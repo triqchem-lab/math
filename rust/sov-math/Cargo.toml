@@ -5,6 +5,7 @@ members = [
     "sov-chiral",
     "sov-topology",
     "sov-guard",
+    "sov-validation",
 ]
 
 [workspace.package]

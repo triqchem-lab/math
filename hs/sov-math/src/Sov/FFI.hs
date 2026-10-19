@@ -48,6 +48,7 @@ module Sov.FFI
   , sov_chern_detect_wrapper
   , sov_holographic_wrapper
   , sov_digital_root_wrapper
+  , sov_digital_root_mod9_wrapper
   , sov_doz_digit_wrapper
   , sov_trit_pack5_wrapper
   , sov_trit_unpack5_wrapper
@@ -535,6 +536,13 @@ sov_digital_root_wrapper n out
       poke out (fromIntegral (L78.digitalRoot (fromIntegral n)))
       return 0
 foreign export ccall "sov_digital_root" sov_digital_root_wrapper :: CULLong -> Ptr CUChar -> IO CInt
+
+-- | 模 9 数字根 (与 Agda Foundation/DigitalRoot.digitalRoot 逐点相同: n % 9)
+sov_digital_root_mod9_wrapper :: CULLong -> Ptr CUChar -> IO CInt
+sov_digital_root_mod9_wrapper n out
+  | out == nullPtr = return (fromIntegral sovErrNull)
+  | otherwise = do poke out (fromIntegral (n `mod` 9) :: CUChar); return 0
+foreign export ccall "sov_digital_root_mod9" sov_digital_root_mod9_wrapper :: CULLong -> Ptr CUChar -> IO CInt
 
 sov_doz_digit_wrapper :: CUChar -> Ptr CChar -> IO CInt
 sov_doz_digit_wrapper d out

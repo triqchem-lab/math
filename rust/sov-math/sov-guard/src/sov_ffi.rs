@@ -376,6 +376,13 @@ pub extern "C" fn sov_digital_root(n: u64, out: *mut u8) -> i32 {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn sov_digital_root_mod9(n: u64, out: *mut u8) -> i32 {
+    if out.is_null() { return ERR_NULL; }
+    unsafe { *out = (n % 9) as u8; }
+    OK
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn sov_doz_digit(d: u8, out: *mut u8) -> i32 {
     if out.is_null() { return ERR_NULL; }
     if d >= 12 { return ERR_RANGE; }

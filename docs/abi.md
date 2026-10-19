@@ -4,7 +4,7 @@
 > 三语言实现（cpp / rust / hs）**逐符号等价**，可由任意 C/C++/带 FFI 的宿主加载。
 > 单一事实源：`cpp/include/sov/*.h`（版本脚本 `cpp/packaging/sov_ffi.map` 由此自动生成）。
 
-## 一、符号清单（70 个，分 23 个设施头）
+## 一、符号清单（71 个，分 23 个设施头）
 
 | 头 | 符号数 | 符号 |
 |---|---|---|
@@ -27,7 +27,7 @@
 | `<sov/soliton.h>` | 3 | `sov_soliton_sin_q32`, `sov_soliton_rho_q16`, `sov_soliton_phase` |
 | `<sov/eis.h>` | 2 | `sov_eis_mul`, `sov_eis_norm` |
 | `<sov/holo.h>` | 1 | `sov_holographic` |
-| `<sov/digit.h>` | 2 | `sov_digital_root`, `sov_doz_digit` |
+| `<sov/digit.h>` | 3 | `sov_digital_root`, `sov_digital_root_mod9`, `sov_doz_digit` |
 | `<sov/doz.h>` | 2 | `sov_format_doz`, `sov_parse_doz` |
 | `<sov/pack.h>` | 2 | `sov_trit_pack5`, `sov_trit_unpack5` |
 | `<sov/tryte.h>` | 2 | `sov_tryte_value`, `sov_tryte_unpack` |
@@ -64,7 +64,7 @@
 | 闸门 | 命令 | 判据 |
 |---|---|---|
 | 导出面 | `engineering/verify_export_surface.sh` | 三语言 dynsym == 契约（缺/多皆红） |
-| 实现一致 | `engineering/ffi_conformance.sh` | 三语言同一向量 **1011 行逐行相同** |
+| 实现一致 | `engineering/ffi_conformance.sh` | 三语言同一向量 **1013 行逐行相同** |
 | 头合规 | `engineering/c99_compliance_check.py` | 保留标识符 / 自足性 / 版本闸门 |
 | 档位矩阵 | `engineering/c_standard_matrix.sh` | C99..C23 × C++11..23 × gcc/clang |
 | 安装 | `engineering/install_c_abi.sh` | `dist/` 标准布局 + pkg-config 三套 |
@@ -425,7 +425,10 @@ abi_dr(n) = 0            (n = 0)
 
 **为什么保留差异**：ABI 的消费方是 Doz 数位/数位和（经典数字根语义，9 是合法结果），
 而 Agda 侧的 `n % 9` 是模运算语义。两者都是自洽的，但**不是同一个函数**——
-所以不写「ABI = Agda」，只写上面这条精确关系。若要统一，需在 ABI 增加 `sov_digital_root_mod9`
-或在 Agda 增加经典版并证二者关系（**尚未做**）。
+所以不写「ABI = Agda」，只写上面这条精确关系。
+
+**已补 `sov_digital_root_mod9`**（本轮）：返回 `n % 9`，**与 Agda `digitalRoot` 逐点相同**
+（全域 n ≤ 2000 实测 0 反例，校验和 48797149）；同时校验两版关系式
+（`9 | n ⇒ mod9 = 0 ∧ 经典 = 9`；`9 ∤ n ⇒ 两版相等`，0 反例）。
 
 ⚠ 这是本轮唯一发现的**语义分歧**（其余设施均为定义级一致），已如实登记，未掩饰。

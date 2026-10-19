@@ -637,11 +637,16 @@ def check_digital_root(fail):
     body = read(BODY)
     sw = re.search(r"droot_sweep_bad=(\d+),chk=(\d+)", body)
     sweep_ok = bool(sw and sw.group(1) == "0")
+    # 新增 sov_digital_root_mod9: 与 Agda 定义逐点相同 (n % 9)
+    m9 = re.search(r"droot_mod9_sweep_bad=(\d+),chk=(\d+)", body)
+    rel = re.search(r"droot_relation_bad=(\d+)", body)
+    mod9_ok = bool(m9 and m9.group(1) == "0" and rel and rel.group(1) == "0")
     print(f"Agda digitalRoot (n%9) 定义 {'✓' if has_def else '✗'}, digitalRootMod9 {'✓' if has_mod9 else '✗'}; "
-          f"ABI 经典数字根全域 n≤2000: {'✓ 0 反例' if sweep_ok else '✗'}"
-          f" ⚠ 约定差异: 非零 9 的倍数 Agda=0 / ABI=9"
-          + ("" if (has_def and has_mod9 and sweep_ok) else "  🔴"))
-    return has_def and has_mod9 and sweep_ok
+          f"ABI 经典数字根全域 n≤2000: {'✓ 0 反例' if sweep_ok else '✗'}; "
+          f"ABI mod9 与 Agda 逐点相同: {'✓' if mod9_ok else '✗'}; "
+          f"两版关系(9|n 时 mod9=0 且经典=9) {'✓' if mod9_ok else '✗'}"
+          + ("" if (has_def and has_mod9 and sweep_ok and mod9_ok) else "  🔴"))
+    return has_def and has_mod9 and sweep_ok and mod9_ok
 
 def main():
     src = read(CHAIN)

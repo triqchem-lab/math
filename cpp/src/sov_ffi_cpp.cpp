@@ -340,6 +340,12 @@ int32_t sov_digital_root(uint64_t n, uint8_t* out) {
     return SOV_OK;
 }
 
+int32_t sov_digital_root_mod9(uint64_t n, uint8_t* out) {
+    if (!out) return SOV_ERR_NULL;
+    *out = uint8_t(n % 9);
+    return SOV_OK;
+}
+
 int32_t sov_doz_digit(uint8_t d, char* out) {
     if (!out) return SOV_ERR_NULL;
     if (d >= 12) return SOV_ERR_RANGE;   /* TRAP bad-doz */

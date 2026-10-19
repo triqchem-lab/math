@@ -83,3 +83,7 @@ dependencies = [
  "sov-chiral",
  "sov-core",
 ]
+
+[[package]]
+name = "sov-validation"
+version = "0.1.0"

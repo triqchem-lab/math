@@ -756,6 +756,25 @@ int main(int argc, char **argv) {
             chk = (chk * 131 + r) % 1000000007LL;
         }
         printf("droot_sweep_bad=%d,chk=%lld\n", bad, chk);
+
+        /* Agda 定义逐点相同: mod9(n) = n % 9 (含 9↦0) */
+        typedef int32_t (*fn_d9)(uint64_t, uint8_t *);
+        fn_d9 d9 = (fn_d9)sym("sov_digital_root_mod9");
+        { int bad9 = 0; long long c9 = 0;
+          for (uint64_t n = 0; n <= 2000; ++n) {
+              uint8_t r = 0; d9(n, &r);
+              if (r != (uint8_t)(n % 9)) ++bad9;
+              c9 = (c9 * 131 + r) % 1000000007LL;
+          }
+          printf("droot_mod9_sweep_bad=%d,chk=%lld\n", bad9, c9); }
+        /* 两者关系: mod9(n) = 0 当且仅当 9|n; class(n)=9 当且仅当 n>0 且 9|n */
+        { int bad = 0;
+          for (uint64_t n = 1; n <= 2000; ++n) {
+              uint8_t m = 0, c = 0; d9(n, &m); dr(n, &c);
+              if ((n % 9 == 0) && (m != 0 || c != 9)) ++bad;
+              if ((n % 9 != 0) && (m != c)) ++bad;
+          }
+          printf("droot_relation_bad=%d\n", bad); }
     }
 
     /* 空指针保护 */

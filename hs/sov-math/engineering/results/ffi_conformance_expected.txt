@@ -1007,5 +1007,7 @@ rot4_id=2,1
 pvec_rot_consistent_bad=0
 err_pvec=-2;err_rot_trit=-1,-1
 droot_sweep_bad=0,chk=537278933
+droot_mod9_sweep_bad=0,chk=48797149
+droot_relation_bad=0
 err_null=-4
 runtime_fini=0
