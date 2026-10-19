@@ -86,11 +86,11 @@ harness: engineering/bench_energy.py (RAPL 实测 + 空载基线扣除, 3 轮中
 > 支持标准安装布局 + pkg-config + soname 版本 + 静态/动态双形态。
 
 ```bash
-# 一键安装为标准 C 库
-hs/sov-math/engineering/install_c_abi.sh /tmp/sov-prefix
+# 一键安装为标准 C 库 (默认装到 <仓库>/dist, 不用 /tmp)
+hs/sov-math/engineering/install_c_abi.sh
 
 # 消费 (纯 C99, 三种实现任选)
-export PKG_CONFIG_PATH=/tmp/sov-prefix/lib/pkgconfig
+export PKG_CONFIG_PATH=$PWD/dist/lib/pkgconfig
 cc app.c $(pkg-config --cflags --libs sov-ffi)      -o app   # cpp 实现
 cc app.c $(pkg-config --cflags --libs sov-ffi-rust) -o app   # rust 实现 (可互换)
 ```
@@ -106,6 +106,16 @@ cc app.c $(pkg-config --cflags --libs sov-ffi-rust) -o app   # rust 实现 (可�
 | `<prefix>/lib/libsov_ffi_rust.so` | rust 实现（cdylib） |
 | `<prefix>/lib/libsovffi.so` | hs 实现（宿主需先 `hs_init`） |
 | `<prefix>/lib/pkgconfig/sov-ffi{,-rust,-hs}.pc` | pkg-config（三实现可互换链接） |
+
+**产物地图**（全部在仓库内，无 `/tmp` 依赖）：
+
+| 层 | 源 | 构建产物 | 构建命令 |
+|---|---|---|---|
+| cpp | [cpp/src/sov_ffi_cpp.cpp](<cpp/src/sov_ffi_cpp.cpp>) | `dist/lib/libsov_ffi.so.1.0.0`(+`.a`) | `install_c_abi.sh` 或 CMake `sov_ffi` |
+| rust | [sov-guard/src/sov_ffi.rs](<rust/sov-math/sov-guard/src/sov_ffi.rs>) | `rust/sov-math/target/release/libsov_guard.so` → 安装为 `dist/lib/libsov_ffi_rust.so` | `cargo build --release -p sov-guard` |
+| hs | [hs/sov-math/src/Sov/FFI.hs](<hs/sov-math/src/Sov/FFI.hs>) | `hs/sov-math/build/libsovffi.so` → 安装为 `dist/lib/libsovffi.so` | `engineering/build_ffi_hs.sh` |
+| 契约头 | [cpp/include/sov/sov_ffi.h](<cpp/include/sov/sov_ffi.h>) | 安装为 `dist/include/sov/sov_ffi.h` | — |
+| 一致性驱动 | [cpp/tests/ffi_conformance.c](<cpp/tests/ffi_conformance.c>) | `hs/sov-math/build/ffi_conf`(+`_hs`) | `engineering/ffi_conformance.sh` |
 
 示例程序：[examples/c/hello_sov.c](<examples/c/hello_sov.c>) — 只用 `<sov/sov.h>`，`-std=c99 -pedantic-errors -Werror` 零警告，三种实现输出逐字节相同。
 CMake 目标：`sov_ffi`(SHARED) + `sov_ffi_static`(STATIC) + `install` 规则 + `ctest -R ffi_conformance`（dlopen 一致性）。

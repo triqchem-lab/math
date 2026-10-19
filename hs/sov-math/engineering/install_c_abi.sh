@@ -9,10 +9,11 @@
 #   <prefix>/lib/libsovffi.so           hs 实现 (需宿主先 hs_init)
 #   <prefix>/lib/pkgconfig/sov-ffi{,-rust,-hs}.pc
 #
-# 用法: ./install_c_abi.sh [prefix]   (默认 /tmp/sov-prefix)
+# 用法: ./install_c_abi.sh [prefix]   (默认 <仓库>/dist — 仓库内固定位置, 不用 /tmp)
 set -euo pipefail
-PREFIX="${1:-/tmp/sov-prefix}"
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
+cd "$ROOT"
+PREFIX="${1:-$ROOT/dist}"
 RTSDIR=/usr/local/lib/ghc-9.14.1/lib/x86_64-linux-ghc-9.14.1-inplace
 VERSION=1.0.0
 SOVEREIGN_ABI=1

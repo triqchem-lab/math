@@ -6,11 +6,12 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"   # /home/yanli/work/math
 RTSDIR=/usr/local/lib/ghc-9.14.1/lib/x86_64-linux-ghc-9.14.1-inplace
-OUT="${TMPDIR:-/tmp}"
+OUT="$ROOT/dist"            # 仓库内固定位置
+mkdir -p "$OUT" "$ROOT/hs/sov-math/build"
 cd "$ROOT"
 
 echo "[1/4] 构建 cpp .so"
-g++ -O2 -std=c++23 -fPIC -shared -I cpp/include cpp/src/sov_ffi_cpp.cpp -o "$OUT/libsov_ffi_cpp.so"
+g++ -O2 -std=c++23 -fPIC -shared -I cpp/include cpp/src/sov_ffi_cpp.cpp -o "$OUT/libsov_ffi.so"
 
 echo "[2/4] 构建 rust .so"
 (cd rust/sov-math && cargo build --release -p sov-guard >/dev/null 2>&1)
@@ -18,14 +19,14 @@ RUST_SO="$ROOT/rust/sov-math/target/release/libsov_guard.so"
 
 echo "[3/4] 构建 hs .so + 宿主驱动"
 hs/sov-math/engineering/build_ffi_hs.sh "$OUT/libsovffi.so" >/dev/null
-gcc -O2 -std=c11 cpp/tests/ffi_conformance.c -o "$OUT/ffi_conf" -ldl
-ghc -no-hs-main -O2 cpp/tests/ffi_conformance.c -o "$OUT/ffi_conf_hs" \
+gcc -O2 -std=c11 cpp/tests/ffi_conformance.c -o "$ROOT/hs/sov-math/build/ffi_conf" -ldl
+ghc -no-hs-main -O2 cpp/tests/ffi_conformance.c -o "$ROOT/hs/sov-math/build/ffi_conf_hs" \
     -optl -Wl,--no-as-needed -optl -L"$RTSDIR" -optl -lHSrts-1.0.3_thr-ghc9.14.1 >/dev/null 2>&1
 
 echo "[4/4] 运行并比对"
-"$OUT/ffi_conf" "$OUT/libsov_ffi_cpp.so" > "$OUT/ffi_cpp.txt"
-"$OUT/ffi_conf" "$RUST_SO"               > "$OUT/ffi_rust.txt"
-LD_LIBRARY_PATH="$RTSDIR" "$OUT/ffi_conf_hs" "$OUT/libsovffi.so" > "$OUT/ffi_hs.txt"
+"$ROOT/hs/sov-math/build/ffi_conf" "$OUT/libsov_ffi.so" > "$OUT/ffi_cpp.txt"
+"$ROOT/hs/sov-math/build/ffi_conf" "$RUST_SO" > "$OUT/ffi_rust.txt"
+LD_LIBRARY_PATH="$RTSDIR" "$ROOT/hs/sov-math/build/ffi_conf_hs" "$OUT/libsovffi.so" > "$OUT/ffi_hs.txt"
 
 for f in cpp rust hs; do tail -n +2 "$OUT/ffi_$f.txt" > "$OUT/ffi_$f.body"; done
 if cmp -s "$OUT/ffi_cpp.body" "$OUT/ffi_rust.body" && cmp -s "$OUT/ffi_cpp.body" "$OUT/ffi_hs.body"; then

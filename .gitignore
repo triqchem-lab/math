@@ -23,3 +23,7 @@ __pycache__/
 *~
 *.bak
 hs/sov-math/dist-newstyle/
+
+# C ABI 安装前缀 (仓库内标准布局的实现产物, 不入版本库)
+dist/
+hs/sov-math/build/

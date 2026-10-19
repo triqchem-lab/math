@@ -7,7 +7,7 @@
 #   - 能耗: /sys/class/powercap/intel-rapl:0/energy_uj 差分 (回绕处理), J = µJ/1e6
 # 诚实边界: 包级能耗含整机背景功耗 (~20-40W 空载), 单核负载下能效数值为上界估计;
 #           非独占机器, 数据有抖动 — 以三轮中位数与多轮一致性为准。
-import json, resource, statistics, subprocess, sys, time
+import json, os, resource, statistics, subprocess, sys, time
 
 RAPL = "/sys/class/powercap/intel-rapl:0/energy_uj"
 RANGE = int(open("/sys/class/powercap/intel-rapl:0/max_energy_range_uj").read())
@@ -28,7 +28,7 @@ def rapl():
 PASSES = sys.argv[1] if len(sys.argv) > 1 else "1"
 OPS = 4500 * int(PASSES)
 targets = [
-    ("cpp",  ["/tmp/wide_bench_cpp", PASSES]),
+    ("cpp",  [os.path.join(os.path.dirname(__file__), "..", "..", "..", "cpp", "build", "wide_bench_cpp"), PASSES]),
     ("rust", ["/home/yanli/work/math/rust/sov-math/target/release/wide_bench", PASSES]),
     ("haskell", ["cabal", "run", "-v0", "wide-bench", "--", PASSES], "/home/yanli/work/math/hs/sov-math"),
 ]

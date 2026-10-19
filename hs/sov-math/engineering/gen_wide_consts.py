@@ -1,5 +1,5 @@
 # gen_wide_consts — Q(128.384) 宪法常数生成器 (mpmath 130 位, 三语言同源)
-# 用法: python3 gen_wide_consts.py  (在仓库根运行, 写入三处 + /tmp json)
+# 用法: python3 gen_wide_consts.py  (在仓库根运行; 写入三处源码 + engineering/results/wide_consts.json)
 from mpmath import mp, mpf, pi, sqrt, log10
 mp.dps = 130
 FB = 384
