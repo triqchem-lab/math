@@ -60,6 +60,16 @@ cabal run sov-validation  # 8 个验证组全绿 (镜像 rust main.rs)
 | **近似投影 (approx 命名显式)** | `solitonRhoQ16Approx` (1 ulp) / `computeHolographicApprox` / `currentDensityLog10Q24Approx` | sin²/log₁₀ 是超越对象, 离散基座只有定点逼近 — 两语言等价仅指逼近算法语义一致, 非值相等 |
 | **未对账** | u384 (2³⁸⁴ 不可穷举) | 仅结构测试 (加法/乘标量/移位锚点) |
 
+## 实测性能/能耗 (rho 450k ops, Xeon E5-2686 v4, RAPL 实测)
+
+| 语言 | 墙钟 | 单次延迟 | 包能耗(净, 扣 6.5W 空载) | 能效 |
+|---|---|---|---|---|
+| rust | 6.53 s | 102 µs/op | 102.4 J | **228 µJ/op** |
+| cpp | 7.77 s | 119 µs/op | 118.9 J | 264 µJ/op |
+| hs | 10.15 s | 167 µs/op | 168.0 J | 371 µJ/op |
+
+harness: engineering/bench_energy.py (RAPL 实测 + 空载基线扣除, 3 轮中位数)
+
 ## 跨语言对齐说明
 
 - **陈数精确性已三语言对齐**: 注入 C=2 单极 → Haskell `computeChernExact = (−432, 216)`

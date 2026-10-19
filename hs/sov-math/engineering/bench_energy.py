@@ -33,6 +33,18 @@ targets = [
     ("haskell", ["cabal", "run", "-v0", "wide-bench", "--", PASSES], "/home/yanli/work/math/hs/sov-math"),
 ]
 
+# 空载基线: 8s 不做任何计算, 测包功率 (W) — 用于扣除背景功耗
+if RAPL_OK:
+    e0 = rapl(); t0 = time.monotonic()
+    time.sleep(8)
+    e1 = rapl(); t1 = time.monotonic()
+    ee = e1 - e0
+    if ee < 0: ee += RANGE
+    IDLE_W = ee / 1e6 / (t1 - t0)
+    print(f"[空载基线] 包功率 = {IDLE_W:.1f} W (8s 采样)")
+else:
+    IDLE_W = 0.0
+
 results = {}
 for name, cmd, *cwd in targets:
     runs = []
@@ -51,6 +63,7 @@ for name, cmd, *cwd in targets:
             e = e1 - e0
             if e < 0: e += RANGE
             energy = e / 1e6
+            net_energy = max(0.0, energy - IDLE_W * (t1 - t0))  # 扣除背景功耗
         else:
             cpu = (u1.ru_utime - u0.ru_utime) + (u1.ru_stime - u0.ru_stime)
             energy = None  # 估算模式: 见 P_LOW/P_HIGH
@@ -58,6 +71,7 @@ for name, cmd, *cwd in targets:
             "wall_s": t1 - t0,
             "cpu_s": (u1.ru_utime - u0.ru_utime) + (u1.ru_stime - u0.ru_stime),
             "energy_J": energy,
+            "net_energy_J": net_energy if RAPL_OK else None,
             "checksum": checksum,
         })
     good = runs[1:]  # 丢热身
@@ -66,6 +80,7 @@ for name, cmd, *cwd in targets:
         "wall_s": statistics.median(x["wall_s"] for x in good),
         "cpu_s": statistics.median(x["cpu_s"] for x in good),
         "energy_J": statistics.median(x["energy_J"] for x in good) if RAPL_OK else None,
+        "net_energy_J": statistics.median(x["net_energy_J"] for x in good) if RAPL_OK else None,
         "all": runs,
         "op_count": OPS,
     }
@@ -84,8 +99,8 @@ else:
 for n, r in results.items():
     same = "✅" if r["checksum"] == base["checksum"] else "🔴"
     if RAPL_OK:
-        print(f"{n:10} {r['wall_s']:>10.4f} {r['cpu_s']:>10.4f} {r['energy_J']:>12.3f} "
-              f"{r['wall_s']/4500*1e6:>10.1f} {r['energy_J']/4500*1e9:>10.1f} {same:>8}")
+        print(f"{n:10} {r['wall_s']:>10.4f} {r['cpu_s']:>10.4f} {r['energy_J']:>12.3f} {r['net_energy_J']:>12.3f} "
+              f"{r['wall_s']/OPS*1e6:>10.1f} {r['net_energy_J']/OPS*1e6:>12.3f} {same:>8}")
     else:
         cpu = r['cpu_s']
         print(f"{n:10} {r['wall_s']:>10.4f} {cpu:>10.4f} {cpu*P_LOW:>8.2f}~{cpu*P_HIGH:<8.2f} "
