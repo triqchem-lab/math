@@ -1322,6 +1322,29 @@ int main(int argc, char **argv) {
         printf("holo_4320=%d\n", 729 * 6 - 54);
     }
 
+    /* ══ Z/3^11 加法: 全 11 个 3 的幂偏移 (逐位进位链覆盖) ══ */
+    {
+        typedef int32_t (*fn_ra)(const uint8_t *, const uint8_t *, uint8_t *);
+        fn_ra ra = (fn_ra)sym("sov_ring_add");
+        const uint64_t MOD = 177147ull;
+        { int bad = 0; long long chk = 0; uint64_t p = 1;
+          for (int j = 0; j <= 10; ++j, p *= 3) {
+              for (uint64_t v = 0; v < MOD; ++v) {
+                  uint8_t a[11], bb[11], o[11];
+                  uint64_t x = v;
+                  for (int i = 0; i < 11; ++i) { a[i] = (uint8_t)(x % 3); x /= 3; }
+                  uint64_t y = p % MOD;
+                  for (int i = 0; i < 11; ++i) { bb[i] = (uint8_t)(y % 3); y /= 3; }
+                  if (ra(a, bb, o) != 0) { ++bad; continue; }
+                  uint64_t w = 0, wq = 1;
+                  for (int i = 0; i < 11; ++i) { w += (uint64_t)o[i] * wq; wq *= 3; }
+                  if (w != (v + (p % MOD)) % MOD) ++bad;
+                  chk = (chk * 131 + (long long)w) % 1000000007LL;
+              }
+          }
+          printf("ring_add_pow3_bad=%d,chk=%lld\n", bad, chk); }
+    }
+
     /* 空指针保护 */
     printf("err_null=%d\n", tadd(0, 0, NULL));
     { fn_abi rfini = (fn_abi)dlsym(H, "sov_runtime_fini");

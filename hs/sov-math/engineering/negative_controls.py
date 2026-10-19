@@ -25,6 +25,9 @@ MUTATIONS = [
     ("soliton sin",     lambda s: s.replace("sin_pi2=4294967298", "sin_pi2=4294967297", 1)),
     ("全息 chk",        lambda s: s.replace("holo_sweep_chk=", "holo_sweep_chk=1", 1)),
     ("Agda 锚点(数字根)", lambda s: s.replace("droot_mod9_sweep_bad=0", "droot_mod9_sweep_bad=1", 1)),
+    ("ring 3 的幂偏移",  lambda s: s.replace("ring_add_pow3_bad=0", "ring_add_pow3_bad=1", 1)),
+    ("NSE 模式2 摘要",   lambda s: re.sub(r"(nse2_s1:[^\n]*c0=)(\d)", lambda m: m.group(1) + str((int(m.group(2)) + 1) % 10), s, count=1)),
+    ("NSE 格点越界",     lambda s: s.replace("m0s3:rho37289,step3,(0,0)=0", "m0s3:rho37289,step3,(0,0)=5", 1)),
 ]
 
 def run(body_path):

@@ -740,6 +740,14 @@ def check_ring_z3_11(fail):
     for v in range(MOD):
         for b in bs_mul:
             c_m = (c_m * 131 + (v * b) % MOD) % MOD7
+    # 3 的幂偏移: 全 11 位逐位进位链覆盖
+    c_p = 0
+    pw = 1
+    for j in range(11):
+        for v in range(MOD):
+            c_p = (c_p * 131 + (v + pw) % MOD) % MOD7
+        pw = (pw * 3) % MOD
+    p3 = re.search(r"ring_add_pow3_bad=(\d+),chk=(\d+)", body)
     ok = bool(t and d and a and m)
     ok = ok and t.group(1) == "0" and int(t.group(2)) == c_t
     ok = ok and d.group(1) == "0" and int(d.group(2)) == c_d
@@ -748,7 +756,8 @@ def check_ring_z3_11(fail):
     print(f"Z/3^11: 表示层全域 177147 (to_tryte {'✓' if t and t.group(1)=='0' else '✗'}, "
           f"double {'✓' if d and d.group(1)=='0' else '✗'}, 独立复算 {'✓' if t and d and int(t.group(2))==c_t and int(d.group(2))==c_d else '✗'}); "
           f"加法扫描 177147×{len(bs_add)} {'✓' if a and a.group(1)=='0' else '✗'}; "
-          f"乘法扫描 177147×{len(bs_mul)} {'✓' if m and m.group(1)=='0' else '✗'}"
+          f"乘法扫描 177147×{len(bs_mul)} {'✓' if m and m.group(1)=='0' else '✗'}; "
+          f"3 的幂偏移 11×177147（逐位进位链） {'✓' if p3 and p3.group(1)=='0' and int(p3.group(2))==c_p else '✗'}"
           f" ⚠ 加/乘为抽样 (非全对域)"
           + ("" if ok else "  🔴"))
     return ok
