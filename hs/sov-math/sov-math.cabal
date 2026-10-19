@@ -42,6 +42,7 @@ library
                       Sov.Validation.GF9Diag
                       Sov.Validation.GF4Magic
                       Sov.Validation.Magic
+                      Sov.Validation.EM
     hs-source-dirs:   src
     build-depends:    base >=4 && <5
     default-language: GHC2021
@@ -59,3 +60,10 @@ test-suite sov-math-test
     default-extensions: DataKinds, GADTs, KindSignatures, TypeOperators,
                         ScopedTypeVariables, LambdaCase, TupleSections, TypeFamilies
     ghc-options:      -Wall -Werror -threaded
+
+executable sov-validation
+    main-is:          Main.hs
+    hs-source-dirs:   app
+    build-depends:    base >=4 && <5, sov-math
+    default-language: GHC2021
+    ghc-options:      -Wall -Werror

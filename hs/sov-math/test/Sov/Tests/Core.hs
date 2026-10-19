@@ -23,6 +23,7 @@ import qualified Sov.Validation.ChiInner as CI
 import qualified Sov.Validation.GF9Diag as G9
 import qualified Sov.Validation.GF4Magic as G4
 import qualified Sov.Validation.Magic as MG
+import qualified Sov.Validation.EM as EM
 import Sov.Math.Nat
 import Sov.Math.Ring
 import Sov.Math.SunYi
@@ -296,6 +297,23 @@ allTests =
   , check "doubly_even_144"  MG.verifyDoublyEven144
   , check "m4_euler_34"      MG.verifyM4Euler
   , check "magic_all"        MG.verifyAllMagic
+
+  -- ── Validation: 电磁学 (em_* 15+9 节) ──
+  , check "em_alpha_powers"    EM.verifyAlphaPowers
+  , check "em_norm_collapse"   EM.verifyNormCollapseTable
+  , check "em_norm_conj"       EM.verifyNormViaConjugation
+  , check "em_sigma_inv"       EM.verifySigmaInvolutive
+  , check "em_norm_mult"       EM.verifyNormMultiplicative
+  , check "em_freq_fractions"  (EM.inverseInverseFreqs == [(1,1,1,1),(1,4,1,2),(1,9,1,3),(1,16,1,4)])
+  , check "em_gauge_assoc"     EM.verifyGaugeAssoc64
+  , check "em_gauge_id_inv"    EM.verifyGaugeIdentityInverse
+  , check "em_gauge_norm"      EM.verifyGaugeNormOne
+  , check "em_gf3_lemmas"      EM.verifyGF3Lemmas
+  , check "em_delta_laplace"   EM.verifyDeltaSEqualsLaplacian
+  , check "em_noether"         EM.verifyNoetherIdentity
+  , check "em_diff_comm"       EM.verifyDiffComm
+  , check "em_all_freq"        EM.verifyAllEMFreq
+  , check "em_all_action"      EM.verifyAllEMAction
   ]
 
 -- ═══ 辅助 ═══

@@ -27,6 +27,8 @@ src/Sov/Math/
   Block.hs         SOV v2.6 范畴标签/主权块 128/全息头
   Guard/Chern.hs   S² 12 胞腔 C=2 陈数构造器 (Z[ω] 精确, 与 sov-guard 跨语言对齐)
   Guard/L7L8.hs    L7 陈数守卫 (Verdict 枚举) + L8 全息 Q32 标度 + 数字根
+  Topology/*.hs    T6/仲吕/孤子(Q32 Taylor)/时间晶体/N14/指数塔 (全部零浮点)
+  Validation/*.hs  Z[ω,i]/杨辉 Lucas/2·A₄ 特征标/GF(9)·GF(4) 幻方/电磁学 15 节
   Tryte.hs         6 位基 3 数（纳音 mod 60、十二律 mod 12 投影）
   Ring.hs          L2 Z/3^11Z 环（进位加法、本征进位乘法、T₁^11 = 0）
   Adc.hs           L0 uint384 ADC 进位链 + LCM 累加器（纯函数式状态）
@@ -35,7 +37,7 @@ src/Sov/Math/
   FixedComplex.hs  Q16.16 定点复数（ω = −1/2 + i√3/2，投影层不进状态机）
   Eis.hs           Eisenstein 整数 Z[ω]（与 Agda Sovereign.RootMath.Eisenstein 对齐）
   Error.hs         两层错误体系
-test/Sov/Tests/    70 项测试，逐条镜像 rust #[cfg(test)]
+test/Sov/Tests/    138 项测试，逐条镜像 rust #[cfg(test)]
 ```
 
 ## 构建与测试
@@ -43,7 +45,8 @@ test/Sov/Tests/    70 项测试，逐条镜像 rust #[cfg(test)]
 ```bash
 cd hs/sov-math
 cabal build all
-cabal run sov-math-test   # ✅ 全部通过: 70/70
+cabal run sov-math-test   # ✅ 全部通过: 138/138
+cabal run sov-validation  # 8 个验证组全绿 (镜像 rust main.rs)
 ```
 
 ## 跨语言对齐说明
