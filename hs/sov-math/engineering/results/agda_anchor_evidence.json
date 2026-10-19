@@ -1,0 +1,19 @@
+{
+ "what": "等级 3 规范锚定的证据快照 (锚定产物本身在 Agda 项目侧, 不在本仓库)",
+ "workspace_boundary": "本仓库 = cpp + rust + hs; Agda 是外部形式化参考项目 (discrete-mathematics)",
+ "anchor_artifact_location": "/data/work/discrete-mathematics/bridge-from-sov-math/",
+ "kernel_receipt": "ace0e46a2e1854a56ac11f2468238964dacc63f37bdab5405ee78df811f52462",
+ "anchor_module": "SpecAnchor.agda (--cubical --rewriting --guardedness, 复用 Sovereign 规范层)",
+ "crosscheck": {
+   "script": "crosscheck.py (随锚定产物一起在 Agda 项目侧)",
+   "compared": ["GF3ADD 9 项", "GF3MUL 9 项", "DCCRT 12 项"],
+   "result": "30/30 一致 (Agda 内核判定 == rust/hs dump 值)",
+   "receipt_chain": ["5e59305a (全域对账)", "677caefa (扩展对账)", "281b389c (DC 并入通道)", "ace0e46a (内核锚定)"]
+ },
+ "honest_scope": [
+   "锚定的是投影层数值 (Z/12 是 DC 的投影)",
+   "DC 本源事实 (mixedOp-12-cycle / dcZeroOblivion) 由 Agda 项目既有证明承载",
+   "DCMIX 144 项依据定义逐字同构, 未逐项 refl",
+   "Ring 3^11 / u384 仍为结构化对账, 非内核证明"
+ ]
+}
