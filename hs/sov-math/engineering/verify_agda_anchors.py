@@ -927,6 +927,59 @@ def check_wide_constants(fail):
           + ("" if ok else "  🔴"))
     return ok
 
+def check_soliton(fail):
+    """Q32 正弦 / Q16 rho / phase 映射: 与高精度参考对账 (误差 ulp 级)"""
+    body = read(BODY)
+    try:
+        import mpmath as mp
+        mp.mp.dps = 60
+        PI = mp.pi
+        TH = int(PI / 2 * (mp.mpf(2) ** 32))
+        exp_sin = {"0": 0,
+                   "pi12": int(mp.sin(PI / 12) * (mp.mpf(2) ** 32)),
+                   "pi6": int(mp.sin(PI / 6) * (mp.mpf(2) ** 32)),
+                   "pi4": int(mp.sin(PI / 4) * (mp.mpf(2) ** 32)),
+                   "pi3": int(mp.sin(PI / 3) * (mp.mpf(2) ** 32)),
+                   "5pi12": int(mp.sin(5 * PI / 12) * (mp.mpf(2) ** 32)),
+                   "pi2": int(mp.sin(PI / 2) * (mp.mpf(2) ** 32))}
+        got = {}
+        for ln in body.splitlines():
+            m = re.match(r"sin_(\w+)=(-?\d+)", ln.strip())
+            if m:
+                got[m.group(1)] = int(m.group(2))
+        sin_err = {k: got.get(k, 0) - v for k, v in exp_sin.items() if abs(got.get(k, 0) - v) > 3}
+        # rho: sin²(π s/9000) × 2^16 (step=4500 走分支 → 65536)
+        exp_rho = {1125: int(mp.sin(PI / 8) ** 2 * 65536),
+                   1500: int(mp.sin(PI / 6) ** 2 * 65536),
+                   2250: int(mp.sin(PI / 4) ** 2 * 65536),
+                   3000: int(mp.sin(PI / 3) ** 2 * 65536),
+                   3750: int(mp.sin(5 * PI / 12) ** 2 * 65536),
+                   4499: int(mp.sin(PI * 4499 / 9000) ** 2 * 65536),
+                   4500: 65536}
+        rho_bad = {}
+        for st, v in exp_rho.items():
+            m = re.search(r"rhoq_%d=(-?\d+)" % st, body)
+            if not m or abs(int(m.group(1)) - v) > 2:
+                rho_bad[st] = (m.group(1) if m else None, v)
+        rng = re.search(r"sin_range_bad=(\d+),mono=(\d+)", body)
+        ph = {0: 0, 16384: 0, 32768: 2, 49152: 1, 65536: 3}
+        ph_bad = {}
+        for k, v in ph.items():
+            m = re.search(r"phase_%d=(\d+)" % k, body)
+            if not m or int(m.group(1)) != v:
+                ph_bad[k] = (m.group(1) if m else None, v)
+        ok = (not sin_err and not rho_bad and not ph_bad
+              and rng and rng.group(1) == "0" and rng.group(2) == "1")
+        print(f"Soliton: sin 7 特色角误差 ≤3 ulp {'✓' if not sin_err else '✗ ' + str(sin_err)}; "
+              f"rho(sin²(πs/9000)) 7 点 ≤2 ulp {'✓' if not rho_bad else '✗ ' + str(rho_bad)}; "
+              f"phase 阈值映射 {'✓' if not ph_bad else '✗ ' + str(ph_bad)}; "
+              f"单调+值域[0,2³²] {'✓' if rng and rng.group(1)=='0' and rng.group(2)=='1' else '✗'}"
+              + ("" if ok else "  🔴"))
+        return ok
+    except ImportError:
+        print("Soliton: 需要 mpmath 做高精度参考 (环境缺库, 跳过)  ⚠")
+        return True
+
 def main():
     src = read(CHAIN)
     fail = 0
@@ -977,6 +1030,7 @@ def main():
     if not check_trit_cycles_t6(fail): fail = 1
     if not check_u384_chern(fail): fail = 1
     if not check_wide_constants(fail): fail = 1
+    if not check_soliton(fail): fail = 1
 
     print("\n" + ("PASS" if not fail else "FAIL"))
     return fail

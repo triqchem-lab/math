@@ -1127,6 +1127,47 @@ int main(int argc, char **argv) {
         }
     }
 
+    /* ══ Soliton Q32 正弦 / Q16 rho / phase 映射 ══ */
+    {
+        typedef int32_t (*fn_sin)(int64_t, int64_t *);
+        typedef int32_t (*fn_rq)(uint32_t, int32_t *);
+        typedef int32_t (*fn_ph)(int32_t, uint8_t *);
+        fn_sin fs = (fn_sin)sym("sov_soliton_sin_q32");
+        fn_rq fr = (fn_rq)sym("sov_soliton_rho_q16");
+        fn_ph fp = (fn_ph)sym("sov_soliton_phase");
+
+        /* 特色角: π/2·2^32 = 6746518852 (上界)；θ·2^32 = θ/π · 6746518852 · 2 */
+        /* ⚠ π/2·2³² = 6746518852 **超出 uint32** (应占 33 位) ⇒ 必须用 int64_t,
+         *   否则会被静默截断成 2451551556 (本测试曾因此打印错误值) */
+        const int64_t TH = 6746518852LL;   /* π/2 in Q32, 需 33 位 */
+        const int64_t angles[] = {0, TH/6, TH/3, TH/2, (TH*2)/3, (TH*5)/6, TH};  /* 0, π/12, π/6, π/4, π/3, 5π/12, π/2 */
+        const char* names[] = {"0","pi12","pi6","pi4","pi3","5pi12","pi2"};
+        for (unsigned i = 0; i < 7; ++i) {
+            int64_t o = -1; fs(angles[i], &o);
+            printf("sin_%s=%lld\n", names[i], (long long)o);
+        }
+        /* 单调性 + 值域 [0, 2^32] 扫描 */
+        { int bad = 0, mono = 1; int64_t prev = -1; long long chk = 0;
+          for (int64_t x = 0; x <= (int64_t)TH; x += 1000003) {
+              int64_t o = -1; fs(x, &o);
+              if (o < 0 || o > 4294967296LL) ++bad;
+              if (prev > o) mono = 0;
+              prev = o;
+              chk = (chk * 131 + (o % 1000003)) % 1000000007LL;
+          }
+          printf("sin_range_bad=%d,mono=%d,chk=%lld\n", bad, mono, chk); }
+        /* rho 精确点: step/4500·π */
+        { const uint32_t st[] = {0, 1125, 1500, 2250, 3000, 3750, 4499, 4500};
+          for (unsigned i = 0; i < 8; ++i) {
+              int32_t o = -1; fr(st[i], &o); printf("rhoq_%u=%d\n", st[i], o);
+          } }
+        /* phase 映射 (rho_q16 阈值 → 相位编号) */
+        { const int32_t rs[] = {0, 16384, 32768, 49152, 65536};
+          for (unsigned i = 0; i < 5; ++i) {
+              uint8_t o = 9; fp(rs[i], &o); printf("phase_%d=%d\n", rs[i], o);
+          } }
+    }
+
     /* 空指针保护 */
     printf("err_null=%d\n", tadd(0, 0, NULL));
     { fn_abi rfini = (fn_abi)dlsym(H, "sov_runtime_fini");
