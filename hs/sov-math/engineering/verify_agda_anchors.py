@@ -160,6 +160,14 @@ def dayan_nat(qi, ding):
         return None
     return lt if steps == 0 else (ding - lt if lt <= ding else 0)
 
+def dayan_nat_mod(qi, ding):
+    """修正形 (纯 ℕ): 系数保持 [0,定) 剩余类, 减法变模加"""
+    lt, lb, rt, rb = 1, 0, qi, ding
+    while rt not in (0, 1):
+        q, r = rb // rt, rb % rt
+        lt, lb, rt, rb = (lb + ding - (q * lt) % ding) % ding, lt, r, rt
+    return None if rt != 1 else lt
+
 def check_dayan(fail):
     """大衍求一术: ① 断言 Agda 原文的递推形态 ② 记录 ℕ 版失效比例 ③ 核对 ABI 的 ℤ 版"""
     src = read(DAYAN)
@@ -192,7 +200,19 @@ def check_dayan(fail):
                 if k is not None and (a * k) % m == 1:
                     chk_py = (chk_py * 131 + k) % 1000000007
         chk_ok = (bad_n == 0 and chk_a == chk_py)
-    ok = has_init and has_step and chk_ok
+    # 修正形 (纯 ℕ 模表示) 通过率 + 与 ABI 的逐值一致性
+    import math as _m
+    mod_total = mod_bad = 0; same_as_abi = True
+    for mm in range(2, 201):
+        for aa in range(1, mm):
+            if _m.gcd(aa, mm) != 1: continue
+            mod_total += 1
+            k = dayan_nat_mod(aa, mm)
+            if k is None or (aa * k) % mm != 1: mod_bad += 1
+            if dayan_z(aa, mm) != k: same_as_abi = False
+    print(f"  修正形 (纯 ℕ, 系数模定): {mod_total - mod_bad}/{mod_total} 通过"
+          f"; 与 ABI(ℤ) 逐值一致: {'✓' if same_as_abi else '✗'}")
+    ok = has_init and has_step and chk_ok and mod_bad == 0 and same_as_abi
     print(f"Agda DayanState: init 形态 {'✓' if has_init else '✗'}, step 形态 {'✓' if has_step else '✗'}; "
           f"ℕ 版乘率失效 {nat_bad}/{nat_total} ({100*nat_bad/nat_total:.1f}%) — 故 ABI 用 ℤ 版"
           + (f"; ABI ℤ 版校验 {'✓' if chk_ok else '✗'} ({got})" if got else "; ABI 输出缺失 ✗")
