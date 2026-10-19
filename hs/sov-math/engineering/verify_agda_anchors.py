@@ -554,6 +554,46 @@ def check_rot_bridge(fail):
           + ("" if ok else "  🔴"))
     return ok
 
+CHERN_EULER = f"{SRC}/Sovereign/Synthesis/Geometry/ChernEulerLadder.agda"
+HOPF = f"{SRC}/Sovereign/Synthesis/Homotopy/HopfConstruction.agda"
+BIN_TET = f"{SRC}/Sovereign/Synthesis/A4/BinaryTetrahedral.agda"
+SL23 = f"{SRC}/Sovereign/Synthesis/A4/BinaryTetrahedralDefiningRep.agda"
+
+def check_discrete_sphere(fail):
+    """离散球体：库内已形式化的 S² 12 胞腔 / A₄ 无 4 阶元 / T⁶→S² 离散 Hopf
+
+    核对 ABI 的陈数实现 (12 胞腔, 864 = 12×12×6 字节缓冲) 与这些形式化一致。
+    """
+    ce = read(CHERN_EULER)
+    faces = re.search(r"s2-12cell-faces = \+ (\d+)", ce)
+    euler = bool(re.search(r"s2-12cell-euler : s2-12cell-vertices - s2-12cell-edges \+ s2-12cell-faces ≡ \+ 2", ce))
+    chern = bool(re.search(r"chern-equals-euler-2d : CC\.ChernNumber ≡ 2", ce))
+    t6 = bool(re.search(r"t6-euler : \+ 1 - \+ 6", ce))
+    hopf = read(HOPF)
+    hopf_ok = ("729" in hopf) and ("T6╱A4" in hopf or "T6╱A₄" in hopf)
+    bt = read(BIN_TET)
+    order4_in_2a4 = bool(re.search(r"q8-i⁴ : qi \*q qi \*q qi \*q qi ≡ q1", bt))
+    sl = read(SL23)
+    sl_has4 = "orderOf g3 = 4" in sl
+    # ABI: 陈数 12 胞腔 (864 = 12 head × 12 cell × 6 trit) + C = ±2
+    body = read(BODY)
+    ch = re.search(r"chern_inject=(\d+)", body)
+    chc = re.search(r"chern_compute=0,C=(-?\d+)/(\d+)", body)
+    # 注入 24 次 (2 轨道 × 12 head)；|C| = |num|/den = 432/216 = 2 = χ(S²)
+    abi_ok = bool(ch and int(ch.group(1)) == 24 and chc
+                  and abs(int(chc.group(1))) == 432 and chc.group(2) == "216")
+    # 缓冲字节数 864 与 12×12×6 一致 (由 conformance 的 chern_buf_nz 行间接体现)
+    buf = re.search(r"chern_buf_nz=(\d+)", body)
+    ok = bool(faces and int(faces.group(1)) == 12 and euler and chern and t6 and hopf_ok
+              and order4_in_2a4 and sl_has4 and abi_ok and buf)
+    print(f"离散球体形式化: S² 12 胞腔 (F={faces.group(1) if faces else '?'}, χ=2 {'✓' if euler else '✗'}), "
+          f"c₁=χ=2 {'✓' if chern else '✗'}, T⁶ χ=0 {'✓' if t6 else '✗'}; "
+          f"T⁶/A₄ 离散 Hopf {'✓' if hopf_ok else '✗'}; "
+          f"A₄ 无 4 阶元 → 2A₄/SL(2,3) 有 (q8-i⁴ {'✓' if order4_in_2a4 else '✗'}, orderOf=4 {'✓' if sl_has4 else '✗'}); "
+          f"ABI 陈数 12 胞腔 C=±2 {'✓' if abi_ok else '✗'}"
+          + ("" if ok else "  🔴"))
+    return ok
+
 def main():
     src = read(CHAIN)
     fail = 0
@@ -595,6 +635,7 @@ def main():
     if not check_geometry(fail): fail = 1
     # 该模块由本会话新增于 Agda 侧 bridge-from-sov-math/ (0 postulate / 0 hole, agda exit 0)
     if not check_rot_bridge(fail): fail = 1
+    if not check_discrete_sphere(fail): fail = 1
 
     print("\n" + ("PASS" if not fail else "FAIL"))
     return fail
