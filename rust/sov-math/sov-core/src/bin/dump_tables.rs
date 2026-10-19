@@ -11,6 +11,7 @@
 
 use sov_core::l2_ring::RingElement;
 use sov_core::l1_field;
+use sov_core::dc_clock;
 use sov_core::bridge::{LcmBridge, BridgeState};
 use sov_core::eis::Eis;
 use sov_core::sunyi;
@@ -144,6 +145,24 @@ fn main() {
                      BridgeState::L1Ready => 0, BridgeState::L2Computing => 1,
                      BridgeState::L2Done => 2, BridgeState::ChernLocked => 3,
                  }).unwrap();
+    }
+
+    // ── DC 定义层: CRT 投影 (12) + 混合表 (144) + σ_DC (12) ──
+    // 编码: trit t∈{0,1,2}, phase k∈{0..3} → 点索引 i = 3k + t (与 hs allPoints 顺序一致)
+    for p in dc_clock::all_points() {
+        writeln!(out, "DCCRT,{},{},{}", p.trit, p.phase as u8, dc_clock::to_duodec(p)).unwrap();
+    }
+    for p in dc_clock::all_points() {
+        for q in dc_clock::all_points() {
+            let r = dc_clock::mixed_op(p, q);
+            writeln!(out, "DCMIX,{},{},{},{},{}",
+                     p.trit, p.phase as u8, q.trit, q.phase as u8,
+                     dc_clock::to_duodec(r)).unwrap();
+        }
+    }
+    for p in dc_clock::all_points() {
+        let s = dc_clock::sigma_dc(p);
+        writeln!(out, "DCSIGMA,{},{},{},{}", p.trit, p.phase as u8, s.trit, s.phase as u8).unwrap();
     }
 }
 

@@ -50,6 +50,18 @@ def truth(line):
                 1 if s % 12 == 11 else 0, lg[(s+12) % 12], 0, 0, 0)
     if tag == 'BRIDGE':
         return None  # 路径依赖节: oracle 不算基线, 由 rust↔hs 逐行一致承载
+    if tag in ('DCCRT', 'DCMIX'):
+        # CRT 解: x ≡ trit (mod 3), x ≡ phase (mod 4)
+        def crt(t, k):
+            return (t + 3 * (((k - t) * 3) % 4)) % 12
+        if tag == 'DCCRT':
+            t, k = int(parts[1]), int(parts[2])
+            return crt(t, k)
+        t, a, u, b = (int(x) for x in parts[1:5])
+        return crt((t + u) % 3, (a + b) % 4)
+    if tag == 'DCSIGMA':
+        # σ: (t, k) → (t, −k mod 4), 行内已含两分量 — 双路一致承载
+        return None
     raise ValueError(tag)
 
 def load_and_check(path):
@@ -90,12 +102,13 @@ with open(rust_p) as f: r = sorted(f)
 with open(hs_p) as f: h = sorted(f)
 same = r == h
 
+actual_total = sum(results["rust"]["counts"].values())
 print("ORACLE-MANIFEST", json.dumps({
     "basis": "python 精确整数基线 vs rust dump vs haskell dump (三路)",
-    "domain": total_domain, "points": total_domain,
-    "claim": "GF(3)+GF(9)+Ring 加/乘生成元全域 + Eisenstein 系数盒乘/范数全域 + 损益链 24 步 + LCM 桥 20000 步路径: 三路一致"
+    "domain": actual_total, "points": actual_total,
+    "claim": "GF(3)+GF(9)+Ring+Eisenstein+损益链+桥轨迹+DC 联合时钟 (CRT 12/混合表 144): 三路一致"
 }))
-print("full_domain_sections: GF3 18, GF9MUL 81, RINGADD2X 177147, RINGMULGEN 1948617, EISMUL 625 (盒全域), EISNORM 289 (盒全域), SUNYI 24 (全序列)")
+print("full_domain_sections: GF3 18, GF9MUL 81, RINGADD2X 177147, RINGMULGEN 1948617, EISMUL 625, EISNORM 289, SUNYI 24, DCCRT 12, DCMIX 144 (混合表全枚举)")
 print("sample_section: RINGMULSAMPLE 1000000 (抽样, 非全域)")
 print("rust_vs_haskell_逐行相同:", same)
 ok = all(results[n]["bad_total"] == 0 for n in results) and same

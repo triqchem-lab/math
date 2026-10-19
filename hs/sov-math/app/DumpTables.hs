@@ -11,6 +11,7 @@ import System.IO
 
 import Data.Int     (Int64)
 import Sov.Math.Trit
+import qualified Sov.Math.DuodecClock as DC
 import Sov.Validation.GF9Diag
 import qualified Sov.Math.Eis as E
 import qualified Sov.Math.SunYi as SY
@@ -152,6 +153,23 @@ main = do
           ++ "," ++ show st)
         goBridge (i + 1 :: Int) r' b'
   goBridge 0 rngAfter BR.newBridge
+  -- DC 定义层: DCCRT (12) / DCMIX (144) / DCSIGMA (12)
+  mapM_ (\(DC.DP t a) ->
+    putStrLn ("DCCRT," ++ show (fromEnum t) ++ "," ++ show (fromEnum a)
+              ++ "," ++ show (DC.toDuodec (DC.DP t a)))) DC.allPoints
+  mapM_ (\(p_, q_) ->
+    let DC.DP t a = p_
+        DC.DP u b = q_
+        r = DC.mixedOp p_ q_
+        DC.DP tr _ = r
+    in putStrLn ("DCMIX," ++ show (fromEnum t) ++ "," ++ show (fromEnum a)
+                 ++ "," ++ show (fromEnum u) ++ "," ++ show (fromEnum b)
+                 ++ "," ++ show (DC.toDuodec r)))
+    [ (p_, q_) | p_ <- DC.allPoints, q_ <- DC.allPoints ]
+  mapM_ (\(DC.DP t a) ->
+    let DC.DP st sa = DC.sigmaDC (DC.DP t a)
+    in putStrLn ("DCSIGMA," ++ show (fromEnum t) ++ "," ++ show (fromEnum a)
+                 ++ "," ++ show (fromEnum st) ++ "," ++ show (fromEnum sa))) DC.allPoints
   where
     with l extra = l ++ "," ++ intercalate "," (map show extra)
     lcmRemAt i = [177147,118098,157464,104976,139968,93312,124416,82944,110592,73728,98304,65536] !! i

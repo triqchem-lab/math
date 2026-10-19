@@ -1,0 +1,25 @@
+{
+ "reconcile_dump": {
+  "rows": 3146969,
+  "rust_sha256": "25965b67d4d1b93b66a5646ca22a8313676dbe49471acaf65cf5070c531e4383",
+  "hs_sha256": "25965b67d4d1b93b66a5646ca22a8313676dbe49471acaf65cf5070c531e4383",
+  "identical": true,
+  "sections": {
+   "GF3ADD": 9,
+   "GF3MUL": 9,
+   "GF9MUL": 81,
+   "RINGADD2X": 177147,
+   "RINGMULGEN": 1948617,
+   "RINGMULSAMPLE": 1000000,
+   "EISMUL": 625,
+   "EISNORM": 289,
+   "SUNYISTEP": 24,
+   "BRIDGE": 20000,
+   "DCCRT": 12,
+   "DCMIX": 144,
+   "DCSIGMA": 12
+  },
+  "oracle_receipt": "281b389cd5b9c07cabb23e4d1e3481d28f2c5585732ab0d9fff8cf4c3e723cf1",
+  "note": "\u5b8c\u6574 dump \u4e0d\u5165\u5e93 (85MB); \u7528 dump_tables \u590d\u8dd1 + \u672c sha256 \u6838\u5bf9"
+ }
+}
