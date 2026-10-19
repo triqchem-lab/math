@@ -947,6 +947,20 @@ def check_soliton(fail):
             m = re.match(r"sin_(\w+)=(-?\d+)", ln.strip())
             if m:
                 got[m.group(1)] = int(m.group(2))
+        # ① 位精确: 与整数 Taylor 递推 (与实现同配方, Python 独立实现) 对照
+        def sin_q32(x):
+            xx = (x * x) >> 32
+            term = x; total = x
+            for k in range(1, 31):
+                if term == 0: break
+                term = ((term * xx) >> 32) // (2 * k) // (2 * k + 1)
+                total += -term if k % 2 == 1 else term
+            return total
+        ang = {"0": 0, "pi12": TH // 6, "pi6": TH // 3, "pi4": TH // 2,
+               "pi3": (2 * TH) // 3, "5pi12": (5 * TH) // 6, "pi2": TH}
+        recur = {k: sin_q32(x) for k, x in ang.items()}
+        exact_bad = {k: (got.get(k), recur[k]) for k in recur if got.get(k) != recur[k]}
+        # ② 数学正确性: 递推 vs mpmath 真值 ≤3 ulp
         sin_err = {k: got.get(k, 0) - v for k, v in exp_sin.items() if abs(got.get(k, 0) - v) > 3}
         # rho: sin²(π s/9000) × 2^16 (step=4500 走分支 → 65536)
         exp_rho = {1125: int(mp.sin(PI / 8) ** 2 * 65536),
@@ -968,9 +982,10 @@ def check_soliton(fail):
             m = re.search(r"phase_%d=(\d+)" % k, body)
             if not m or int(m.group(1)) != v:
                 ph_bad[k] = (m.group(1) if m else None, v)
-        ok = (not sin_err and not rho_bad and not ph_bad
+        ok = (not exact_bad and not sin_err and not rho_bad and not ph_bad
               and rng and rng.group(1) == "0" and rng.group(2) == "1")
-        print(f"Soliton: sin 7 特色角误差 ≤3 ulp {'✓' if not sin_err else '✗ ' + str(sin_err)}; "
+        print(f"Soliton: sin 与整数 Taylor 递推位精确 {'✓' if not exact_bad else '✗ ' + str(exact_bad)}; "
+              f"递推 vs 真值 ≤3 ulp {'✓' if not sin_err else '✗ ' + str(sin_err)}; "
               f"rho(sin²(πs/9000)) 7 点 ≤2 ulp {'✓' if not rho_bad else '✗ ' + str(rho_bad)}; "
               f"phase 阈值映射 {'✓' if not ph_bad else '✗ ' + str(ph_bad)}; "
               f"单调+值域[0,2³²] {'✓' if rng and rng.group(1)=='0' and rng.group(2)=='1' else '✗'}"

@@ -497,3 +497,29 @@ C 的**函数实参求值顺序未指定** ⇒ `o1`/`o2` 可能在调用**之前
 
 **教训**：核对器对「值可疑」的第一反应应是**直接调库复核**，而不是改实现；
 本轮三次「实现看起来错」全部是测试错（printf 求值顺序、b 每 limb 置 1、uint32 截断）。
+
+## 二十、负向控制：证明核对器会说「不」（13/13）
+
+核对器若从不说「不」，等于没有核对器。新增 `hs/sov-math/engineering/negative_controls.py`：
+对 golden 快照逐条注入**单点篡改**，要求 `verify_agda_anchors.py` 判 FAIL。
+
+```bash
+python3 hs/sov-math/engineering/negative_controls.py
+```
+
+实测（当前状态）：
+
+| 篡改 | 捕获 |
+|---|---|
+| Tryte 值域 / pack5 碰撞 / Doz 数位映射 | ✅ ✅ ✅ |
+| ring 表示层 / σ 全域 / T⁶ 索引 | ✅ ✅ ✅ |
+| ADC 小域 / LCM 链 / Eisenstein 乘 | ✅ ✅ ✅ |
+| 宽定点 π 的 1 个 limb 末位 / 全息 chk / 数字根 mod9 | ✅ ✅ ✅ |
+| **soliton sin 的 1 ulp** | 初次**漏抓** → 已收紧为「与整数 Taylor 递推**位精确**」后 ✅ |
+
+**这条漏抓很有价值**：原核对容差 3 ulp，1 ulp 的篡改落在容差内 ⇒ 判 PASS。
+修复方式是把核对拆成两级：
+1. **ABI ↔ 整数 Taylor 递推**：位精确（Python 独立实现同一递推，0 ulp）；
+2. **递推 ↔ 真值（mpmath 60 位）**：≤3 ulp。
+
+这样「实现漂移」与「数学误差」分别由不同的判官负责，前者不容忍任何偏差。
