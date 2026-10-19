@@ -18,6 +18,8 @@ import qualified Sov.Math.Topology.T6 as T6
 import qualified Sov.Math.Topology.TimeCrystal as TC
 import qualified Sov.Math.Topology.Soliton as Sol
 import qualified Sov.Math.Topology.Tower as Tw
+import qualified Sov.Validation.Zomega as ZW
+import qualified Sov.Validation.ChiInner as CI
 import Sov.Math.Nat
 import Sov.Math.Ring
 import Sov.Math.SunYi
@@ -235,6 +237,31 @@ allTests =
       (Tw.zhonglvFromTowerFloor 2 1 == 40)
   , check "tower_height_q16" -- zc=0: fl=2.6355 < 12 → 高度 0
       (Tw.towerHeightQ16 0 == 0 && Tw.towerHeightQ16 2583 >= 3 * 65536)
+
+  -- ── Validation: Z[ω,i] (zomega.rs) ──
+  , check "zwi_identities"
+      (ZW.zwiMul ZW.zwiOmega ZW.zwiOmega == ZW.zwiAdd (ZW.zwiNeg ZW.zwiOne) (ZW.zwiNeg ZW.zwiOmega)
+       && ZW.zwiMul ZW.zwiI ZW.zwiI == ZW.zwiNeg ZW.zwiOne
+       && ZW.zwiMul ZW.zwiOmega ZW.zwiI == ZW.zwiOmegaI
+       && ZW.zwiMul ZW.zwiI ZW.zwiOmega == ZW.zwiOmegaI
+       && ZW.zwiMul ZW.zwiOmegaI ZW.zwiOmegaI == ZW.zwiAdd ZW.zwiOne ZW.zwiOmega)
+  , check "zwi_assoc_81_pow3"  -- 完整论域 81³ = 531441 组, 非抽样
+      ZW.zwiAssocCheck81
+
+  -- ── Validation: 杨辉三角 Lucas (yanghui.rs) ──
+  , check "lucas_instances"
+      (ZW.binomialModP 5 2 3 == 1 && ZW.binomialModP 4 2 3 == 0
+       && ZW.binomialModP 6 3 3 == 2)
+  , check "lucas_boundary"
+      (ZW.binomialModP 10 0 3 == 1 && ZW.binomialModP 10 10 3 == 1)
+  , check "yanghui_row7"     -- 第 7 行 mod 3: [1,0,0,1,0,0,1,1]... 以 Lucas 重算为准
+      (ZW.yanghuiRow 7 3 == map (\k -> ZW.binomialModP 7 k 3) [0 .. 7]
+       && ZW.yanghuiRow 0 3 == [1])
+
+  -- ── Validation: 2·A₄ 特征标 (chi_inner.rs) ──
+  , check "chi_irreducible"  CI.verifyChiIrreducible
+  , check "chi_inner_exact"  -- ⟨χ₂',χ₂'⟩·|G| = (24,0) 精确
+      (CI.innerNum CI.chi2' == Eis 24 0)
   ]
 
 -- ═══ 辅助 ═══

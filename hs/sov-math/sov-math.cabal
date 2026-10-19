@@ -37,6 +37,8 @@ library
                       Sov.Math.Topology.TimeCrystal
                       Sov.Math.Topology.Soliton
                       Sov.Math.Topology.Tower
+                      Sov.Validation.Zomega
+                      Sov.Validation.ChiInner
     hs-source-dirs:   src
     build-depends:    base >=4 && <5
     default-language: GHC2021
