@@ -490,6 +490,54 @@ pub extern "C" fn sov_tryte_unpack(v: u16, t6: *mut u8) -> i32 {
     OK
 }
 
+// ══ 第五批: 孤子相变 (L5) — 与 hs Soliton.sinQ32 同整数配方 ══
+
+const PI_HALF_Q32: i64 = 6746518852;
+
+/// Q32 整数正弦 (Taylor, 与 hs Soliton.sinQ32 同配方)
+/// ⚠ 中间量必须 i128: x ≈ 6.75e9 (π/2 Q32) ⇒ x² ≈ 4.55e19 > i64::MAX, i64 会溢出
+fn sin_q32(x: i64) -> i64 {
+    let xx: i128 = (x as i128 * x as i128) >> 32;
+    let mut term: i128 = x as i128;
+    let mut total: i128 = x as i128;
+    for k in 1..=30i128 {
+        if term == 0 { break; }
+        term = ((term * xx) >> 32) / (2 * k) / (2 * k + 1);
+        if k % 2 == 1 { total -= term; } else { total += term; }
+    }
+    total as i64
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_soliton_sin_q32(x_q32: i64, out: *mut i64) -> i32 {
+    if out.is_null() { return ERR_NULL; }
+    if x_q32 < 0 || x_q32 > PI_HALF_Q32 { return ERR_RANGE; }
+    unsafe { *out = sin_q32(x_q32); }
+    OK
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_soliton_rho_q16(step: u32, out: *mut i32) -> i32 {
+    if out.is_null() { return ERR_NULL; }
+    if step >= 4500 { unsafe { *out = 65536; } return OK; }
+    let x = PI_HALF_Q32 * step as i64 / 4500;
+    let sq = sin_q32(x);
+    // sq ≤ 2^32 ⇒ sq² ≤ 2^64 溢出 i64, 须 i128 (对齐 hs 的 Integer)
+    unsafe { *out = (((sq as i128) * (sq as i128)) >> 48) as i32; }
+    OK
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_soliton_phase(rho_q16: i32, out: *mut u8) -> i32 {
+    if out.is_null() { return ERR_NULL; }
+    let p = if rho_q16 < 24904 { 0 }
+            else if rho_q16 < 49152 { 2 }
+            else if rho_q16 < 65536 { 1 }
+            else { 3 };
+    unsafe { *out = p; }
+    OK
+}
+
 #[unsafe(no_mangle)]
 pub extern "C" fn sov_chern_inject(num: *mut i64, den: *mut i64) -> i32 {
     if num.is_null() || den.is_null() { return ERR_NULL; }

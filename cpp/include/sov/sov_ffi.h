@@ -18,6 +18,7 @@
 #include <sov/l6.h>
 #include <sov/chern.h>
 #include <sov/sunyi.h>
+#include <sov/soliton.h>
 #include <sov/eis.h>
 #include <sov/holo.h>
 #include <sov/digit.h>

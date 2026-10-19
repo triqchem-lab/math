@@ -359,6 +359,44 @@ int main(int argc, char **argv) {
           printf("tryte728=%d%d%d%d%d%d\n", t6[0], t6[1], t6[2], t6[3], t6[4], t6[5]); }
     }
 
+    /* ══ 第五批: 孤子相变 (Q32 正弦原语 / ρ / 相态) ══ */
+    {
+        typedef int32_t (*fn_sq)(int64_t, int64_t *);
+        typedef int32_t (*fn_rq)(uint32_t, int32_t *);
+        typedef int32_t (*fn_ph)(int32_t, uint8_t *);
+        fn_sq sq = (fn_sq)sym("sov_soliton_sin_q32");
+        fn_rq rq = (fn_rq)sym("sov_soliton_rho_q16");
+        fn_ph ph = (fn_ph)sym("sov_soliton_phase");
+
+        /* 正弦原语: 0, π/6, π/4, π/3, π/2 (Q32) + 边界外 */
+        const int64_t xs[] = {0, 1124170620LL, 1686267014LL, 2248344042LL, 6746518852LL};
+        for (unsigned i = 0; i < 5; ++i) {
+            int64_t o = -1; int32_t rc = sq(xs[i], &o);
+            printf("sinq32_%lld=%d:%lld\n", (long long)xs[i], rc, (long long)o);
+        }
+        { int64_t o; printf("err_sinq32=%d,%d\n", sq(-1, &o), sq(6746518853LL, &o)); }
+
+        /* ρ: 全域抽样 (0..4500 步进 450) + 边界 4499/4500/4501 */
+        for (uint32_t s = 0; s <= 4500; s += 450) {
+            int32_t o = -1; rq(s, &o);
+            printf("rho%u=%d\n", s, o);
+        }
+        { int32_t o; rq(4499, &o); printf("rho4499=%d;", o);
+          rq(4500, &o); printf("rho4500=%d;", o);
+          rq(4501, &o); printf("rho4501=%d\n", o); }
+
+        /* 单调性: ρ(0) ≤ ρ(1125) ≤ ρ(2250) ≤ ρ(3375) ≤ ρ(4500) */
+        { int32_t a,b,c,d,e; rq(0,&a); rq(1125,&b); rq(2250,&c); rq(3375,&d); rq(4500,&e);
+          printf("rho_mono=%d\n", (a<=b && b<=c && c<=d && d<=e) ? 1 : 0); }
+
+        /* 相态: 阈值两侧 */
+        const int32_t rs[] = {0, 24903, 24904, 49151, 49152, 65535, 65536, 100000};
+        for (unsigned i = 0; i < 8; ++i) {
+            uint8_t o = 9; ph(rs[i], &o);
+            printf("phase%d=%d\n", rs[i], o);
+        }
+    }
+
     /* 空指针保护 */
     printf("err_null=%d\n", tadd(0, 0, NULL));
     { fn_abi rfini = (fn_abi)dlsym(H, "sov_runtime_fini");

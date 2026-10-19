@@ -61,6 +61,10 @@ module Sov.FFI
   , sov_format_doz_wrapper
   , sov_parse_doz_wrapper
   , sov_tryte_unpack_wrapper
+    -- 第五批
+  , sov_soliton_sin_q32_wrapper
+  , sov_soliton_rho_q16_wrapper
+  , sov_soliton_phase_wrapper
   ) where
 
 import Data.Bits    (shiftL, shiftR, (.&.), (.|.))
@@ -81,6 +85,7 @@ import qualified Sov.Math.SunYi as SY
 import qualified Sov.Math.Eis as EIS
 import qualified Sov.Math.Guard.L7L8 as L78
 import qualified Sov.Math.Guard.Chern as CH
+import qualified Sov.Math.Topology.Soliton as SOL
 import Foreign.C.String (CString, withCString)
 import Data.List (foldl')
 import System.IO.Unsafe (unsafePerformIO)
@@ -690,3 +695,40 @@ sov_tryte_unpack_wrapper v t6
   where go 0 = repeat (0 :: Int)
         go x = fromIntegral (x `mod` 3) : go (x `quot` 3)
 foreign export ccall "sov_tryte_unpack" sov_tryte_unpack_wrapper :: CUShort -> Ptr CUChar -> IO CInt
+
+
+-- ═══ 第五批: 孤子相变 (L5) ═══
+
+-- | Q32 整数正弦原语 (复用 Soliton.sinQ32; 定义域 [0, π/2×2^32])
+sov_soliton_sin_q32_wrapper :: CLLong -> Ptr CLLong -> IO CInt
+sov_soliton_sin_q32_wrapper x out
+  | out == nullPtr = return (fromIntegral sovErrNull)
+  | x' < 0 || x' > 6746518852 = return (fromIntegral sovErrRange)
+  | otherwise = do
+      poke out (fromIntegral (SOL.sinQ32 (toInteger x')))
+      return 0
+  where x' = fromIntegral x :: Integer
+foreign export ccall "sov_soliton_sin_q32" sov_soliton_sin_q32_wrapper :: CLLong -> Ptr CLLong -> IO CInt
+
+-- | ρ(s) 的 Q16 定点 (s ≥ 4500 → 65536)
+sov_soliton_rho_q16_wrapper :: CUInt -> Ptr CInt -> IO CInt
+sov_soliton_rho_q16_wrapper step out
+  | out == nullPtr = return (fromIntegral sovErrNull)
+  | otherwise = do
+      poke out (fromIntegral (SOL.solitonRhoQ16Approx (fromIntegral step)))
+      return 0
+foreign export ccall "sov_soliton_rho_q16" sov_soliton_rho_q16_wrapper :: CUInt -> Ptr CInt -> IO CInt
+
+-- | 相态判定 (阈值 24904 / 49152 / 65536 → 0 / 2 / 1 / 3, 沿用 cpp/rust 既有语义)
+sov_soliton_phase_wrapper :: CInt -> Ptr CUChar -> IO CInt
+sov_soliton_phase_wrapper rho out
+  | out == nullPtr = return (fromIntegral sovErrNull)
+  | otherwise = do
+      let r = fromIntegral rho :: Int
+          p | r < 24904 = 0
+            | r < 49152 = 2
+            | r < 65536 = 1
+            | otherwise = 3
+      poke out (fromIntegral p :: CUChar)
+      return 0
+foreign export ccall "sov_soliton_phase" sov_soliton_phase_wrapper :: CInt -> Ptr CUChar -> IO CInt

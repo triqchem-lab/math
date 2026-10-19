@@ -29,6 +29,9 @@ SOV_FFI_1.0 {
     sov_ring_to_tryte;
     sov_runtime_fini;
     sov_runtime_init;
+    sov_soliton_phase;
+    sov_soliton_rho_q16;
+    sov_soliton_sin_q32;
     sov_strerror;
     sov_sunyi_boundary;
     sov_sunyi_gain;

@@ -4,7 +4,7 @@
 > 三语言实现（cpp / rust / hs）**逐符号等价**，可由任意 C/C++/带 FFI 的宿主加载。
 > 单一事实源：`cpp/include/sov/*.h`（版本脚本 `cpp/packaging/sov_ffi.map` 由此自动生成）。
 
-## 一、符号清单（45 个，分 18 个设施头）
+## 一、符号清单（48 个，分 19 个设施头）
 
 | 头 | 符号数 | 符号 |
 |---|---|---|
@@ -20,6 +20,7 @@
 | `<sov/wide.h>` | 3 | `sov_wide_rho`, `sov_wide_const_pi`, `sov_wide_const_sqrt3` |
 | `<sov/chern.h>` | 4 | `sov_chern_inject`, `sov_chern_detect`, `sov_chern_inject_monopole`, `sov_chern_compute` |
 | `<sov/sunyi.h>` | 4 | `sov_sunyi_length`, `sov_sunyi_gain`, `sov_sunyi_boundary`, `sov_chiral_collapse` |
+| `<sov/soliton.h>` | 3 | `sov_soliton_sin_q32`, `sov_soliton_rho_q16`, `sov_soliton_phase` |
 | `<sov/eis.h>` | 2 | `sov_eis_mul`, `sov_eis_norm` |
 | `<sov/holo.h>` | 1 | `sov_holographic` |
 | `<sov/digit.h>` | 2 | `sov_digital_root`, `sov_doz_digit` |
@@ -58,7 +59,7 @@
 | 闸门 | 命令 | 判据 |
 |---|---|---|
 | 导出面 | `engineering/verify_export_surface.sh` | 三语言 dynsym == 契约（缺/多皆红） |
-| 实现一致 | `engineering/ffi_conformance.sh` | 三语言同一向量 **853 行逐行相同** |
+| 实现一致 | `engineering/ffi_conformance.sh` | 三语言同一向量 **880 行逐行相同** |
 | 头合规 | `engineering/c99_compliance_check.py` | 保留标识符 / 自足性 / 版本闸门 |
 | 档位矩阵 | `engineering/c_standard_matrix.sh` | C99..C23 × C++11..23 × gcc/clang |
 | 安装 | `engineering/install_c_abi.sh` | `dist/` 标准布局 + pkg-config 三套 |
@@ -74,13 +75,16 @@
 | Doz 大小写 | 只接受大写 `A`/`B`；小写 → `SOV_ERR_RANGE`（bad-doz TRAP 的解析端对应） | — |
 | Doz 溢出 | 解析累加超出 `uint64` → `SOV_ERR_RANGE`（18 位 `B`×18 = 12^18−1 > 2^64−1） | 初版测试用了 12^16（≈1.85e17，**未溢出**）⇒ 分支未被覆盖，已换真溢出向量 |
 | Doz 缓冲 | `cap < digits + 1` → `SOV_ERR_RANGE`；结果 NUL 结尾，`written` 不含 NUL | — |
+| **定点中间量宽度** | Q32 正弦 Taylor 与 ρ 的 `sq²` **必须 128 位中间量**（C: `__int128`；Rust: `i128`） | int64 溢出：`x²≈4.55e19 > 2^63`、`2^32² = 2^64` ⇒ cpp/rust 得 `-32768` 而 hs（`Integer` 任意精度）得 `32768`；一致性测试抓出 |
+| 相态编号 | **沿用 cpp/rust 既有语义：0(Solid) < 2(Liquid) < 1(Curie) < 3(Superfluid) —— 非单调** | 与枚举注释的物理顺序不一致，属既有语义；ABI 保持兼容，已记待人类裁决 |
 
 ## 六、尚未纳入 ABI 的能力（诚实清单）
 
 | 能力 | 现状 |
 |---|---|
 | NSE 求解器（6624 格点演化） | cpp `nse_solver.h` / rust `NSESolver` / hs `Guard/NSE.hs` 均有，但**跨语言状态量太大**，需设计句柄或摘要式 ABI |
-| 孤子 ρ(step) Q16 | 三语言实现方式不同（hs Q32 正弦 / rust f64 / cpp Q16 近似），需先统一为**同一整数配方**再入 ABI |
+| ~~孤子 ρ(step) Q16~~ | ✅ 已入 ABI（第五批，统一 Q32 Taylor 整数配方，三语言逐位相同） |
+| 孤子 ρ 与实数域 sin² 的关系 | ⚠ 本 ABI 只保证**三语言同一整数配方**；与实数域 `sin²` 的一致性由 oracle 回执 `ba93f0e3` 承载（Q16 误差 ≤1 ulp），**不是**内核证明 |
 | 12 律音高 / 纳音 60 序列 | 部分已入（`sov_sunyi_*`），纳音全表待定 |
 | ~~Doz 字符串渲染~~ | ✅ 已入 ABI（第四批 `sov_format_doz`/`sov_parse_doz`，含 render→parse 往返不变式） |
 | TDA 持续同调 / 手性几何完整面 | 三语言覆盖不一致，未入 |

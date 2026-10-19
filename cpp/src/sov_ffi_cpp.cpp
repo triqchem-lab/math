@@ -446,6 +446,51 @@ int32_t sov_tryte_unpack(uint16_t v, uint8_t t6[6]) {
     return SOV_OK;
 }
 
+/* ══ 第五批: 孤子相变 (L5) ══ */
+
+namespace {
+// Q32 整数正弦 (Taylor, 与 hs Soliton.sinQ32 同配方): sin(x) ≈ Σ (−1)^k x^(2k+1)/(2k+1)!
+// ⚠ 中间量必须 __int128: x ≈ 6.75e9 (π/2 Q32) ⇒ x² ≈ 4.55e19 > 2^63, int64 会溢出
+//   (hs 用任意精度 Integer; 此处以 __int128 对齐同一配方)
+inline int64_t sin_q32(int64_t x) {
+    using i128 = __int128;
+    const i128 xx = (i128(x) * i128(x)) >> 32;
+    i128 term = x, total = x;
+    for (int k = 1; k <= 30; ++k) {
+        if (term == 0) break;
+        term = ((term * xx) >> 32) / (2 * k) / (2 * k + 1);
+        total += (k % 2 == 1) ? -term : term;
+    }
+    return int64_t(total);
+}
+} // namespace
+
+int32_t sov_soliton_sin_q32(int64_t x_q32, int64_t* out) {
+    if (!out) return SOV_ERR_NULL;
+    if (x_q32 < 0 || x_q32 > 6746518852LL) return SOV_ERR_RANGE;
+    *out = sin_q32(x_q32);
+    return SOV_OK;
+}
+
+int32_t sov_soliton_rho_q16(uint32_t step, int32_t* out) {
+    if (!out) return SOV_ERR_NULL;
+    if (step >= 4500u) { *out = 65536; return SOV_OK; }
+    int64_t x = 6746518852LL * int64_t(step) / 4500;
+    int64_t sq = sin_q32(x);
+    // sq ≤ 2^32 (sin=1) ⇒ sq² ≤ 2^64 会溢出 int64, 须 128 位 (对齐 hs 的 Integer)
+    *out = int32_t((__int128(sq) * __int128(sq)) >> 48);
+    return SOV_OK;
+}
+
+int32_t sov_soliton_phase(int32_t rho_q16, uint8_t* out) {
+    if (!out) return SOV_ERR_NULL;
+    if (rho_q16 < 24904)       *out = 0;   /* SOLID_FROZEN */
+    else if (rho_q16 < 49152)  *out = 2;   /* LIQUID_FORMING (沿用既有语义) */
+    else if (rho_q16 < 65536)  *out = 1;   /* CURIE_TRANSITION */
+    else                       *out = 3;   /* SUPERFLUID */
+    return SOV_OK;
+}
+
 int32_t sov_tryte_value(const uint8_t t6[6], uint16_t* out) {
     if (!t6 || !out) return SOV_ERR_NULL;
     uint16_t v = 0, p = 1;
