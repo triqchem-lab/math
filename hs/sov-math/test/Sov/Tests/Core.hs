@@ -16,6 +16,8 @@ import Sov.Math.Guard.L7L8
 import Sov.Math.Chiral
 import qualified Sov.Math.Topology.T6 as T6
 import qualified Sov.Math.Topology.TimeCrystal as TC
+import qualified Sov.Math.Topology.Soliton as Sol
+import qualified Sov.Math.Topology.Tower as Tw
 import Sov.Math.Nat
 import Sov.Math.Ring
 import Sov.Math.SunYi
@@ -207,6 +209,32 @@ allTests =
       (let f = TC.getActiveForce 0 in TC.dvX f == 81 && TC.dvY f == 54)
   , check "n14_closure"      (TC.n14IsClosureZero C.grandPump && not (TC.n14IsClosureZero 1)
                               && TC.n14VirtualPhase C.grandPump == 0)
+
+  -- ── Soliton (零浮点改造, oracle 对账回执 ba93f0e3) ──
+  , check "rho_endpoints"    (Sol.solitonRhoQ16 0 == 0 && Sol.solitonRhoQ16 Sol.phaseAnchorSteps == 65536)
+  , check "rho_monotone"     -- sin² 在 [0,π/2] 单调 → 定点表单调
+      (and [ Sol.solitonRhoQ16 s <= Sol.solitonRhoQ16 (s + 1) | s <- [0, 100 .. 4399] ])
+  , check "rho_anchor"       -- 锚点 s=2250 (π/4): sin²=1/2 → 32768 ± 1
+      (abs (Sol.solitonRhoQ16 2250 - 32768) <= 1)
+  , check "phase_boundaries"
+      (Sol.determinePhase 0 == Sol.SolidFrozen
+       && Sol.determinePhase 24903 == Sol.LiquidForming   -- 0.38 边界
+       && Sol.determinePhase 49152 == Sol.CurieTransition -- 0.75 边界
+       && Sol.determinePhase 65536 == Sol.Superfluid)
+  , check "standing_nodes"   (all Sol.isStandingNode [0, 3, 6, 9] && not (Sol.isStandingNode 1))
+  , check "soliton_collapse" (Sol.solitonCollapse 113507 && Sol.solitonCollapse (-113507)
+                              && not (Sol.solitonCollapse 113506))
+
+  -- ── Tower (零浮点改造, oracle 对账回执 86c6aca2) ──
+  , check "tower_edge_41"    -- h>2 的最小 zc = 41 (oracle 全域对账边界)
+      (not (Tw.towerHeightExceeds 40 2 1) && Tw.towerHeightExceeds 41 2 1)
+  , check "tower_2583"       -- rust test_tower: towerHeight(2583) > 2 (f64 版 3.6607)
+      (Tw.towerHeightExceeds 2583 2 1 && Tw.towerHeightExceeds 2583 3 1
+       && not (Tw.towerHeightExceeds 2583 4 1))  -- f64 精确值 3.66 → >3 且 <4
+  , check "tower_floor"      -- 反演下界: h≤2 的最大 zc = 40 (与 edge 41 自洽)
+      (Tw.zhonglvFromTowerFloor 2 1 == 40)
+  , check "tower_height_q16" -- zc=0: fl=2.6355 < 12 → 高度 0
+      (Tw.towerHeightQ16 0 == 0 && Tw.towerHeightQ16 2583 >= 3 * 65536)
   ]
 
 -- ═══ 辅助 ═══
