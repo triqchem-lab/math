@@ -29,6 +29,7 @@ MUTATIONS = [
     ("NSE 模式2 摘要",   lambda s: re.sub(r"(nse2_s1:[^\n]*c0=)(\d)", lambda m: m.group(1) + str((int(m.group(2)) + 1) % 10), s, count=1)),
     ("NSE 格点越界",     lambda s: s.replace("m0s3:rho37289,step3,(0,0)=0", "m0s3:rho37289,step3,(0,0)=5", 1)),
     ("ring 729² 子域",   lambda s: s.replace("ring_add_729sq_bad=0", "ring_add_729sq_bad=1", 1)),
+    ("DC 平移任意起点",  lambda s: s.replace("dc_translate_full_bad=0", "dc_translate_full_bad=1", 1)),
 ]
 
 def run(body_path):

@@ -1108,5 +1108,6 @@ holo_sweep_chk=654910944,neg_bad=0
 holo_4320=4320
 ring_add_pow3_bad=0,chk=321288129
 ring_add_729sq_bad=0,chk=554838110
+dc_translate_full_bad=0,chk=471338812
 err_null=-4
 runtime_fini=0

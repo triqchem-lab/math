@@ -68,7 +68,7 @@
 | 闸门 | 命令 | 判据 |
 |---|---|---|
 | 导出面 | `engineering/verify_export_surface.sh` | 三语言 dynsym == 契约（缺/多皆红） |
-| 实现一致 | `engineering/ffi_conformance.sh` | 三语言同一向量 **1112 行逐行相同** |
+| 实现一致 | `engineering/ffi_conformance.sh` | 三语言同一向量 **1113 行逐行相同** |
 | 头合规 | `engineering/c99_compliance_check.py` | 保留标识符 / 自足性 / 版本闸门 |
 | 档位矩阵 | `engineering/c_standard_matrix.sh` | C99..C23 × C++11..23 × gcc/clang |
 | 安装 | `engineering/install_c_abi.sh` | `dist/` 标准布局 + pkg-config 三套 |
@@ -201,6 +201,7 @@ cpp 的 `NSESolver::step` 与 rust/hs 的 `step_once` 在 delta 公式上不同�
 | `sov_nse_*` 模式 0/1 | 启发式：rho ∈ [0,65536]、步数单调、格点 ∈ {0,1,2}、越界错误码、free | ✅ 不变量成立（**不宣称**与 Agda 逐点一致） |
 | `sov_nse_*` 模式 2 | **全状态逐 trit 比对已自动化**：`nse_agda_check.py` 按 Agda 定义（`shiftAt`/`diffF`/`div`/`grad`/`nsStep`，含 3 轴 Q5 缺陷的原样语义）在 Python 复算一步，与 ABI 状态比对，**四步演化** 4×6×729 = **17496 trits** | ✅ 差异 **0**；已接入总闸门 **步骤 4.6** |
 | `sov_ring_add` 完备子域 | **低 6 位子环全域 729² = 531441 对**（完全子域，非抽样） | ✅ 0 反例 |
+| `sov_dc_translate` | **12 个起点 × 13 个步长全域**（156 项）：`gⁿ·(T_t,α_k) = (T_{t+n mod 3}, α_{(k+n) mod 4})` | ✅ 0 反例 |
 | `sov_dayan_multiplier` | 解析 `DayanState.agda` 的 `dayan-init`/`dayan-step` 原文形态；用 ℤ 版独立实现核对 ABI | ✅ 1101/1101 互素对（m≤60），校验和 823007911 |
 | `sov_crt2` | 广义二模 CRT：验证解满足两同余且唯一落在 [0,m₁m₂) | ✅ 576/576（模数对取自 {2,3,5,7,11}），物不知数 → 23 |
 

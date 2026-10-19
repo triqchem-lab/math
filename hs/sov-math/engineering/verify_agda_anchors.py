@@ -470,13 +470,23 @@ def check_joint_period(fail):
     period_ok = jnt.get(0) == jnt.get(12) and all(jnt.get(k) != (0, 0) for k in range(1, 12))
     # C4 非 V4: 存在阶恰为 4 的元素 (α^1≠e, α^2≠e, α^4=e); V4 会让 α²=e
     c4_ok = ord4.get(1, (0, 0)) != (0, 0) and ord4.get(2, (0, 0)) != (0, 0) and ord4.get(4, (0, 0)) == (1, 0)
+    # 任意起点的平移作用: (t,k) → (t+n mod 3, k+n mod 4), 12 起点 × 13 步长全域
+    MOD7 = 1000000007
+    c_tr = 0
+    for t in range(3):
+        for k in range(4):
+            for n in range(13):
+                c_tr = (c_tr * 131 + ((t + n) % 3) * 10 + ((k + n) % 4)) % MOD7
+    trn = re.search(r"dc_translate_full_bad=(\d+),chk=(\d+)", body)
     comp = re.search(r"comp_periods=trit3:(\d),phase4:(\d)", body)
     comp_ok = bool(comp and comp.group(1) == "1" and comp.group(2) == "1")
-    ok = has_jp and has_cycle and has_ord4 and table_ok and period_ok and c4_ok and comp_ok
+    ok = has_jp and has_cycle and has_ord4 and table_ok and period_ok and c4_ok and comp_ok \
+         and trn and trn.group(1) == "0" and int(trn.group(2)) == c_tr
     print(f"Agda joint-period-12/mixedOp-12-cycle/alpha-order-exactly-4: "
           f"{'✓' if has_jp else '✗'}{'✓' if has_cycle else '✗'}{'✓' if has_ord4 else '✗'}; "
           f"ABI g^k=(T_(k%3),a_(k%4)) 全表 {'✓' if table_ok else '✗'}, 周期 12 {'✓' if period_ok else '✗'}, "
-          f"分量 trit3/phase4 {'✓' if comp_ok else '✗'}, 相位 C₄≠V₄ (α²≠e) {'✓' if c4_ok else '✗'}"
+          f"分量 trit3/phase4 {'✓' if comp_ok else '✗'}, 相位 C₄≠V₄ (α²≠e) {'✓' if c4_ok else '✗'}, "
+          f"任意起点平移 12×13 {'✓' if trn and trn.group(1)=='0' and int(trn.group(2))==c_tr else '✗'}"
           + ("" if ok else "  🔴"))
     return ok
 

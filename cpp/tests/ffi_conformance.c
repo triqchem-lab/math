@@ -1365,6 +1365,22 @@ int main(int argc, char **argv) {
           printf("ring_add_729sq_bad=%d,chk=%lld\n", bad, chk); }
     }
 
+    /* ══ DC 平移作用: 12 个起点 × 13 个步长 全域 (群作用 vs 加法) ══ */
+    {
+        typedef int32_t (*fn_dct2)(uint32_t, uint8_t, uint8_t, uint8_t *, uint8_t *);
+        fn_dct2 t2 = (fn_dct2)sym("sov_dc_translate");
+        { int bad = 0; long long chk = 0;
+          for (int t = 0; t < 3; ++t) for (int k = 0; k < 4; ++k)
+          for (unsigned n = 0; n <= 12; ++n) {
+              uint8_t to = 9, ko = 9;
+              t2(n, (uint8_t)t, (uint8_t)k, &to, &ko);
+              /* g^n · (T_t, a_k) = (T_{t+n mod 3}, a_{(k+n) mod 4}) */
+              if (to != (uint8_t)((t + n) % 3) || ko != (uint8_t)((k + n) % 4)) ++bad;
+              chk = (chk * 131 + to * 10 + ko) % 1000000007LL;
+          }
+          printf("dc_translate_full_bad=%d,chk=%lld\n", bad, chk); }
+    }
+
     /* 空指针保护 */
     printf("err_null=%d\n", tadd(0, 0, NULL));
     { fn_abi rfini = (fn_abi)dlsym(H, "sov_runtime_fini");
