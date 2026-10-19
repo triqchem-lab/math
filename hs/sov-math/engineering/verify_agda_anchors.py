@@ -648,6 +648,68 @@ def check_digital_root(fail):
           + ("" if (has_def and has_mod9 and sweep_ok and mod9_ok) else "  🔴"))
     return has_def and has_mod9 and sweep_ok and mod9_ok
 
+TRYTE_AGDA = f"{SRC}/Sovereign/Application/Algebra/Tryte.agda"
+DOZ_AGDA = f"{SRC}/Sovereign/Synthesis/Format/Doz.agda"
+
+def check_small_domains(fail):
+    """全域穷尽类: Tryte(729) / pack5(243) / Doz 数位(12) / Doz 往返
+
+    ABI 侧打印的校验和由**独立 Python 实现**复算比对（差分证据），
+    并解析 Agda 的 Tryte 类型与 Doz digitStr 映射。
+    """
+    tryte = read(TRYTE_AGDA)
+    tryte_ok = bool(re.search(r"Tryte = Vec Trit 6|Tryte : Set\nTryte = Vec Trit 6", tryte)) or ("Vec Trit 6" in tryte)
+    doz = read(DOZ_AGDA)
+    doz_ok = ("digitStr" in doz) and ('"A"' in doz) and ('"B"' in doz)
+
+    body = read(BODY)
+    # 独立复算: tryte 全域 729 → value 的校验和
+    MOD = 1000000007
+    chk_t = 0
+    for v in range(729):
+        chk_t = (chk_t * 131 + v) % MOD
+    # pack5 复算: 高位优先 packed = t4*81 + t3*27 + t2*9 + t1*3 + t0
+    chk_p = 0
+    seen = set()
+    for t0 in range(3):
+        for t1 in range(3):
+            for t2 in range(3):
+                for t3 in range(3):
+                    for t4 in range(3):
+                        packed = t4*81 + t3*27 + t2*9 + t1*3 + t0
+                        seen.add(packed)
+                        chk_p = (chk_p * 131 + packed) % MOD
+    # doz 数位: 12 个字符的校验和
+    chk_d = 0
+    for d in range(12):
+        c = ord('0') + d if d < 10 else ord('A') + (d - 10)
+        chk_d = (chk_d * 131 + c) % MOD
+    # doz 往返 0..20000
+    chk_r = 0
+    for v in range(20001):
+        chk_r = (chk_r * 131 + v) % MOD
+
+    t_full = re.search(r"tryte_full_bad=(\d+),bad_digit=(\d+),chk=(\d+)", body)
+    t_perm = re.search(r"tryte_perm_bad=(\d+),covered=(\d+)", body)
+    p_full = re.search(r"pack5_full_bad=(\d+),byte_collision=(\d+),chk=(\d+)", body)
+    d_full = re.search(r"doz_digit_full_bad=(\d+),chk=(\d+)", body)
+    r_full = re.search(r"doz_roundtrip_bad=(\d+),chk=(\d+)", body)
+    ok = bool(t_full and t_perm and p_full and d_full and r_full)
+    ok = ok and t_full.group(1) == "0" and t_full.group(2) == "0" and int(t_full.group(3)) == chk_t
+    ok = ok and t_perm.group(1) == "0" and t_perm.group(2) == "729"
+    ok = ok and p_full.group(1) == "0" and p_full.group(2) == "0" and int(p_full.group(3)) == chk_p
+    ok = ok and d_full.group(1) == "0" and int(d_full.group(2)) == chk_d
+    ok = ok and r_full.group(1) == "0" and int(r_full.group(2)) == chk_r
+    ok = ok and tryte_ok and doz_ok and len(seen) == 243
+    print(f"Agda Tryte=Vec Trit 6 {'✓' if tryte_ok else '✗'}, Doz digitStr(A/B) {'✓' if doz_ok else '✗'}; "
+          f"Tryte 全域 729 往返 {'✓' if t_full and t_full.group(1)=='0' else '✗'} (独立复算 chk {'✓' if t_full and int(t_full.group(3))==chk_t else '✗'}), "
+          f"值域覆盖 {'✓' if t_perm and t_perm.group(2)=='729' else '✗'}; "
+          f"pack5 全域 243 {'✓' if p_full and p_full.group(1)=='0' else '✗'} (chk {'✓' if p_full and int(p_full.group(3))==chk_p else '✗'}); "
+          f"Doz 数位 12 {'✓' if d_full and d_full.group(1)=='0' else '✗'}; "
+          f"Doz 往返 0..20000 {'✓' if r_full and r_full.group(1)=='0' else '✗'}"
+          + ("" if ok else "  🔴"))
+    return ok
+
 def main():
     src = read(CHAIN)
     fail = 0
@@ -692,6 +754,7 @@ def main():
     if not check_discrete_sphere(fail): fail = 1
     if not check_hopf_lift(fail): fail = 1
     if not check_digital_root(fail): fail = 1
+    if not check_small_domains(fail): fail = 1
 
     print("\n" + ("PASS" if not fail else "FAIL"))
     return fail

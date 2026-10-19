@@ -777,6 +777,89 @@ int main(int argc, char **argv) {
           printf("droot_relation_bad=%d\n", bad); }
     }
 
+    /* ══ 全域穷尽: Tryte(729) / pack5(243) / Doz 数位(12) / Doz 往返 ══ */
+    {
+        typedef int32_t (*fn_tv)(const uint8_t *, uint16_t *);
+        typedef int32_t (*fn_tu)(uint16_t, uint8_t *);
+        typedef int32_t (*fn_p5)(uint8_t, uint8_t, uint8_t, uint8_t, uint8_t, uint8_t *);
+        typedef int32_t (*fn_u5)(uint8_t, uint8_t *);
+        typedef int32_t (*fn_dz)(uint8_t, char *);
+        typedef int32_t (*fn_fd)(uint64_t, char *, size_t, size_t *);
+        typedef int32_t (*fn_pd)(const char *, size_t, uint64_t *);
+        fn_tv tv = (fn_tv)sym("sov_tryte_value");
+        fn_tu tu = (fn_tu)sym("sov_tryte_unpack");
+        fn_p5 p5 = (fn_p5)sym("sov_trit_pack5");
+        fn_u5 u5 = (fn_u5)sym("sov_trit_unpack5");
+        fn_dz dz = (fn_dz)sym("sov_doz_digit");
+        fn_fd fd = (fn_fd)sym("sov_format_doz");
+        fn_pd pd = (fn_pd)sym("sov_parse_doz");
+
+        /* ① Tryte: 全域 729 值往返 + base-3 小端语义 */
+        { int bad = 0, bad_digit = 0; long long chk = 0;
+          for (int v = 0; v < 729; ++v) {
+              uint8_t t[6]; uint16_t back = 0;
+              if (tu((uint16_t)v, t) != 0) { ++bad; continue; }
+              int expect = v;
+              for (int i = 0; i < 6; ++i) {
+                  if (t[i] > 2) ++bad_digit;
+                  if (t[i] != expect % 3) ++bad;   /* 小端: t[i] = 第 i 位 */
+                  expect /= 3;
+              }
+              if (tv(t, &back) != 0 || back != (uint16_t)v) ++bad;
+              chk = (chk * 131 + back) % 1000000007LL;
+          }
+          printf("tryte_full_bad=%d,bad_digit=%d,chk=%lld\n", bad, bad_digit, chk); }
+
+        /* ② Tryte 满射/单射: 全 729 个 trit 向量 → 值恰为 0..728 的排列 */
+        { int seen[729] = {0}; int bad = 0, cnt = 0;
+          for (int v = 0; v < 729; ++v) {
+              uint8_t t[6]; tu((uint16_t)v, t);
+              uint16_t r = 0; tv(t, &r);
+              if (r < 729) { if (seen[r]) ++bad; else { seen[r] = 1; ++cnt; } }
+              else ++bad;
+          }
+          printf("tryte_perm_bad=%d,covered=%d\n", bad, cnt); }
+
+        /* ③ pack5: 全域 243 组合往返 */
+        { int bad = 0; long long chk = 0; int seen[256] = {0};
+          for (int t0 = 0; t0 < 3; ++t0) for (int t1 = 0; t1 < 3; ++t1)
+          for (int t2 = 0; t2 < 3; ++t2) for (int t3 = 0; t3 < 3; ++t3)
+          for (int t4 = 0; t4 < 3; ++t4) {
+              uint8_t p = 0, out[5] = {9,9,9,9,9};
+              if (p5((uint8_t)t0,(uint8_t)t1,(uint8_t)t2,(uint8_t)t3,(uint8_t)t4,&p) != 0) { ++bad; continue; }
+              if (p >= 243) ++bad;
+              seen[p]++;
+              if (u5(p, out) != 0) { ++bad; continue; }
+              if (out[0] != t4 || out[1] != t3 || out[2] != t2 || out[3] != t1 || out[4] != t0) ++bad;
+              chk = (chk * 131 + p) % 1000000007LL;
+          }
+          { int dup = 0; for (int i = 0; i < 243; ++i) if (seen[i] != 1) ++dup;
+            printf("pack5_full_bad=%d,byte_collision=%d,chk=%lld\n", bad, dup, chk); } }
+
+        /* ④ Doz 数位: 12 值全枚举 */
+        { int bad = 0; long long chk = 0;
+          for (int d = 0; d < 12; ++d) {
+              char c = '?';
+              if (dz((uint8_t)d, &c) != 0) { ++bad; continue; }
+              char exp = (d < 10) ? (char)('0' + d) : (char)('A' + (d - 10));
+              if (c != exp) ++bad;
+              chk = (chk * 131 + (long long)c) % 1000000007LL;
+          }
+          printf("doz_digit_full_bad=%d,chk=%lld\n", bad, chk); }
+
+        /* ⑤ Doz 往返 (format → parse) 0..20000 + 定点值 */
+        { int bad = 0; long long chk = 0;
+          for (uint64_t v = 0; v <= 20000; ++v) {
+              char buf[32]; size_t w = 0; uint64_t back = 0;
+              if (fd(v, buf, sizeof buf, &w) != 0) { ++bad; continue; }
+              if (pd(buf, w, &back) != 0 || back != v) ++bad;
+              chk = (chk * 131 + (long long)back) % 1000000007LL;
+          }
+          printf("doz_roundtrip_bad=%d,chk=%lld\n", bad, chk); }
+        { char buf[32]; size_t w = 0; fd(144, buf, sizeof buf, &w);
+          printf("doz_144=%.*s\n", (int)w, buf); }
+    }
+
     /* 空指针保护 */
     printf("err_null=%d\n", tadd(0, 0, NULL));
     { fn_abi rfini = (fn_abi)dlsym(H, "sov_runtime_fini");

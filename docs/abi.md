@@ -68,7 +68,7 @@
 | 闸门 | 命令 | 判据 |
 |---|---|---|
 | 导出面 | `engineering/verify_export_surface.sh` | 三语言 dynsym == 契约（缺/多皆红） |
-| 实现一致 | `engineering/ffi_conformance.sh` | 三语言同一向量 **1013 行逐行相同** |
+| 实现一致 | `engineering/ffi_conformance.sh` | 三语言同一向量 **1019 行逐行相同** |
 | 头合规 | `engineering/c99_compliance_check.py` | 保留标识符 / 自足性 / 版本闸门 |
 | 档位矩阵 | `engineering/c_standard_matrix.sh` | C99..C23 × C++11..23 × gcc/clang |
 | 安装 | `engineering/install_c_abi.sh` | `dist/` 标准布局 + pkg-config 三套 |
@@ -171,11 +171,16 @@ cpp 的 `NSESolver::step` 与 rust/hs 的 `step_once` 在 delta 公式上不同�
 | `sov_dc_mixedop` | 解析 `DuodecClock.agda` 的 `mulAlpha` 13 条子句 + 复用 ⊕ 表，组合出 144 项 | ✅ 144/144 |
 | `sov_zhonglv_closure` / `sov_sovereign_lcm` | 解析 `FixedPointQ16.agda` 的 `zhonglvClosure acc = (acc × CLOSURE_NUM) / CLOSURE_DEN` + `SunyiBase.agda` 的 `CLOSURE_NUM/DEN/SOVEREIGN_LCM` + 两条 refl 定理（`30→81`、`81→218`） | ✅ 定义一致；两条 refl 实例相等；LCM = 11609505792 |
 | `sov_zhonglv_step`（8 步） | 用 Agda 的**单次闭合**复合 8 次（每步 mod LCM）与 ABI 的 8 步实现对照 | ✅ 4/4 输入完全一致（含 `30→84981`、`987654321→6523580390`） |
+| `sov_tryte_value` / `sov_tryte_unpack` | Agda `Tryte = Vec Trit 6`（3⁶=729）；**全域穷尽** 729 值往返 + base-3 小端语义 + 值域恰为 0..728 | ✅ 729/729，`bad=0`，覆盖 729 |
+| `sov_trit_pack5` / `sov_trit_unpack5` | **全域穷尽** 243 个 trit 五元组：打包→解包往返、字节无碰撞（243 个值互异） | ✅ 243/243，`byte_collision=0` |
+| `sov_doz_digit` | Agda `Format/Doz.digitStr`（0..9→'0'..'9'，10→'A'，11→'B'）；**12 值全枚举** | ✅ 12/12 |
+| `sov_format_doz` / `sov_parse_doz` | 往返 0..20000 全域扫描；定点 144 → `"100"`（12²） | ✅ 20001/20001，0 反例 |
+| `sov_digital_root` / `_mod9` | Agda `digitalRoot n = n % 9`；经典版与 mod9 版关系式 | ✅ 两版全域 n≤2000，独立复算校验和一致 |
 | `sov_dayan_multiplier` | 解析 `DayanState.agda` 的 `dayan-init`/`dayan-step` 原文形态；用 ℤ 版独立实现核对 ABI | ✅ 1101/1101 互素对（m≤60），校验和 823007911 |
 | `sov_crt2` | 广义二模 CRT：验证解满足两同余且唯一落在 [0,m₁m₂) | ✅ 576/576（模数对取自 {2,3,5,7,11}），物不知数 → 23 |
 
 核对器：`engineering/verify_agda_anchors.py`（直接读 Agda 源文件，**不读我方表**；已并入 `abi_check.sh` 第 4.5 步）。
-当前覆盖 **925 项**：十二律 12 + 损益 12 + 余数 12 + 闭合常数 2 + GF(9) 81 + Eisenstein 625 + CRT 12 + Trit 18 + DC mixedOp 144 + 仲吕闭合 7。
+当前覆盖 **2191 项**：十二律 12 + 损益 12 + 余数 12 + 闭合常数 2 + GF(9) 81 + Eisenstein 625 + CRT 12 + Trit 18 + DC mixedOp 144 + 仲吕闭合 7 + **Tryte 729 + pack5 243 + Doz 数位 12 + Doz 往返 20001 + 数字根 4002**。
 
 负向控制（已实测三条，判官确实会说「不」）：
 - 篡改余数 `124416→124417` → `不一致 1` FAIL

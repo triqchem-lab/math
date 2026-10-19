@@ -1009,5 +1009,11 @@ err_pvec=-2;err_rot_trit=-1,-1
 droot_sweep_bad=0,chk=537278933
 droot_mod9_sweep_bad=0,chk=48797149
 droot_relation_bad=0
+tryte_full_bad=0,bad_digit=0,chk=685890497
+tryte_perm_bad=0,covered=729
+pack5_full_bad=0,byte_collision=0,chk=427376971
+doz_digit_full_bad=0,chk=869419033
+doz_roundtrip_bad=0,chk=212699976
+doz_144=100
 err_null=-4
 runtime_fini=0
