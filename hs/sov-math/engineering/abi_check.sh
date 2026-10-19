@@ -38,6 +38,9 @@ python3 hs/sov-math/engineering/c99_compliance_check.py | tail -2 || fail=1
 step 4.5 "Agda 形式化源码核对 (表值 + 常数)"
 python3 hs/sov-math/engineering/verify_agda_anchors.py "$ROOT/dist/ffi_cpp.body" | tail -6 || fail=1
 
+step 4.6 "NSE 模式2 ↔ Agda nsStep 全状态比对 (4374 trits)"
+python3 hs/sov-math/engineering/nse_agda_check.py || fail=1
+
 step 5/6 "语言档位矩阵"
 hs/sov-math/engineering/c_standard_matrix.sh | tail -1 || fail=1
 

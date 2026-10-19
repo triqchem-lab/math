@@ -199,12 +199,12 @@ cpp 的 `NSESolver::step` 与 rust/hs 的 `step_once` 在 delta 公式上不同�
 | `sov_abi_version` / `sov_strerror` | 版本 `(major<<16)\u007cminor = 65536`（1.0）；错误串非空且分类正确 | ✅ 1.0 / ok、illegal trit、未知码非空 |
 | `sov_holographic` | 定义层公式（Q16 对数投影）在 6×2001 组合上独立复算；另核对 Agda `InfoClosure.holographic-4320 ≡ 4320`（= 729×6−54，refl） | ⚠ **仅定义层**：Q16 常量与 Agda 的 4320 上限**无形式化推导关系**，不宣称强验证 |
 | `sov_nse_*` 模式 0/1 | 启发式：rho ∈ [0,65536]、步数单调、格点 ∈ {0,1,2}、越界错误码、free | ✅ 不变量成立（**不宣称**与 Agda 逐点一致） |
-| `sov_nse_*` 模式 2 | Agda `nsStep v = v +F grad (div v)`：散度为零的初场是**固定点** ⇒ 4 步摘要必须相同；头部 12 trit 合法；错误码 (−2,−2,−1,0) | ✅ 固定点成立；⚠ 全状态逐 trit 比对为早前手工核对（4374 trits），未自动化为核对器一步 |
+| `sov_nse_*` 模式 2 | **全状态逐 trit 比对已自动化**：`nse_agda_check.py` 按 Agda 定义（`shiftAt`/`diffF`/`div`/`grad`/`nsStep`，含 3 轴 Q5 缺陷的原样语义）在 Python 复算一步，与 ABI 状态比对 6×729 = **4374 trits** | ✅ 差异 **0**；已接入总闸门 **步骤 4.6** |
 | `sov_dayan_multiplier` | 解析 `DayanState.agda` 的 `dayan-init`/`dayan-step` 原文形态；用 ℤ 版独立实现核对 ABI | ✅ 1101/1101 互素对（m≤60），校验和 823007911 |
 | `sov_crt2` | 广义二模 CRT：验证解满足两同余且唯一落在 [0,m₁m₂) | ✅ 576/576（模数对取自 {2,3,5,7,11}），物不知数 → 23 |
 
 核对器：`engineering/verify_agda_anchors.py`（直接读 Agda 源文件，**不读我方表**；已并入 `abi_check.sh` 第 4.5 步）。
-当前覆盖 **4289 项**（含全域穷尽类）（含全域穷尽类）（含全域穷尽类）（含全域穷尽类）（含全域穷尽类）（含全域穷尽类）（含全域穷尽类）（含全域穷尽类）（含全域穷尽类）（含全域穷尽类）：十二律 12 + 损益 12 + 余数 12 + 闭合常数 2 + GF(9) 81 + Eisenstein 625 + CRT 12 + Trit 18 + DC mixedOp 144 + 仲吕闭合 7 + **Tryte 729 + pack5 243 + Doz 数位 12 + Doz 往返 20001 + 数字根 4002**。
+当前覆盖 **4289 项 + 4374 trits（NSE 全状态）**（含全域穷尽类）（含全域穷尽类）（含全域穷尽类）（含全域穷尽类）（含全域穷尽类）（含全域穷尽类）（含全域穷尽类）（含全域穷尽类）（含全域穷尽类）（含全域穷尽类）（含全域穷尽类）：十二律 12 + 损益 12 + 余数 12 + 闭合常数 2 + GF(9) 81 + Eisenstein 625 + CRT 12 + Trit 18 + DC mixedOp 144 + 仲吕闭合 7 + **Tryte 729 + pack5 243 + Doz 数位 12 + Doz 往返 20001 + 数字根 4002**。
 
 负向控制（已实测三条，判官确实会说「不」）：
 - 篡改余数 `124416→124417` → `不一致 1` FAIL
@@ -525,3 +525,18 @@ python3 hs/sov-math/engineering/negative_controls.py
 2. **递推 ↔ 真值（mpmath 60 位）**：≤3 ulp。
 
 这样「实现漂移」与「数学误差」分别由不同的判官负责，前者不容忍任何偏差。
+
+## 二十一、NSE 模式 2：从「手工核对」升级为「闸门步骤」
+
+早前模式 2 的一致性核对是**手工**做的（一次性、不可复跑）。本轮把它固化成机器判据：
+
+| 组件 | 作用 |
+|---|---|
+| `cpp/tests/nse_agda_check.c` | 造确定性非平凡 6×729 场（`v_i(x) = (7i+5x+x/9+ix/27) mod 3`），转储 S0 → 走一步 → 转储 S1 |
+| `hs/sov-math/engineering/nse_agda_check.py` | 按 Agda 原文在 Python 复算 `nsStep`，与 S1 逐 trit 比对 |
+| `abi_check.sh` 步骤 4.6 | 每次跑闸门都执行，差异 >0 即 FAIL |
+
+结果：**4374 trits，差异 0**。
+
+⚠ 语义边界（照抄 Agda 模块头）：`div`/`grad` 只覆盖 3 个轴（`C3 = Fin 3`，轴 0,1,2 各重复两次），
+这是 `NSEOnT6.agda` 自报的 **Q5 缺陷**，本核对与该定义一致，**不代表**物理正确的 6 轴动量方程。
