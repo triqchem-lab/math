@@ -109,5 +109,6 @@ print()
 for n, r in results.items():
     extra = (f", 能耗估算 ×[{r['cpu_s']/base['cpu_s']*P_LOW/base['cpu_s']:.1f}…]" if not RAPL_OK else f", 能耗 ×{r['energy_J']/base['energy_J']:.2f}")
     print(f"  {n}: 相对 cpp — 墙钟 ×{r['wall_s']/base['wall_s']:.2f}, CPU ×{r['cpu_s']/base['cpu_s']:.2f}{extra}")
-json.dump(results, open("/data/tmp/bench_results.json", "w"), indent=1)
+import os
+json.dump(results, open(os.path.join(os.path.dirname(__file__), "results", "bench_results.json"), "w"), indent=1)
 print("PASS")
