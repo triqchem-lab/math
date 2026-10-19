@@ -8,10 +8,12 @@
 #include "z3r_ring.h"       // Z/3^11
 #include "lcm_constants.h"
 #include "eisenstein.h"
+#include "chern_exact.h"
 #include <cstring>
 
 using namespace sov::math;
 using namespace sov::math::dc;
+using namespace sov::math::chern_exact;
 using namespace sov::math::wide;
 
 namespace {
@@ -325,6 +327,37 @@ int32_t sov_trit_unpack5(uint8_t packed, uint8_t out[5]) {
     uint8_t v = packed;
     const uint8_t divs[5] = {81, 27, 9, 3, 1};
     for (int i = 0; i < 5; ++i) { out[i] = (v / divs[i]) % 3; }
+    return SOV_OK;
+}
+
+// 扁平缓冲陈数接口 (864 字节 = 12 head × 12 cell × 6 trit), 与 rust/hs 逐字节同构
+int32_t sov_chern_inject_monopole(uint8_t* buf, size_t len) {
+    if (!buf) return SOV_ERR_NULL;
+    if (len < 864) return SOV_ERR_RANGE;
+    ::Proto proto;
+    int injected = proto.inject_c2_monopole();
+    std::memset(buf, 0, 864);
+    for (int h = 0; h < 12; ++h)
+        for (int c = 0; c < 12; ++c) {
+            const auto& cell = proto.cell_proto(size_t(h), size_t(c));
+            std::memcpy(buf + (h * 12 + c) * 6, cell.data(), 6);
+        }
+    return injected;
+}
+
+int32_t sov_chern_compute(const uint8_t* data, size_t len, int64_t* num, int64_t* den) {
+    if (!data || !num || !den) return SOV_ERR_NULL;
+    if (len < 864) return SOV_ERR_RANGE;
+    ::Proto proto;
+    for (int h = 0; h < 12; ++h)
+        for (int c = 0; c < 12; ++c) {
+            std::array<uint8_t, 6> t{};
+            std::memcpy(t.data(), data + (h * 12 + c) * 6, 6);
+            for (int i = 0; i < 6; ++i) if (t[i] > 2) return SOV_ERR_TRIT;
+            proto.set_cell(size_t(h), size_t(c), t);
+        }
+    auto [n, d] = ::compute_chern_exact(proto);
+    *num = n; *den = d;
     return SOV_OK;
 }
 

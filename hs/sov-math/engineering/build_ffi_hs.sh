@@ -9,5 +9,6 @@ ghc -shared -dynamic -fPIC -O2 \
     -XDataKinds -XGADTs -XKindSignatures -XTypeOperators -XScopedTypeVariables \
     -XLambdaCase -XTupleSections -XTypeFamilies -XForeignFunctionInterface \
     -ihs/sov-math/src -outputdir "$PWD/hs/sov-math/build/obj" \
+    -optl -Wl,--version-script="$PWD/cpp/packaging/sov_ffi.map" \
     -o "$OUT" hs/sov-math/src/Sov/FFI.hs
 echo "built: $OUT"

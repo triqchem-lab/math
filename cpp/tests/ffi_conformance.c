@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include <stdlib.h>
 
 typedef int32_t (*fn_abi)(void);
 typedef int32_t (*fn_t2)(uint8_t, uint8_t, uint8_t *);
@@ -232,6 +233,33 @@ int main(int argc, char **argv) {
         tv(b, &o); printf("tryte_b=%u\n", o);
         const uint8_t bad[6] = {0,0,0,0,0,3};
         printf("err_tryte=%d\n", tv(bad, &o));
+    }
+
+    /* ══ 陈数扁平缓冲接口 (864 字节) ══ */
+    {
+        typedef int32_t (*fn_ci)(uint8_t *, size_t);
+        typedef int32_t (*fn_cc)(const uint8_t *, size_t, int64_t *, int64_t *);
+        fn_ci ci = (fn_ci)sym("sov_chern_inject_monopole");
+        fn_cc cc = (fn_cc)sym("sov_chern_compute");
+        static uint8_t buf[864];
+        int32_t injected = ci(buf, 864);
+        printf("chern_inject=%d\n", injected);
+        /* 缓冲摘要 (非零字节计数 + 前 12 字节) */
+        int nz = 0; for (int i = 0; i < 864; ++i) if (buf[i]) ++nz;
+        printf("chern_buf_nz=%d;head=", nz);
+        for (int i = 0; i < 12; ++i) printf("%d", buf[i]);
+        printf("\n");
+        int64_t n = 0, d = 0;
+        int32_t rc = cc(buf, 864, &n, &d);
+        printf("chern_compute=%d,C=%lld/%lld\n", rc, (long long)n, (long long)d);
+        /* 零缓冲 → 陈数 0 */
+        static uint8_t zero[864];
+        cc(zero, 864, &n, &d);
+        printf("chern_zero=%lld/%lld\n", (long long)n, (long long)d);
+        /* 非法: 长度不足 / 空指针 */
+        printf("err_chern_len=%d,%d\n", ci(buf, 100), cc(buf, 100, &n, &d));
+        uint8_t bad[864]; for (int i = 0; i < 864; ++i) bad[i] = (i == 0) ? 3 : 0;
+        printf("err_chern_trit=%d\n", cc(bad, 864, &n, &d));
     }
 
     /* 空指针保护 */

@@ -9,11 +9,15 @@ use crate::chern::{compute_chern_exact, HEADS, Proto, S2_CELLS};
 /// 扁平缓冲字节数: 12 × 12 × 6 = 864
 pub const PROTO_BYTES: usize = HEADS * S2_CELLS * 6;
 
-/// 注入 C=2 单极基准构型到扁平缓冲, 返回注入胞腔数 (72), 失败返回 -1
+/// 注入 C=2 单极基准构型到扁平缓冲, 返回注入次数 24 (每次置 3 胞腔 ⇒ 72 胞腔)
+/// 空指针 → -4 (SOV_ERR_NULL); 长度不足 → -2 (SOV_ERR_RANGE)
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn sov_chern_inject_monopole(buf: *mut u8, len: usize) -> i32 {
-    if buf.is_null() || len < PROTO_BYTES {
-        return -1;
+    if buf.is_null() {
+        return -4; // SOV_ERR_NULL
+    }
+    if len < PROTO_BYTES {
+        return -2; // SOV_ERR_RANGE
     }
     let data = unsafe { std::slice::from_raw_parts_mut(buf, PROTO_BYTES) };
     data.fill(0);
@@ -29,7 +33,7 @@ pub unsafe extern "C" fn sov_chern_inject_monopole(buf: *mut u8, len: usize) -> 
 }
 
 /// 从扁平缓冲构造 Proto 并计算精确陈数 C = num/den (分母恒 216)
-/// 成功返回 0 并写 out_num/out_den, 参数非法返回 -1
+/// 成功返回 0 并写 out_num/out_den; 空指针 -4 / 长度不足 -2 / trit 越界 -1
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn sov_chern_compute(
     data: *const u8,
@@ -37,10 +41,16 @@ pub unsafe extern "C" fn sov_chern_compute(
     out_num: *mut i64,
     out_den: *mut i64,
 ) -> i32 {
-    if data.is_null() || out_num.is_null() || out_den.is_null() || len < PROTO_BYTES {
-        return -1;
+    if data.is_null() || out_num.is_null() || out_den.is_null() {
+        return -4; // SOV_ERR_NULL
+    }
+    if len < PROTO_BYTES {
+        return -2; // SOV_ERR_RANGE
     }
     let src = unsafe { std::slice::from_raw_parts(data, PROTO_BYTES) };
+    if src.iter().any(|&v| v > 2) {
+        return -1; // SOV_ERR_TRIT: 分量必须 ∈ {0,1,2}
+    }
     let mut proto = Proto::new();
     for h in 0..HEADS {
         for c in 0..S2_CELLS {

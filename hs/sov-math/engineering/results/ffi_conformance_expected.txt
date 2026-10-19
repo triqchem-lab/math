@@ -781,5 +781,11 @@ err_unpack=-2
 tryte_a=210
 tryte_b=728
 err_tryte=-1
+chern_inject=24
+chern_buf_nz=336;head=012120012120
+chern_compute=0,C=-432/216
+chern_zero=0/216
+err_chern_len=-2,-2
+err_chern_trit=-1
 err_null=-4
 runtime_fini=0

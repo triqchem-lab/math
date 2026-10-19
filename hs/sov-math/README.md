@@ -151,11 +151,18 @@ CMake 目标：`sov_ffi`(SHARED) + `sov_ffi_static`(STATIC) + `install` 规则 +
 | rust | `libsov_guard.so` (cdylib) | `cargo build --release -p sov-guard` |
 | hs | `libsovffi.so` (20 符号) | `hs/sov-math/engineering/build_ffi_hs.sh` |
 
-**符号数**：32 个（第一批 20 + 第二批 12）。
+**符号数**：37 个（元信息 4 + GF(3) 4 + GF(9) 2 + 环 4 + DC 4 + 桥 1 + 宽定点 3 + 陈数 4 + 损益 3 + Z[ω] 2 + 全息 1 + 数字根/Doz 2 + 打包 2 + Tryte 1）。
+
+**导出面纪律**：`cpp/packaging/sov_ffi.map` 由公共头**自动生成**（`engineering/gen_export_map.sh`，单一事实源），
+cpp/hs 经 `-Wl,--version-script` 钉死导出面（hs 从 **1258 → 37**，杜绝 GHC 运行时符号泄漏）；
+`engineering/verify_export_surface.sh` 是三语言导出面的机器闸门（负向控制已验证：Rust 侧多出的契约外符号会被抓出）。
+
+⚠ 诚实边界：**Rust cdylib 的 `--version-script` 实测不生效**（负向控制：加了未列入 map 的 `sov_leak_probe_not_in_map`
+仍被导出）——Rust 的导出面由 `#[no_mangle] extern "C"` 结构决定，故对 rust 靠**闸门检查**而非脚本过滤。
 
 **契约要点**：全部函数返回 `int32_t` 状态码（0 OK / −1 TRIT / −2 RANGE / −4 NULL）；输出经调用方缓冲区回传（库内不分配，无 free 语义）；`sov_runtime_init/fini` 统一运行时生命周期（hs 调 `hs_init`，cpp/rust 空操作）。
 
-**验证**：`hs/sov-math/engineering/ffi_conformance.sh` 一键跑三语言 .so 的同一测试向量（GF(3) 18 + GF(9) 90 + 环 + DC 混合表 144 + σ/CRT/平移 + LCM 桥 20 步轨迹 + 宽定点 + 陈数 + 损益链 + Eisenstein + 全息 + 数字根 + Doz + 5-trit 打包 + Tryte + 错误码）→ **785 行逐行一致**，golden 快照在 `engineering/results/ffi_conformance_expected.txt`。
+**验证**：`hs/sov-math/engineering/ffi_conformance.sh` 一键跑三语言 .so 的同一测试向量（GF(3) 18 + GF(9) 90 + 环 + DC 混合表 144 + σ/CRT/平移 + LCM 桥 20 步轨迹 + 宽定点 + 陈数（含 864 字节扁平缓冲注入/计算）+ 损益链 + Eisenstein + 全息 + 数字根 + Doz + 5-trit 打包 + Tryte + 错误码）→ **791 行逐行一致**，golden 快照在 `engineering/results/ffi_conformance_expected.txt`。
 
 ⚠ Haskell .so 的模块构造子在 **dlopen 期**即需 RTS 已初始化 ⇒ 宿主须先 `hs_init(NULL,NULL)` 再 dlopen（脚本用 GHC 链接版驱动实现；纯 C 宿主对标 cpp/rust 无需此步）。
 
