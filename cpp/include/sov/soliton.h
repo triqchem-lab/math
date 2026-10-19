@@ -18,7 +18,10 @@ extern "C" {
 #define SOV_CURIE_THRESHOLD_Q16 24904          /* 0.38 × 2^16 */
 #define SOV_LIQUID_THRESHOLD_Q16 49152         /* 0.75 × 2^16 */
 
-/* 相态编号 (沿用 cpp/rust 既有语义; 注意非单调: 0 < 2 < 1 < 3) */
+/* 相态编号 — 【人类裁决「兼容优先」2026-10-19: 保持既有编号, 不重编号】
+ * 注意非单调: 0 < 2 < 1 < 3 (与枚举注释的物理顺序不同, 属既有语义)
+ * 冻结: 任何改动 = 破坏性 ABI 变更 ⇒ 必须升 SOV_ABI_MAJOR */
+#define SOV_PHASE_NUMBERING_FROZEN 1
 #define SOV_PHASE_SOLID_FROZEN   0
 #define SOV_PHASE_LIQUID_FORMING 2
 #define SOV_PHASE_CURIE_TRANSITION 1

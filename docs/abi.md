@@ -76,7 +76,7 @@
 | Doz 溢出 | 解析累加超出 `uint64` → `SOV_ERR_RANGE`（18 位 `B`×18 = 12^18−1 > 2^64−1） | 初版测试用了 12^16（≈1.85e17，**未溢出**）⇒ 分支未被覆盖，已换真溢出向量 |
 | Doz 缓冲 | `cap < digits + 1` → `SOV_ERR_RANGE`；结果 NUL 结尾，`written` 不含 NUL | — |
 | **定点中间量宽度** | Q32 正弦 Taylor 与 ρ 的 `sq²` **必须 128 位中间量**（C: `__int128`；Rust: `i128`） | int64 溢出：`x²≈4.55e19 > 2^63`、`2^32² = 2^64` ⇒ cpp/rust 得 `-32768` 而 hs（`Integer` 任意精度）得 `32768`；一致性测试抓出 |
-| 相态编号 | **沿用 cpp/rust 既有语义：0(Solid) < 2(Liquid) < 1(Curie) < 3(Superfluid) —— 非单调** | 与枚举注释的物理顺序不一致，属既有语义；ABI 保持兼容，已记待人类裁决 |
+| 相态编号 | **沿用 cpp/rust 既有语义：0(Solid) < 2(Liquid) < 1(Curie) < 3(Superfluid) —— 非单调** | **人类裁决「兼容优先」：保持既有编号不重编号**；头文件以 `SOV_PHASE_NUMBERING_FROZEN` 显式冻结，改动需升 MAJOR |
 
 ## 六、尚未纳入 ABI 的能力（诚实清单）
 

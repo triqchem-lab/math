@@ -876,5 +876,7 @@ phase49152=1
 phase65535=1
 phase65536=3
 phase100000=3
+phase_frozen=0,0,0,0
+phase_assert=1
 err_null=-4
 runtime_fini=0

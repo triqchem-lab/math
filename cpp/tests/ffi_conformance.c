@@ -395,6 +395,12 @@ int main(int argc, char **argv) {
             uint8_t o = 9; ph(rs[i], &o);
             printf("phase%d=%d\n", rs[i], o);
         }
+        /* 编号冻结钉住 (人类裁决「兼容优先」): 若改动, 此处必红 */
+        printf("phase_frozen=%d,%d,%d,%d\n",
+               ph(0, &(uint8_t){9}) ? -1 : 0, 0, 0, 0);
+        { uint8_t a=9,b=9,c=9,d=9;
+          ph(0,&a); ph(24904,&b); ph(49152,&c); ph(65536,&d);
+          printf("phase_assert=%d\n", (a==0 && b==2 && c==1 && d==3) ? 1 : 0); }
     }
 
     /* 空指针保护 */
