@@ -1,0 +1,82 @@
+aio.h           CX
+arpa/inet.h     CX
+assert.h        
+complex.h       
+cpio.h          CX
+ctype.h         
+dirent.h        CX
+dlfcn.h         CX
+errno.h         
+fcntl.h         CX
+fenv.h          
+float.h         
+fmtmsg.h        CX&XSI
+fnmatch.h       CX
+ftw.h           CX&XSI
+glob.h          CX
+grp.h           CX
+iconv.h         CX
+inttypes.h      
+iso646.h        
+langinfo.h      CX
+libgen.h        CX&XSI
+limits.h        
+locale.h        
+math.h          
+monetary.h      CX
+mqueue.h        CX&MSG
+ndbm.h          CX&XSI
+net/if.h        CX
+netdb.h         CX
+netinet/in.h    CX
+netinet/tcp.h   CX
+nl_types.h      CX
+poll.h          CX
+pthread.h       CX
+pwd.h           CX
+regex.h         CX
+sched.h         CX
+search.h        CX&XSI
+semaphore.h     CX
+setjmp.h        
+signal.h        
+spawn.h         CX&SPN
+stdarg.h        
+stdbool.h       
+stddef.h        
+stdint.h        
+stdio.h         
+stdlib.h        
+string.h        
+strings.h       CX
+stropts.h       CX&OB&XSR
+sys/ipc.h       CX&XSI
+sys/mman.h      CX
+sys/msg.h       CX&XSI
+sys/resource.h  CX&XSI
+sys/select.h    CX
+sys/sem.h       CX&XSI
+sys/shm.h       CX&XSI
+sys/socket.h    CX
+sys/stat.h      CX
+sys/statvfs.h   CX
+sys/time.h      CX&XSI
+sys/times.h     CX
+sys/types.h     CX
+sys/uio.h       CX&XSI
+sys/un.h        CX
+sys/utsname.h   CX
+sys/wait.h      CX
+syslog.h        CX&XSI
+tar.h           CX
+termios.h       CX
+tgmath.h        
+time.h          
+trace.h         CX&OB&TRC
+ulimit.h        CX&OB&XSI
+unistd.h        CX
+utime.h         CX&OB
+utmpx.h         CX&XSI
+wchar.h         
+wctype.h        
+wordexp.h       CX
