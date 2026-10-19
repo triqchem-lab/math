@@ -748,17 +748,25 @@ def check_ring_z3_11(fail):
             c_p = (c_p * 131 + (v + pw) % MOD) % MOD7
         pw = (pw * 3) % MOD
     p3 = re.search(r"ring_add_pow3_bad=(\d+),chk=(\d+)", body)
+    # 低 6 位子环全域 (729² 对，完全子域)
+    c_729 = 0
+    for va in range(729):
+        for vb in range(729):
+            c_729 = (c_729 * 131 + (va + vb) % MOD) % MOD7
+    sq = re.search(r"ring_add_729sq_bad=(\d+),chk=(\d+)", body)
     ok = bool(t and d and a and m)
     ok = ok and t.group(1) == "0" and int(t.group(2)) == c_t
     ok = ok and d.group(1) == "0" and int(d.group(2)) == c_d
     ok = ok and a.group(1) == "0" and int(a.group(2)) == c_a
     ok = ok and m.group(1) == "0" and int(m.group(2)) == c_m
     ok = ok and p3 and p3.group(1) == "0" and int(p3.group(2)) == c_p
+    ok = ok and sq and sq.group(1) == "0" and int(sq.group(2)) == c_729
     print(f"Z/3^11: 表示层全域 177147 (to_tryte {'✓' if t and t.group(1)=='0' else '✗'}, "
           f"double {'✓' if d and d.group(1)=='0' else '✗'}, 独立复算 {'✓' if t and d and int(t.group(2))==c_t and int(d.group(2))==c_d else '✗'}); "
           f"加法扫描 177147×{len(bs_add)} {'✓' if a and a.group(1)=='0' else '✗'}; "
           f"乘法扫描 177147×{len(bs_mul)} {'✓' if m and m.group(1)=='0' else '✗'}; "
-          f"3 的幂偏移 11×177147（逐位进位链） {'✓' if p3 and p3.group(1)=='0' and int(p3.group(2))==c_p else '✗'}"
+          f"3 的幂偏移 11×177147 {'✓' if p3 and p3.group(1)=='0' and int(p3.group(2))==c_p else '✗'}; "
+          f"低 6 位子环全域 729² {'✓' if sq and sq.group(1)=='0' and int(sq.group(2))==c_729 else '✗'}"
           f" ⚠ 加/乘为抽样 (非全对域)"
           + ("" if ok else "  🔴"))
     return ok
@@ -1152,6 +1160,8 @@ def check_nse(fail):
     模式 2 = Agda `nsStep v = v +F grad (div v)`：对散度为零的初场是**固定点**，
     故 4 步摘要必须完全相同 (这一点与定义一致，不是巧合)。
     模式 0/1 为启发式，只核对不变量 (rho 值域、步数单调、格点 ∈ {0,1,2})。
+    ⚠ 模式 2 的**全状态逐 trit 比对**已自动化在 `nse_agda_check.py`（闸门步骤 4.6，4374 trits）；
+    本函数只覆盖摘要级不变量，不是全部证据。
     """
     body = read(BODY)
     bad = []

@@ -1345,6 +1345,26 @@ int main(int argc, char **argv) {
           printf("ring_add_pow3_bad=%d,chk=%lld\n", bad, chk); }
     }
 
+    /* ══ Z/3^11 加法: 低 6 位子环全域 (729² 对，完全子域) ══ */
+    {
+        typedef int32_t (*fn_ra2)(const uint8_t *, const uint8_t *, uint8_t *);
+        fn_ra2 ra2 = (fn_ra2)sym("sov_ring_add");
+        const uint64_t MOD = 177147ull;
+        { int bad = 0; long long chk = 0;
+          for (uint64_t a = 0; a < 729; ++a) for (uint64_t b = 0; b < 729; ++b) {
+              uint8_t A[11] = {0}, B[11] = {0}, O[11];
+              uint64_t x = a, y = b;
+              for (int i = 0; i < 11; ++i) { A[i] = (uint8_t)(x % 3); x /= 3; }
+              for (int i = 0; i < 11; ++i) { B[i] = (uint8_t)(y % 3); y /= 3; }
+              if (ra2(A, B, O) != 0) { ++bad; continue; }
+              uint64_t w = 0, q = 1;
+              for (int i = 0; i < 11; ++i) { w += (uint64_t)O[i] * q; q *= 3; }
+              if (w != (a + b) % MOD) ++bad;
+              chk = (chk * 131 + (long long)w) % 1000000007LL;
+          }
+          printf("ring_add_729sq_bad=%d,chk=%lld\n", bad, chk); }
+    }
+
     /* 空指针保护 */
     printf("err_null=%d\n", tadd(0, 0, NULL));
     { fn_abi rfini = (fn_abi)dlsym(H, "sov_runtime_fini");

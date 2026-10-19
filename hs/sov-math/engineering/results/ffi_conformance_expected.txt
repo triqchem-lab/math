@@ -1107,5 +1107,6 @@ strerror_unknown_nonnull=1
 holo_sweep_chk=654910944,neg_bad=0
 holo_4320=4320
 ring_add_pow3_bad=0,chk=321288129
+ring_add_729sq_bad=0,chk=554838110
 err_null=-4
 runtime_fini=0
