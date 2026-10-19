@@ -38,6 +38,8 @@ library
                       Sov.Math.Topology.TimeCrystal
                       Sov.Math.Topology.Soliton
                       Sov.Math.Topology.Tower
+                      Sov.Math.WideConstants
+                      Sov.Math.WideFixed
                       Sov.Validation.Zomega
                       Sov.Validation.ChiInner
                       Sov.Validation.GF9Diag
@@ -68,6 +70,12 @@ executable sov-validation
     build-depends:    base >=4 && <5, sov-math
     default-language: GHC2021
     ghc-options:      -Wall -Werror
+
+executable wide-dump
+    main-is:          WideDump.hs
+    hs-source-dirs:   app
+    build-depends:    base >=4 && <5, sov-math
+    default-language: GHC2021
 
 executable precision-dump
     main-is:          PrecisionDump.hs

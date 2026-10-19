@@ -29,3 +29,5 @@ pub mod sov_assert;
 
 // VAVX3 — 虚拟三进制指令集 (核心硬件抽象层)
 pub mod vavx3;
+pub mod wide_constants;
+pub mod wide_fixed;
