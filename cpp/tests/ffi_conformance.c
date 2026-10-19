@@ -702,22 +702,22 @@ int main(int argc, char **argv) {
           printf("comp_periods=trit3:%d,phase4:%d\n", trit_ok, phase_ok); }
     }
 
-    /* ══ 相位几何表示 (ℓ=1 实球谐双峰; C₄ 的 90° 整数旋转) ══ */
+    /* ══ 相位几何表示 (ℓ=1 实球谐双峰; GF(3) 标准三进制 {0,1,2}) ══ */
     {
-        typedef int32_t (*fn_pv)(uint8_t, int8_t *, int8_t *);
-        typedef int32_t (*fn_rv)(uint8_t, int32_t, int32_t, int32_t *, int32_t *);
+        typedef int32_t (*fn_pv)(uint8_t, uint8_t *, uint8_t *);
+        typedef int32_t (*fn_rv)(uint8_t, uint8_t, uint8_t, uint8_t *, uint8_t *);
         fn_pv pv = (fn_pv)sym("sov_dc_phase_vec");
         fn_rv rv = (fn_rv)sym("sov_dc_rotate_vec");
-        /* 相位矢量: (1,0),(0,1),(-1,0),(0,-1) — m=±1 双峰 */
+        /* 相位矢量 (trit 坐标): (1,0),(0,1),(2,0),(0,2) — 2 ≡ −1 */
         for (int k = 0; k < 4; ++k) {
-            int8_t x = 9, y = 9; pv((uint8_t)k, &x, &y);
+            uint8_t x = 9, y = 9; pv((uint8_t)k, &x, &y);
             printf("pvec%d=%d,%d\n", k, x, y);
         }
-        /* 群同态: R^k ∘ R^j = R^(k+j mod 4), 对多组向量全枚举 */
+        /* 群同态: R^k ∘ R^j = R^(k+j mod 4), 对多组 trit 向量全枚举 */
         { int bad = 0; long long chk = 0;
-          const int32_t vs[3][2] = {{1,0},{3,-2},{-5,7}};
+          const uint8_t vs[3][2] = {{1,0},{2,1},{1,2}};
           for (int k = 0; k < 4; ++k) for (int j = 0; j < 4; ++j) for (int t = 0; t < 3; ++t) {
-              int32_t ax, ay, bx, by, cx, cy;
+              uint8_t ax, ay, bx, by, cx, cy;
               rv((uint8_t)j, vs[t][0], vs[t][1], &ax, &ay);
               rv((uint8_t)k, ax, ay, &bx, &by);
               rv((uint8_t)((k + j) % 4), vs[t][0], vs[t][1], &cx, &cy);
@@ -725,25 +725,23 @@ int main(int argc, char **argv) {
               chk = (chk * 131 + bx * 7 + by) % 1000000007LL;
           }
           printf("rot_hom_bad=%d,chk=%lld\n", bad, chk); }
-        /* V4 判别: R² = −I (而非 I) ⇒ 相位是 C₄ 非 V₄ */
-        { int32_t x, y; rv(2, 1, 0, &x, &y); printf("rot2_neg=%d,%d\n", x, y); }
-        /* R⁴ = I: 连做 4 次 90° 旋转 (k 只接受 0..3, 故复合验证) */
-        { int32_t x = 3, y = -2;
-          for (int i = 0; i < 4; ++i) { int32_t a, b; rv(1, x, y, &a, &b); x = a; y = b; }
+        /* GF(3) 判别: R² = 2I (即「−I」), 不是 I ⇒ C₄ 非 V₄ */
+        { uint8_t x, y; rv(2, 1, 0, &x, &y); printf("rot2_2I=%d,%d\n", x, y); }
+        /* R⁴ = I: 连转四次 */
+        { uint8_t x = 2, y = 1;
+          for (int i = 0; i < 4; ++i) { uint8_t a, b; rv(1, x, y, &a, &b); x = a; y = b; }
           printf("rot4_id=%d,%d\n", x, y); }
-        /* R² 连做两次同样得 −I */
-        { int32_t x = 1, y = 0;
-          for (int i = 0; i < 2; ++i) { int32_t a, b; rv(1, x, y, &a, &b); x = a; y = b; }
-          printf("rot2_compose=%d,%d\n", x, y); }
-        /* 相位矢量与旋转一致: R^k (1,0) == phase_vec(k) */
+        /* 相位矢量 = R^k(1,0) */
         { int bad = 0;
           for (int k = 0; k < 4; ++k) {
-              int8_t px, py; int32_t rx, ry;
+              uint8_t px, py, rx, ry;
               pv((uint8_t)k, &px, &py); rv((uint8_t)k, 1, 0, &rx, &ry);
               if (px != rx || py != ry) ++bad;
           }
           printf("pvec_rot_consistent_bad=%d\n", bad); }
-        { int8_t x, y; printf("err_pvec=%d\n", pv(4, &x, &y)); }
+        /* 非法 trit 与越界相位 */
+        { uint8_t x, y; printf("err_pvec=%d;", pv(4, &x, &y));
+          printf("err_rot_trit=%d,%d\n", rv(1, 3, 0, &x, &y), rv(0, 0, 5, &x, &y)); }
     }
 
     /* 空指针保护 */

@@ -351,30 +351,31 @@ sov_dc_translate_wrapper n t k tout kout
 foreign export ccall "sov_dc_translate" sov_dc_translate_wrapper :: CUInt -> CUChar -> CUChar -> Ptr CUChar -> Ptr CUChar -> IO CInt
 
 -- ── 相位几何表示 (ℓ=1 实球谐双峰, 精确整数) ──
-sov_dc_phase_vec_wrapper :: CUChar -> Ptr CChar -> Ptr CChar -> IO CInt
+sov_dc_phase_vec_wrapper :: CUChar -> Ptr CUChar -> Ptr CUChar -> IO CInt
 sov_dc_phase_vec_wrapper k x y
   | x == nullPtr || y == nullPtr = return (fromIntegral sovErrNull)
   | fromIntegral k > (3 :: Int) = return (fromIntegral sovErrRange)
   | otherwise = do
-      let vx = [1, 0, -1, 0] :: [Int]
-          vy = [0, 1, 0, -1] :: [Int]
+      let vx = [1, 0, 2, 0] :: [Int]   -- GF(3): 2 ≡ −1
+          vy = [0, 1, 0, 2] :: [Int]
       poke x (fromIntegral (vx !! fromIntegral k))
       poke y (fromIntegral (vy !! fromIntegral k))
       return 0
-foreign export ccall "sov_dc_phase_vec" sov_dc_phase_vec_wrapper :: CUChar -> Ptr CChar -> Ptr CChar -> IO CInt
+foreign export ccall "sov_dc_phase_vec" sov_dc_phase_vec_wrapper :: CUChar -> Ptr CUChar -> Ptr CUChar -> IO CInt
 
-sov_dc_rotate_vec_wrapper :: CUChar -> CInt -> CInt -> Ptr CInt -> Ptr CInt -> IO CInt
+sov_dc_rotate_vec_wrapper :: CUChar -> CUChar -> CUChar -> Ptr CUChar -> Ptr CUChar -> IO CInt
 sov_dc_rotate_vec_wrapper k x y xo yo
   | xo == nullPtr || yo == nullPtr = return (fromIntegral sovErrNull)
   | fromIntegral k > (3 :: Int) = return (fromIntegral sovErrRange)
+  | fromIntegral x > (2 :: Int) || fromIntegral y > (2 :: Int) = return (fromIntegral sovErrTrit)
   | otherwise = do
-      let rotN 0 (a, b) = (a, b)
-          rotN n (a, b) = rotN (n - 1) (-b, a)
+      let rotN 0 p = p
+          rotN n (a, b) = rotN (n - 1) ((2 * b) `mod` 3, a)   -- R = [[0,2],[1,0]] in GF(3)
           (a', b') = rotN (fromIntegral k) (fromIntegral x, fromIntegral y)
-      poke xo (fromIntegral a' :: CInt)
-      poke yo (fromIntegral b' :: CInt)
+      poke xo (fromIntegral a' :: CUChar)
+      poke yo (fromIntegral b' :: CUChar)
       return 0
-foreign export ccall "sov_dc_rotate_vec" sov_dc_rotate_vec_wrapper :: CUChar -> CInt -> CInt -> Ptr CInt -> Ptr CInt -> IO CInt
+foreign export ccall "sov_dc_rotate_vec" sov_dc_rotate_vec_wrapper :: CUChar -> CUChar -> CUChar -> Ptr CUChar -> Ptr CUChar -> IO CInt
 
 -- ═══ LCM 桥 (值语义, 与 cpp/rust 同配方) ═══
 

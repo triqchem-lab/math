@@ -163,21 +163,22 @@ int32_t sov_dc_crt(uint8_t t, uint8_t k, uint8_t* x_out) {
 }
 
 /* 相位几何表示: C₄ 的 90° 整数旋转 (ℓ=1 实球谐双峰) */
-int32_t sov_dc_phase_vec(uint8_t k, int8_t* x, int8_t* y) {
+int32_t sov_dc_phase_vec(uint8_t k, uint8_t* x, uint8_t* y) {
     if (!x || !y) return SOV_ERR_NULL;
     if (k > 3) return SOV_ERR_RANGE;
-    static const int8_t vx[4] = {1, 0, -1, 0};
-    static const int8_t vy[4] = {0, 1, 0, -1};
+    static const uint8_t vx[4] = {1, 0, 2, 0};   /* GF(3): 2 ≡ −1 */
+    static const uint8_t vy[4] = {0, 1, 0, 2};
     *x = vx[k]; *y = vy[k];
     return SOV_OK;
 }
 
-int32_t sov_dc_rotate_vec(uint8_t k, int32_t x, int32_t y, int32_t* x_out, int32_t* y_out) {
+int32_t sov_dc_rotate_vec(uint8_t k, uint8_t x, uint8_t y, uint8_t* x_out, uint8_t* y_out) {
     if (!x_out || !y_out) return SOV_ERR_NULL;
     if (k > 3) return SOV_ERR_RANGE;
-    /* R^k 作用: 逐次 90° 旋转 (x,y) → (−y, x) */
-    int32_t a = x, b = y;
-    for (uint8_t i = 0; i < k; ++i) { int32_t nx = -b, ny = a; a = nx; b = ny; }
+    if (x > 2 || y > 2) return SOV_ERR_TRIT;
+    /* R = [[0,2],[1,0]] 在 GF(3): (x,y) ↦ (2y mod 3, x mod 3) */
+    uint8_t a = x, b = y;
+    for (uint8_t i = 0; i < k; ++i) { uint8_t nx = uint8_t((2 * b) % 3), ny = a; a = nx; b = ny; }
     *x_out = a; *y_out = b;
     return SOV_OK;
 }

@@ -15,15 +15,14 @@ int32_t sov_dc_sigma(uint8_t t, uint8_t k, uint8_t* t_out, uint8_t* k_out) SOV_A
 int32_t sov_dc_crt(uint8_t t, uint8_t k, uint8_t* x_out) SOV_API;   /* C₁₂ 投影值 ∈ [0,12) */
 int32_t sov_dc_translate(uint32_t n, uint8_t t, uint8_t k, uint8_t* t_out, uint8_t* k_out) SOV_API;   /* n 次后继平移 */
 
-/* ── 相位的几何表示 (ℓ=1 实球谐双峰, 精确整数, 无浮点) ──
- * C₄ 在 Z² 上由 90° 整数旋转 R=[[0,-1],[1,0]] 给出:
- *   k=0 → (1,0)   k=1 → (0,1)   k=2 → (-1,0)   k=3 → (0,-1)
- * 这正是 m=±1 实球谐 (Y₁¹ ∝ x/r, Y₁⁻¹ ∝ y/r) 的二维双峰; R^k 的元素全为 {0,±1}。
- * ⚠ 与 Agda 的关系: 形式化层 (PhaseSubgroup.rot = 乘 α) 是**群作用**, 本组函数是**几何实现**;
- *   两者同构于 C₄, 但「矩阵实现 = 形式化 rot」不是 Agda 定理 —— 由精确矩阵恒等 (RᵏRʲ=Rᵏ⁺ʲ)
- *   与 orbit 一致性在本库侧验证。 */
-int32_t sov_dc_phase_vec(uint8_t k, int8_t* x, int8_t* y) SOV_API;
-int32_t sov_dc_rotate_vec(uint8_t k, int32_t x, int32_t y, int32_t* x_out, int32_t* y_out) SOV_API;
+/* ── 相位的几何表示（GF(3) 标准三进制 {0,1,2}，无 −1）──
+ * C₄ 在 GF(3)² 上由 90° 旋转 R = [[0,2],[1,0]] 给出（2 ≡ −1 mod 3）:
+ *   k=0 → (1,0)   k=1 → (0,1)   k=2 → (2,0)   k=3 → (0,2)
+ * 这是 ℓ=1 实球谐双峰 (m=±1) 的**标准三进制**坐标：分量恒 ∈ {0,1,2}。
+ * 作用公式: (x,y) ↦ (2y mod 3, x mod 3)  —— 与 Agda RotBridge（GF(3) 矩阵）逐条对应。
+ * ⚠ 不使用平衡三进制 {−1,0,1}; R² = 2I（= 「−I」的 GF(3) 写法），R⁴ = I。 */
+int32_t sov_dc_phase_vec(uint8_t k, uint8_t* x, uint8_t* y) SOV_API;
+int32_t sov_dc_rotate_vec(uint8_t k, uint8_t x, uint8_t y, uint8_t* x_out, uint8_t* y_out) SOV_API;
 
 #ifdef __cplusplus
 }

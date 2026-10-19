@@ -497,16 +497,16 @@ def check_geometry(fail):
         m = re.match(r"pvec(\d)=(-?\d),(-?\d)", ln.strip())
         if m: pvec[int(m.group(1))] = (int(m.group(2)), int(m.group(3)))
     # Agda rot 的 4-循环在 GF(9)* 上: s1→sα→s2→s2α→s1 (相位索引 0→1→2→3→0)
-    exp = {0: (1, 0), 1: (0, 1), 2: (-1, 0), 3: (0, -1)}
+    exp = {0: (1, 0), 1: (0, 1), 2: (2, 0), 3: (0, 2)}   # GF(3): 2 ≡ −1
     orbit_ok = pvec == exp
     hom = re.search(r"rot_hom_bad=(\d+)", body)
-    neg = re.search(r"rot2_neg=(-?\d+),(-?\d+)", body)
+    neg = re.search(r"rot2_2I=(-?\d+),(-?\d+)", body)
     r4 = re.search(r"rot4_id=(-?\d+),(-?\d+)", body)
     cons = re.search(r"pvec_rot_consistent_bad=(\d+)", body)
     ok = (has_rot and has_orbit and has_4id and has_2neg and orbit_ok
           and hom and hom.group(1) == "0"
-          and neg and (neg.group(1), neg.group(2)) == ("-1", "0")
-          and r4 and (r4.group(1), r4.group(2)) == ("3", "-2")
+          and neg and (neg.group(1), neg.group(2)) == ("2", "0")
+          and r4 and (r4.group(1), r4.group(2)) == ("2", "1")
           and cons and cons.group(1) == "0")
     print(f"Agda PhaseSubgroup rot/rot-orbit/rot-4-id/rot-2-is-neg: "
           f"{'✓' if has_rot else '✗'}{'✓' if has_orbit else '✗'}{'✓' if has_4id else '✗'}{'✓' if has_2neg else '✗'}; "
@@ -529,12 +529,12 @@ def check_rot_bridge(fail):
         print("Agda RotBridge: 模块缺失 (未补形式化)  🔴")
         return False
     src = read(ROTBRIDGE)
-    has_R = bool(re.search(r"R = mat \(\+ 0\) \(-\[1\+ 0 \]\) \(\+ 1\) \(\+ 0\)", src))
-    has_rot = bool(re.search(r"Rot a0 = idM", src)) and bool(re.search(r"Rot a3 = negM R", src))
+    has_R = bool(re.search(r"R = mat T₀ T₂ T₁ T₀", src))
+    has_rot = bool(re.search(r"Rot a0 = idM", src)) and bool(re.search(r"Rot a3 = negRM", src))
     has_hom = bool(re.search(r"Rot-hom : ∀ \(a b : AlphaPower\)", src))
     n_refl = len(re.findall(r"Rot-hom a\d a\d = refl", src))
     has_inj = bool(re.search(r"Rot-injective :", src))
-    has_r2 = bool(re.search(r"R²≡−I : mulM R R ≡ negM idM", src)) and bool(re.search(r"R²≡−I = refl", src))
+    has_r2 = bool(re.search(r"R²≡2I : mulM R R ≡ negIM", src)) and bool(re.search(r"R²≡2I = refl", src))
     has_r4 = bool(re.search(r"R⁴≡I : mulM \(mulM R R\) \(mulM R R\) ≡ idM", src)) and bool(re.search(r"R⁴≡I = refl", src))
     body = read(BODY)
     # ABI 侧矩阵值须与 Rot 的定义一致: k=0→I(1,0), 1→R((0,1) 作用于 (1,0)), 2→−I, 3→−R
@@ -542,11 +542,11 @@ def check_rot_bridge(fail):
     for ln in body.splitlines():
         m = re.match(r"pvec(\d)=(-?\d),(-?\d)", ln.strip())
         if m: pvec[int(m.group(1))] = (int(m.group(2)), int(m.group(3)))
-    rot2 = re.search(r"rot2_neg=(-?\d+),(-?\d+)", body)
+    rot2 = re.search(r"rot2_2I=(-?\d+),(-?\d+)", body)
     rot4 = re.search(r"rot4_id=(-?\d+),(-?\d+)", body)
-    abi_ok = (pvec == {0: (1, 0), 1: (0, 1), 2: (-1, 0), 3: (0, -1)}
-              and rot2 and (rot2.group(1), rot2.group(2)) == ("-1", "0")
-              and rot4 and (rot4.group(1), rot4.group(2)) == ("3", "-2"))
+    abi_ok = (pvec == {0: (1, 0), 1: (0, 1), 2: (2, 0), 3: (0, 2)}
+              and rot2 and (rot2.group(1), rot2.group(2)) == ("2", "0")
+              and rot4 and (rot4.group(1), rot4.group(2)) == ("2", "1"))
     ok = has_R and has_rot and has_hom and n_refl == 16 and has_inj and has_r2 and has_r4 and abi_ok
     print(f"Agda RotBridge (新增形式化): R 定义 {'✓' if has_R else '✗'}, Rot 四值 {'✓' if has_rot else '✗'}, "
           f"Rot-hom refl {n_refl}/16, Rot-injective {'✓' if has_inj else '✗'}, R²≡−I {'✓' if has_r2 else '✗'}, "
