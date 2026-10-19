@@ -795,6 +795,49 @@ pub extern "C" fn sov_crt2(a1: u32, m1: u32, a2: u32, m2: u32, out: *mut u32) ->
     OK
 }
 
+// ══ 第十批: 位宽转换 (二进制 ⇄ 三进制) ══
+
+fn pow_u64(base: u64, e: u32) -> u64 { let mut r = 1u64; for _ in 0..e { r *= base; } r }
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_width_capacity_trits(trits: u8, out: *mut u64) -> i32 {
+    if out.is_null() { return ERR_NULL; }
+    if trits > 40 { return ERR_RANGE; }
+    unsafe { *out = pow_u64(3, trits as u32); }
+    OK
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_width_capacity_bits(bits: u8, out: *mut u64) -> i32 {
+    if out.is_null() { return ERR_NULL; }
+    if bits > 63 { return ERR_RANGE; }
+    unsafe { *out = if bits == 0 { 1 } else { 1u64 << bits }; }
+    OK
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_width_trits_for_bits(bits: u8, out: *mut u8) -> i32 {
+    if out.is_null() { return ERR_NULL; }
+    if bits > 63 { return ERR_RANGE; }
+    let cap = if bits == 0 { 1u64 } else { 1u64 << bits };
+    let (mut k, mut p) = (0u8, 1u64);
+    while p <= cap / 3 { p *= 3; k += 1; }   // 避免 p*3 溢出
+    unsafe { *out = k; }
+    OK
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_width_bits_for_trits(trits: u8, out: *mut u8) -> i32 {
+    if out.is_null() { return ERR_NULL; }
+    if trits > 40 { return ERR_RANGE; }
+    let need = pow_u64(3, trits as u32);
+    let (mut b, mut cap) = (0u8, 1u64);
+    while b < 63 && cap < need { cap <<= 1; b += 1; }
+    if cap < need { b = 64; }               // 2^63 仍不足 ⇒ 需 64 位
+    unsafe { *out = b; }
+    OK
+}
+
 #[unsafe(no_mangle)]
 pub extern "C" fn sov_chern_inject(num: *mut i64, den: *mut i64) -> i32 {
     if num.is_null() || den.is_null() { return ERR_NULL; }

@@ -18,6 +18,7 @@
 #include <sov/wide.h>
 #include <sov/l6.h>
 #include <sov/u384.h>
+#include <sov/width.h>
 #include <sov/nse.h>
 #include <sov/chern.h>
 #include <sov/sunyi.h>

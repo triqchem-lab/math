@@ -627,6 +627,55 @@ int main(int argc, char **argv) {
           } }
     }
 
+    /* ══ 第十批: 位宽转换 (二进制 ⇄ 三进制) ══ */
+    {
+        typedef int32_t (*fn_ct)(uint8_t, uint64_t *);
+        typedef int32_t (*fn_cb)(uint8_t, uint64_t *);
+        typedef int32_t (*fn_tb)(uint8_t, uint8_t *);
+        typedef int32_t (*fn_bt)(uint8_t, uint8_t *);
+        fn_ct ct = (fn_ct)sym("sov_width_capacity_trits");
+        fn_cb cb = (fn_cb)sym("sov_width_capacity_bits");
+        fn_tb tb = (fn_tb)sym("sov_width_trits_for_bits");
+        fn_bt bt = (fn_bt)sym("sov_width_bits_for_trits");
+
+        /* Agda DigitField 的 refl 容量 (capacity-27trit / capacity-43bit 等) */
+        { uint64_t o; ct(27, &o); printf("cap3_27=%llu\n", (unsigned long long)o); }
+        { uint64_t o; cb(27, &o); printf("cap2_27=%llu\n", (unsigned long long)o); }
+        { uint64_t o; cb(43, &o); printf("cap2_43=%llu\n", (unsigned long long)o); }
+        { uint64_t o; ct(9, &o); printf("cap3_9=%llu\n", (unsigned long long)o); }
+        { uint64_t o; cb(18, &o); printf("cap2_18=%llu\n", (unsigned long long)o); }
+        /* 用户指出的关键对: 2^16 与 3^11 */
+        { uint64_t o; cb(16, &o); printf("cap2_16=%llu;", (unsigned long long)o);
+          ct(11, &o); printf("cap3_11=%llu;", (unsigned long long)o);
+          ct(10, &o); printf("cap3_10=%llu\n", (unsigned long long)o); }
+        /* 位宽换算: 16 位装 10 trits; 11 trits 需 18 位 */
+        { uint8_t a, b;
+          tb(16, &a); tb(27, &b); printf("trits_for_bits16=%u,bits27=%u\n", a, b);
+          bt(11, &a); bt(21, &b); printf("bits_for_trits11=%u,trits21=%u\n", a, b); }
+        /* 全域: bits 1..63 与 trits 0..40 的换算自洽 (fits 关系) */
+        { int bad = 0; long long chk = 0;
+          for (int b = 1; b <= 63; ++b) {
+              uint8_t k = 0; tb((uint8_t)b, &k);
+              uint64_t capB = 0, capK = 0, capK1 = 0;
+              cb((uint8_t)b, &capB); ct(k, &capK);
+              if (k < 40) ct((uint8_t)(k + 1), &capK1);
+              if (!(capK <= capB)) ++bad;
+              if (k < 40 && capK1 <= capB) ++bad;
+              chk = (chk * 131 + k) % 1000000007LL;
+          }
+          for (int t = 0; t <= 40; ++t) {
+              uint8_t b = 0; bt((uint8_t)t, &b);
+              uint64_t need = 0, cap = 0, capPrev = 0;
+              ct((uint8_t)t, &need); cb(b, &cap);
+              if (b > 0) cb((uint8_t)(b - 1), &capPrev);
+              if (!(cap >= need)) ++bad;
+              if (b > 0 && capPrev >= need) ++bad;
+              chk = (chk * 137 + b) % 1000000007LL;
+          }
+          printf("width_selfconsistent_bad=%d,chk=%lld\n", bad, chk); }
+        { uint64_t o; printf("err_cap3=%d,%d\n", ct(41, &o), cb(64, &o)); }
+    }
+
     /* 空指针保护 */
     printf("err_null=%d\n", tadd(0, 0, NULL));
     { fn_abi rfini = (fn_abi)dlsym(H, "sov_runtime_fini");

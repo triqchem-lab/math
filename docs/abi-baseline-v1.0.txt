@@ -60,5 +60,9 @@ sov_u384_shr16
 sov_wide_const_pi
 sov_wide_const_sqrt3
 sov_wide_rho
+sov_width_bits_for_trits
+sov_width_capacity_bits
+sov_width_capacity_trits
+sov_width_trits_for_bits
 sov_zhonglv_closure
 sov_zhonglv_step

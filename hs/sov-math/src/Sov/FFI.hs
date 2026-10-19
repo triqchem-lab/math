@@ -84,6 +84,11 @@ module Sov.FFI
     -- 第八批
   , sov_dayan_multiplier_wrapper
   , sov_crt2_wrapper
+    -- 第十批
+  , sov_width_capacity_trits_wrapper
+  , sov_width_capacity_bits_wrapper
+  , sov_width_trits_for_bits_wrapper
+  , sov_width_bits_for_trits_wrapper
   ) where
 
 import Data.Bits    (shiftL, shiftR, (.&.), (.|.))
@@ -1054,3 +1059,45 @@ sov_crt2_wrapper a1 m1 a2 m2 out
           poke out (fromIntegral x)
           return 0
 foreign export ccall "sov_crt2" sov_crt2_wrapper :: CUInt -> CUInt -> CUInt -> CUInt -> Ptr CUInt -> IO CInt
+
+
+-- ═══ 第十批: 位宽转换 (二进制 ⇄ 三进制; Agda DigitField 纯容量算术) ═══
+
+powU :: Integer -> Int -> Integer
+powU b e = b ^ e
+
+sov_width_capacity_trits_wrapper :: CUChar -> Ptr CULLong -> IO CInt
+sov_width_capacity_trits_wrapper trits out
+  | out == nullPtr = return (fromIntegral sovErrNull)
+  | fromIntegral trits > (40 :: Int) = return (fromIntegral sovErrRange)
+  | otherwise = do poke out (fromIntegral (powU 3 (fromIntegral trits)) :: CULLong); return 0
+foreign export ccall "sov_width_capacity_trits" sov_width_capacity_trits_wrapper :: CUChar -> Ptr CULLong -> IO CInt
+
+sov_width_capacity_bits_wrapper :: CUChar -> Ptr CULLong -> IO CInt
+sov_width_capacity_bits_wrapper bits out
+  | out == nullPtr = return (fromIntegral sovErrNull)
+  | fromIntegral bits > (63 :: Int) = return (fromIntegral sovErrRange)
+  | otherwise = do poke out (fromIntegral (2 ^ (fromIntegral bits :: Integer)) :: CULLong); return 0
+foreign export ccall "sov_width_capacity_bits" sov_width_capacity_bits_wrapper :: CUChar -> Ptr CULLong -> IO CInt
+
+sov_width_trits_for_bits_wrapper :: CUChar -> Ptr CUChar -> IO CInt
+sov_width_trits_for_bits_wrapper bits out
+  | out == nullPtr = return (fromIntegral sovErrNull)
+  | fromIntegral bits > (63 :: Int) = return (fromIntegral sovErrRange)
+  | otherwise = do
+      let cap = 2 ^ (fromIntegral bits :: Integer) :: Integer
+          k = length (takeWhile (\p -> p <= cap) (iterate (* 3) 1)) - 1
+      poke out (fromIntegral k :: CUChar)
+      return 0
+foreign export ccall "sov_width_trits_for_bits" sov_width_trits_for_bits_wrapper :: CUChar -> Ptr CUChar -> IO CInt
+
+sov_width_bits_for_trits_wrapper :: CUChar -> Ptr CUChar -> IO CInt
+sov_width_bits_for_trits_wrapper trits out
+  | out == nullPtr = return (fromIntegral sovErrNull)
+  | fromIntegral trits > (40 :: Int) = return (fromIntegral sovErrRange)
+  | otherwise = do
+      let need = 3 ^ (fromIntegral trits :: Integer) :: Integer
+          b = length (takeWhile (\c -> c < need) (iterate (* 2) 1))
+      poke out (fromIntegral b :: CUChar)
+      return 0
+foreign export ccall "sov_width_bits_for_trits" sov_width_bits_for_trits_wrapper :: CUChar -> Ptr CUChar -> IO CInt

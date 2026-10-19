@@ -392,6 +392,63 @@ def check_zhonglv(fail):
           + f"; 8 次复合 == sov_zhonglv_step: {'✓' if comp_ok else '✗'}")
     return ok and comp_ok
 
+DIGITFIELD = f"{SRC}/Sovereign/Synthesis/NumberTheory/DigitField.agda"
+
+def _eval_capacity(expr):
+    """安全求值: 只允许数字, *, ^, 括号"""
+    if not re.fullmatch(r"[0-9*^() ]+", expr):
+        return None
+    py = expr.replace("^", "**")
+    return eval(py, {"__builtins__": {}}, {})
+
+def check_width(fail):
+    """位宽转换: 解析 DigitField.agda 的 refl 容量等式, 与 ABI 比对
+
+    同时核对决定性的位宽关系: 3^11 > 2^16 > 3^10 (16 位只装 10 trits)。
+    """
+    src = read(DIGITFIELD)
+    caps = []
+    for ln in src.splitlines():                      # 逐行解析 (跨行正则会错配)
+        ln = ln.split("--")[0].strip()
+        m = re.match(r"capacity-[A-Za-z0-9'-]+\s*:\s*([0-9*^() ]+?)\s*≡\s*(\d+)$", ln)
+        if m:
+            expr, val = m.group(1).strip(), int(m.group(2))
+            got = _eval_capacity(expr)
+            if got is not None:
+                caps.append((expr, val, got))
+    got_caps = {}
+    for ln in read(BODY).splitlines():
+        for m in re.finditer(r"cap3_(\d+)=(\d+)", ln):   # 一行可能有多个 (用 ; 分隔)
+            got_caps[("3", int(m.group(1)))] = int(m.group(2))
+        for m in re.finditer(r"cap2_(\d+)=(\d+)", ln):
+            got_caps[("2", int(m.group(1)))] = int(m.group(2))
+    bad = []
+    checked = 0
+    for expr, val, evaled in caps:
+        if evaled != val:
+            bad.append(("Agda 自身", expr, val, evaled))
+        m3 = re.fullmatch(r"3 \^ (\d+)", expr)
+        m2 = re.fullmatch(r"2 \^ (\d+)", expr)
+        if m3 and ("3", int(m3.group(1))) in got_caps:
+            checked += 1
+            if got_caps[("3", int(m3.group(1)))] != val: bad.append((expr, val, got_caps[("3", int(m3.group(1)))]))
+        if m2 and ("2", int(m2.group(1))) in got_caps:
+            checked += 1
+            if got_caps[("2", int(m2.group(1)))] != val: bad.append((expr, val, got_caps[("2", int(m2.group(1)))]))
+    # 决定性关系 (用户指出的 2^16 / 3^11)
+    rel_ok = 3**10 < 2**16 < 3**11 and got_caps.get(("3", 10), 0) < got_caps.get(("2", 16), 0) < got_caps.get(("3", 11), 0)
+    body = read(BODY)
+    t16 = re.search(r"trits_for_bits16=(\d+)", body)
+    b11 = re.search(r"bits_for_trits11=(\d+)", body)
+    rt_ok = bool(t16 and b11 and int(t16.group(1)) == 10 and int(b11.group(1)) == 18)
+    ok = not bad and rel_ok and rt_ok
+    print(f"Agda DigitField 容量等式: {len(caps)} 条 (其中 {checked} 条与 ABI 对照), 不一致 {len(bad)}"
+          + ("" if not bad else f" → {bad[:2]}")
+          + f"; 2^16 装 trits: {t16.group(1) if t16 else '?'} (Agda 关系 3^10<2^16<3^11 ✓)"
+          + f"; 11 trits 需 {b11.group(1) if b11 else '?'} 位"
+          + ("" if ok else "  🔴"))
+    return ok
+
 def main():
     src = read(CHAIN)
     fail = 0
@@ -428,6 +485,7 @@ def main():
     if not check_trit(fail): fail = 1
     if not check_dc_mixedop(fail): fail = 1
     if not check_zhonglv(fail): fail = 1
+    if not check_width(fail): fail = 1
 
     print("\n" + ("PASS" if not fail else "FAIL"))
     return fail

@@ -731,6 +731,55 @@ int32_t sov_crt2(uint32_t a1, uint32_t m1, uint32_t a2, uint32_t m2, uint32_t* o
     return SOV_OK;
 }
 
+/* ══ 第十批: 位宽转换 (二进制 ⇄ 三进制) ══ */
+
+namespace {
+inline uint64_t pow_u64(uint64_t base, unsigned e) {
+    uint64_t r = 1;
+    for (unsigned i = 0; i < e; ++i) r *= base;
+    return r;
+}
+} // namespace
+
+int32_t sov_width_capacity_trits(uint8_t trits, uint64_t* out) {
+    if (!out) return SOV_ERR_NULL;
+    if (trits > 40) return SOV_ERR_RANGE;
+    *out = pow_u64(3, trits);
+    return SOV_OK;
+}
+
+int32_t sov_width_capacity_bits(uint8_t bits, uint64_t* out) {
+    if (!out) return SOV_ERR_NULL;
+    if (bits > 63) return SOV_ERR_RANGE;
+    *out = (bits == 0) ? 1ull : (1ull << bits);
+    return SOV_OK;
+}
+
+int32_t sov_width_trits_for_bits(uint8_t bits, uint8_t* out) {
+    if (!out) return SOV_ERR_NULL;
+    if (bits > 63) return SOV_ERR_RANGE;
+    uint64_t cap = (bits == 0) ? 1ull : (1ull << bits);
+    uint8_t k = 0;
+    uint64_t p = 1;
+    /* 用 p <= cap/3 判据, 避免 p*3 溢出 (3^40 = 1.22e19 仍在 u64 内, 但 3^41 会溢出) */
+    while (p <= cap / 3) { p *= 3; ++k; }
+    *out = k;
+    return SOV_OK;
+}
+
+int32_t sov_width_bits_for_trits(uint8_t trits, uint8_t* out) {
+    if (!out) return SOV_ERR_NULL;
+    if (trits > 40) return SOV_ERR_RANGE;
+    uint64_t need = pow_u64(3, trits);
+    uint8_t b = 0;
+    uint64_t cap = 1;
+    /* 只移位到 2^63 (u64 能表示的最大 2 的幂); 若仍不足 ⇒ 需 64 位 */
+    while (b < 63 && cap < need) { cap <<= 1; ++b; }
+    if (cap < need) b = 64;
+    *out = b;
+    return SOV_OK;
+}
+
 int32_t sov_tryte_value(const uint8_t t6[6], uint16_t* out) {
     if (!t6 || !out) return SOV_ERR_NULL;
     uint16_t v = 0, p = 1;

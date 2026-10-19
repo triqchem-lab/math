@@ -4,7 +4,7 @@
 > 三语言实现（cpp / rust / hs）**逐符号等价**，可由任意 C/C++/带 FFI 的宿主加载。
 > 单一事实源：`cpp/include/sov/*.h`（版本脚本 `cpp/packaging/sov_ffi.map` 由此自动生成）。
 
-## 一、符号清单（64 个，分 22 个设施头）
+## 一、符号清单（68 个，分 23 个设施头）
 
 | 头 | 符号数 | 符号 |
 |---|---|---|
@@ -14,6 +14,7 @@
 | `<sov/ring.h>` | 4 | `sov_ring_add`, `sov_ring_mul`, `sov_ring_double`, `sov_ring_to_tryte` |
 | `<sov/dc.h>` | 4 | `sov_dc_mixedop`, `sov_dc_sigma`, `sov_dc_crt`, `sov_dc_translate` |
 | `<sov/dayan.h>` | 2 | `sov_dayan_multiplier`, `sov_crt2` |
+| `<sov/width.h>` | 4 | `sov_width_capacity_trits`, `sov_width_capacity_bits`, `sov_width_trits_for_bits`, `sov_width_bits_for_trits` |
 | `<sov/adc.h>` | 1 | `sov_adc64` |
 | `<sov/bridge.h>` | 1 | `sov_lcm_step` |
 | `<sov/l6.h>` | 3 | `sov_zhonglv_step`, `sov_zhonglv_closure`, `sov_sovereign_lcm` |
@@ -63,7 +64,7 @@
 | 闸门 | 命令 | 判据 |
 |---|---|---|
 | 导出面 | `engineering/verify_export_surface.sh` | 三语言 dynsym == 契约（缺/多皆红） |
-| 实现一致 | `engineering/ffi_conformance.sh` | 三语言同一向量 **974 行逐行相同** |
+| 实现一致 | `engineering/ffi_conformance.sh` | 三语言同一向量 **984 行逐行相同** |
 | 头合规 | `engineering/c99_compliance_check.py` | 保留标识符 / 自足性 / 版本闸门 |
 | 档位矩阵 | `engineering/c_standard_matrix.sh` | C99..C23 × C++11..23 × gcc/clang |
 | 安装 | `engineering/install_c_abi.sh` | `dist/` 标准布局 + pkg-config 三套 |
@@ -213,3 +214,30 @@ cpp 的 `NSESolver::step` 与 rust/hs 的 `step_once` 在 delta 公式上不同�
 
 - 物不知数：`x≡2(3), x≡3(5), x≡2(7)` → `crt2` 两步得 **23**（`23 ≡ 2 mod 3, 3 mod 5, 2 mod 7`）✓
 - 乘率：`乘率(2,3)=2`、`乘率(1,5)=1`、`乘率(3,5)=2` ✓
+
+## 十一、位宽转换：二进制硬件 ↔ 三进制（这才是 3¹¹/2¹⁶ 的读法）
+
+依据：`docs/duodecimal/22-doz-formalization.md` §位宽对照 + Agda `Synthesis/NumberTheory/DigitField.agda`（纯容量算术）。
+
+**位域容量 = 状态数**：b 个二态域有 2^b 种状态，t 个三态域有 3^t 种。
+「b 位二进制可无损表示 t 个三进制位」⇔ **2^b ≥ 3^t**。
+
+| 关系 | 数值 | 结论 |
+|---|---|---|
+| 3¹⁰ vs 2¹⁶ | 59049 < 65536 | 16 位装得下 **10 trits** |
+| 2¹⁶ vs 3¹¹ | 65536 < 177147 | 16 位装**不下** 11 trits |
+| 3¹¹ | 177147 | 11 trits 需 **18 位**（2¹⁷=131072 < 177147 ≤ 2¹⁸） |
+| 3⁹·2¹⁸ | 5159780352 = 12⁹ | 数位分离的零浪费划分（`capacity-*` refl） |
+| 3²⁷ / 2⁴³ | 7625597484987 / 8796093022208 | Agda `capacity-27trit` / `capacity-43bit`（refl） |
+
+ABI 新增四个函数（`sov_width_*`），强验证：解析 `DigitField.agda` 的 6 条 `capacity-* ≡ …` refl 等式与 ABI 对照
+（0 不一致），并核对关系 `3¹⁰ < 2¹⁶ < 3¹¹`、`16 位→10 trits`、`11 trits→18 位`。
+
+⚠ 范畴红线（文档 §7.5）：这是**位域容量**层。「12 态位域 = 1 三态 + 2 二态」**不能**读成
+「12 进制 = 3 进制 × 2 进制」——后者是记数法层（Doz/Positional），二者之间是**双射桥**（`DigitRealization`）。
+
+### 实现缺陷记录（本轮实测）
+
+`sov_width_bits_for_trits(40)` 初版**死循环**：`3⁴⁰ = 1.2157×10¹⁹ > 2⁶³`，而 `cap` 为 `uint64`，
+`cap <<= 1` 在 2⁶³ 后回绕为 0 ⇒ `0 < need` 永真。修复：移位只到 2⁶³，仍不足则返回 **64**；
+`trits_for_bits` 侧改用 `p <= cap/3` 判据避免 `p*3` 溢出。修复后全量测试 8 秒完成。
