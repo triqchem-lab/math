@@ -670,6 +670,52 @@ int32_t sov_nse_free(sov_nse_handle* h) {
     return SOV_OK;
 }
 
+/* ══ 第八批: 大衍求一术 + 广义 CRT ══ */
+
+namespace {
+inline uint32_t gcd_u32(uint32_t a, uint32_t b) { while (b) { uint32_t t = a % b; a = b; b = t; } return a; }
+
+// 秦九韶递互除乘 (系数 ℤ): 返回乘率; gcd≠1 时返回 false
+inline bool dayan_signed(uint32_t qi, uint32_t ding, uint32_t* k_out) {
+    int64_t lt = 1, lb = 0, rt = int64_t(qi), rb = int64_t(ding);
+    while (rt != 0 && rt != 1) {
+        int64_t q = rb / rt, r = rb % rt;
+        int64_t nlt = lb - q * lt;
+        lb = lt; lt = nlt; rb = rt; rt = r;
+    }
+    if (rt != 1) return false;
+    int64_t k = lt % int64_t(ding);
+    if (k < 0) k += int64_t(ding);
+    *k_out = uint32_t(k);
+    return true;
+}
+} // namespace
+
+int32_t sov_dayan_multiplier(uint32_t qi, uint32_t ding, uint32_t* out) {
+    if (!out) return SOV_ERR_NULL;
+    if (ding == 0) return SOV_ERR_RANGE;
+    uint32_t k;
+    if (!dayan_signed(qi % ding, ding, &k)) return SOV_ERR_STATE;
+    *out = k;
+    return SOV_OK;
+}
+
+int32_t sov_crt2(uint32_t a1, uint32_t m1, uint32_t a2, uint32_t m2, uint32_t* out) {
+    if (!out) return SOV_ERR_NULL;
+    if (m1 == 0 || m2 == 0) return SOV_ERR_RANGE;
+    if (gcd_u32(m1, m2) != 1) return SOV_ERR_STATE;
+    uint32_t inv;
+    if (!dayan_signed(m1 % m2, m2, &inv)) return SOV_ERR_STATE;
+    int64_t diff = (int64_t(a2) - int64_t(a1)) % int64_t(m2);
+    if (diff < 0) diff += int64_t(m2);
+    int64_t t = (diff * int64_t(inv)) % int64_t(m2);
+    int64_t prod = int64_t(m1) * int64_t(m2);
+    int64_t x = (int64_t(a1) + int64_t(m1) * t) % prod;
+    if (x < 0) x += prod;
+    *out = uint32_t(x);
+    return SOV_OK;
+}
+
 int32_t sov_tryte_value(const uint8_t t6[6], uint16_t* out) {
     if (!t6 || !out) return SOV_ERR_NULL;
     uint16_t v = 0, p = 1;

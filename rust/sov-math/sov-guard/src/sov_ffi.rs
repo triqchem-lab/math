@@ -733,6 +733,52 @@ pub extern "C" fn sov_nse_free(h: *mut NseHandle) -> i32 {
     OK
 }
 
+// ══ 第八批: 大衍求一术 (带符号系数) + 广义 CRT ══
+
+fn gcd_u32(mut a: u32, mut b: u32) -> u32 { while b != 0 { let t = a % b; a = b; b = t; } a }
+
+/// 秦九韶递互除乘 (系数 ℤ): (lt,lb,rt,rb) → (lb − q·lt, lt, r, rt)
+fn dayan_signed(qi: u32, ding: u32) -> Option<u32> {
+    let (mut lt, mut lb) = (1i64, 0i64);
+    let (mut rt, mut rb) = (qi as i64, ding as i64);
+    while rt != 0 && rt != 1 {
+        let q = rb / rt;
+        let r = rb % rt;
+        let nlt = lb - q * lt;
+        lb = lt; lt = nlt; rb = rt; rt = r;
+    }
+    if rt != 1 { return None; }
+    let mut k = lt % ding as i64;
+    if k < 0 { k += ding as i64; }
+    Some(k as u32)
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_dayan_multiplier(qi: u32, ding: u32, out: *mut u32) -> i32 {
+    if out.is_null() { return ERR_NULL; }
+    if ding == 0 { return ERR_RANGE; }
+    match dayan_signed(qi % ding, ding) {
+        Some(k) => { unsafe { *out = k; } OK }
+        None => -3, // SOV_ERR_STATE: 非互素, 乘率不存在
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_crt2(a1: u32, m1: u32, a2: u32, m2: u32, out: *mut u32) -> i32 {
+    if out.is_null() { return ERR_NULL; }
+    if m1 == 0 || m2 == 0 { return ERR_RANGE; }
+    if gcd_u32(m1, m2) != 1 { return -3; }
+    let inv = match dayan_signed(m1 % m2, m2) { Some(v) => v, None => return -3 };
+    let mut diff = (a2 as i64 - a1 as i64) % m2 as i64;
+    if diff < 0 { diff += m2 as i64; }
+    let t = (diff * inv as i64) % m2 as i64;
+    let prod = m1 as i64 * m2 as i64;
+    let mut x = (a1 as i64 + m1 as i64 * t) % prod;
+    if x < 0 { x += prod; }
+    unsafe { *out = x as u32; }
+    OK
+}
+
 #[unsafe(no_mangle)]
 pub extern "C" fn sov_chern_inject(num: *mut i64, den: *mut i64) -> i32 {
     if num.is_null() || den.is_null() { return ERR_NULL; }

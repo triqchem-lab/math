@@ -79,6 +79,9 @@ module Sov.FFI
   , sov_nse_component_wrapper
   , sov_nse_set_component_wrapper
   , sov_nse_free_wrapper
+    -- 第八批
+  , sov_dayan_multiplier_wrapper
+  , sov_crt2_wrapper
   ) where
 
 import Data.Bits    (shiftL, shiftR, (.&.), (.|.))
@@ -985,3 +988,50 @@ sov_nse_set_component_wrapper h x i v
             writeIORef ref st { nseComp = arr // [(idx, fromIntegral v)] }
             return 0
 foreign export ccall "sov_nse_set_component" sov_nse_set_component_wrapper :: Ptr () -> CUShort -> CUChar -> CUChar -> IO CInt
+
+
+-- ═══ 第八批: 大衍求一术 (带符号系数) + 广义 CRT ═══
+
+gcdU :: Integer -> Integer -> Integer
+gcdU a 0 = abs a
+gcdU a b = gcdU b (a `mod` b)
+
+-- | 秦九韶递互除乘 (系数 ℤ): (lt,lb,rt,rb) → (lb − q·lt, lt, r, rt)
+dayanSigned :: Integer -> Integer -> Maybe Integer
+dayanSigned qi ding = go 1 0 qi ding
+  where
+    go lt lb rt rb
+      | rt == 0 = Nothing
+      | rt == 1 = Just (lt `mod` ding)
+      | otherwise =
+          let q = rb `div` rt
+              r = rb `mod` rt
+          in go (lb - q * lt) lt r rt
+
+sov_dayan_multiplier_wrapper :: CUInt -> CUInt -> Ptr CUInt -> IO CInt
+sov_dayan_multiplier_wrapper qi ding out
+  | out == nullPtr = return (fromIntegral sovErrNull)
+  | ding == 0 = return (fromIntegral sovErrRange)
+  | otherwise =
+      case dayanSigned (toInteger qi `mod` toInteger ding) (toInteger ding) of
+        Nothing -> return (fromIntegral sovErrState)
+        Just k  -> do poke out (fromIntegral k); return 0
+foreign export ccall "sov_dayan_multiplier" sov_dayan_multiplier_wrapper :: CUInt -> CUInt -> Ptr CUInt -> IO CInt
+
+sov_crt2_wrapper :: CUInt -> CUInt -> CUInt -> CUInt -> Ptr CUInt -> IO CInt
+sov_crt2_wrapper a1 m1 a2 m2 out
+  | out == nullPtr = return (fromIntegral sovErrNull)
+  | m1 == 0 || m2 == 0 = return (fromIntegral sovErrRange)
+  | gcdU (toInteger m1) (toInteger m2) /= 1 = return (fromIntegral sovErrState)
+  | otherwise =
+      case dayanSigned (toInteger m1 `mod` toInteger m2) (toInteger m2) of
+        Nothing -> return (fromIntegral sovErrState)
+        Just inv -> do
+          let m2' = toInteger m2
+              diff = ((toInteger a2 - toInteger a1) `mod` m2' + m2') `mod` m2'
+              t = (diff * inv) `mod` m2'
+              prod = toInteger m1 * m2'
+              x = ((toInteger a1 + toInteger m1 * t) `mod` prod + prod) `mod` prod
+          poke out (fromIntegral x)
+          return 0
+foreign export ccall "sov_crt2" sov_crt2_wrapper :: CUInt -> CUInt -> CUInt -> CUInt -> Ptr CUInt -> IO CInt

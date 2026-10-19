@@ -138,6 +138,67 @@ def check_dc_crt(fail):
           + ("" if not bad else f" → {bad[:3]}") + ("" if ok else "  🔴"))
     return ok
 
+DAYAN = f"{SRC}/Sovereign/Algebra/GroupTheory/DayanState.agda"
+
+def dayan_z(qi, ding):
+    """ℤ 版递互除乘 (ABI 采用): (lt,lb,rt,rb) → (lb − q·lt, lt, r, rt)"""
+    lt, lb, rt, rb = 1, 0, qi, ding
+    while rt not in (0, 1):
+        q, r = rb // rt, rb % rt
+        lt, lb, rt, rb = lb - q * lt, lt, r, rt
+    return None if rt != 1 else lt % ding
+
+def dayan_nat(qi, ding):
+    """ℕ 版 (Agda DayanState 原文, ∸ = 饱和减) + 乘率-full"""
+    lt, lb, rt, rb = 1, 0, qi, ding
+    steps = 0
+    while rt not in (0, 1):
+        q, r = rb // rt, rb % rt
+        lt, lb, rt, rb = max(0, q * lt - lb), lt, r, rt
+        steps += 1
+    if rt != 1:
+        return None
+    return lt if steps == 0 else (ding - lt if lt <= ding else 0)
+
+def check_dayan(fail):
+    """大衍求一术: ① 断言 Agda 原文的递推形态 ② 记录 ℕ 版失效比例 ③ 核对 ABI 的 ℤ 版"""
+    src = read(DAYAN)
+    has_init = bool(re.search(r"dayan-init 奇 定 = dayan 1 0 奇 定", src))
+    has_step = bool(re.search(r"q = right-bottom s / rt", src)) and \
+               bool(re.search(r"diff = \(q \* left-top s\) ∸ left-bottom s", src))
+    import math
+    nat_total = nat_bad = 0
+    for m in range(2, 61):
+        for a in range(1, m):
+            if math.gcd(a, m) != 1: continue
+            nat_total += 1
+            k = dayan_nat(a, m)
+            if k is None or (a * k) % m != 1: nat_bad += 1
+    body = read(BODY)
+    got = None
+    for ln in body.splitlines():
+        if ln.strip().startswith("dayan_total="):
+            got = ln.strip()
+    chk_ok = False
+    if got:
+        ok_n = int(re.search(r"ok=(\d+)", got).group(1))
+        bad_n = int(re.search(r"bad=(\d+)", got).group(1))
+        chk_a = int(re.search(r"chk=(\d+)", got).group(1))
+        chk_py = 0
+        for m in range(2, 61):
+            for a in range(1, m):
+                if math.gcd(a, m) != 1: continue
+                k = dayan_z(a, m)
+                if k is not None and (a * k) % m == 1:
+                    chk_py = (chk_py * 131 + k) % 1000000007
+        chk_ok = (bad_n == 0 and chk_a == chk_py)
+    ok = has_init and has_step and chk_ok
+    print(f"Agda DayanState: init 形态 {'✓' if has_init else '✗'}, step 形态 {'✓' if has_step else '✗'}; "
+          f"ℕ 版乘率失效 {nat_bad}/{nat_total} ({100*nat_bad/nat_total:.1f}%) — 故 ABI 用 ℤ 版"
+          + (f"; ABI ℤ 版校验 {'✓' if chk_ok else '✗'} ({got})" if got else "; ABI 输出缺失 ✗")
+          + ("" if ok else "  🔴"))
+    return ok
+
 def main():
     src = read(CHAIN)
     fail = 0
@@ -170,6 +231,7 @@ def main():
     if not check_gf9(fail): fail = 1
     if not check_eisenstein(fail): fail = 1
     if not check_dc_crt(fail): fail = 1
+    if not check_dayan(fail): fail = 1
 
     print("\n" + ("PASS" if not fail else "FAIL"))
     return fail

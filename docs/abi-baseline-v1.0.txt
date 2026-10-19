@@ -5,6 +5,8 @@ sov_chern_detect
 sov_chern_inject
 sov_chern_inject_monopole
 sov_chiral_collapse
+sov_crt2
+sov_dayan_multiplier
 sov_dc_crt
 sov_dc_mixedop
 sov_dc_sigma

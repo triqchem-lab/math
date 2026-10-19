@@ -11,6 +11,7 @@
 #include <sov/gf9.h>
 #include <sov/ring.h>
 #include <sov/dc.h>
+#include <sov/dayan.h>
 #include <sov/t6.h>
 #include <sov/adc.h>
 #include <sov/bridge.h>

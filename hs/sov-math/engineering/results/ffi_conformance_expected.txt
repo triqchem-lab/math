@@ -945,5 +945,15 @@ nse2_free=0
 err_nse_mode=-2
 nse_free_null=0
 err_nse_null=-4
+dayan_total=1101,ok=1101,bad=0,chk=823007911
+dayan_2_3=2
+dayan_1_5=1
+dayan_3_5=2
+err_dayan_noncn=-3
+err_dayan_m0=-2
+crt_3_5=8
+crt_15_7=23
+err_crt_noncn=-3
+crt_total=576,ok=576
 err_null=-4
 runtime_fini=0

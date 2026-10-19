@@ -545,6 +545,57 @@ int main(int argc, char **argv) {
         { int32_t rho; printf("err_nse_null=%d\n", ndq(NULL, &rho)); }
     }
 
+    /* ══ 第八批: 大衍求一术 + 广义 CRT ══ */
+    {
+        typedef int32_t (*fn_dm)(uint32_t, uint32_t, uint32_t *);
+        typedef int32_t (*fn_c2)(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t *);
+        fn_dm dm = (fn_dm)sym("sov_dayan_multiplier");
+        fn_c2 c2 = (fn_c2)sym("sov_crt2");
+
+        /* 乘率: 全域检验 (奇<定≤60, 互素) — 只打印校验值, 保持输出紧凑 */
+        int ok = 0, bad = 0, total = 0; long long chk = 0;
+        for (uint32_t m = 2; m <= 60; ++m) {
+            for (uint32_t a = 1; a < m; ++a) {
+                uint32_t g = a, h = m;
+                while (h) { uint32_t t = g % h; g = h; h = t; }
+                if (g != 1) continue;
+                ++total;
+                uint32_t k = 0;
+                int32_t rc = dm(a, m, &k);
+                if (rc == 0 && (uint64_t)a * k % m == 1) { ++ok; chk = (chk * 131 + k) % 1000000007LL; }
+                else ++bad;
+            }
+        }
+        printf("dayan_total=%d,ok=%d,bad=%d,chk=%lld\n", total, ok, bad, chk);
+
+        /* 经典实例 */
+        { uint32_t k; dm(2, 3, &k);  printf("dayan_2_3=%u\n", k); }
+        { uint32_t k; dm(1, 5, &k);  printf("dayan_1_5=%u\n", k); }
+        { uint32_t k; dm(3, 5, &k);  printf("dayan_3_5=%u\n", k); }
+        { uint32_t k; printf("err_dayan_noncn=%d\n", dm(4, 6, &k)); }
+        { uint32_t k; printf("err_dayan_m0=%d\n", dm(1, 0, &k)); }
+
+        /* 物不知数: x≡2(3), x≡3(5), x≡2(7) → x≡23 (mod 105) */
+        { uint32_t x;
+          c2(2, 3, 3, 5, &x);  printf("crt_3_5=%u\n", x);          /* 期望 8 */
+          c2(x, 15, 2, 7, &x); printf("crt_15_7=%u\n", x);         /* 期望 23 */
+          printf("err_crt_noncn=%d\n", c2(1, 4, 2, 6, &x)); }
+        /* 全域一致性: x 满足两个同余, 且唯一落在 [0,m1·m2) */
+        int crt_ok = 0, crt_tot = 0;
+        const uint32_t ms[5] = {2,3,5,7,11};
+        for (unsigned i = 0; i < 5; ++i) for (unsigned j = 0; j < 5; ++j) {
+            uint32_t m1 = ms[i], m2 = ms[j];
+            if (m1 == m2) continue;
+            for (uint32_t a1 = 0; a1 < m1; ++a1) for (uint32_t a2 = 0; a2 < m2; ++a2) {
+                uint32_t x = 0;
+                if (c2(a1, m1, a2, m2, &x) != 0) continue;
+                ++crt_tot;
+                if (x % m1 == a1 % m1 && x % m2 == a2 % m2 && x < m1 * m2) ++crt_ok;
+            }
+        }
+        printf("crt_total=%d,ok=%d\n", crt_tot, crt_ok);
+    }
+
     /* 空指针保护 */
     printf("err_null=%d\n", tadd(0, 0, NULL));
     { fn_abi rfini = (fn_abi)dlsym(H, "sov_runtime_fini");

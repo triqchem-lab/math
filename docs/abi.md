@@ -4,7 +4,7 @@
 > 三语言实现（cpp / rust / hs）**逐符号等价**，可由任意 C/C++/带 FFI 的宿主加载。
 > 单一事实源：`cpp/include/sov/*.h`（版本脚本 `cpp/packaging/sov_ffi.map` 由此自动生成）。
 
-## 一、符号清单（60 个，分 21 个设施头）
+## 一、符号清单（62 个，分 22 个设施头）
 
 | 头 | 符号数 | 符号 |
 |---|---|---|
@@ -13,6 +13,7 @@
 | `<sov/gf9.h>` | 2 | `sov_gf9_mul`, `sov_gf9_norm` |
 | `<sov/ring.h>` | 4 | `sov_ring_add`, `sov_ring_mul`, `sov_ring_double`, `sov_ring_to_tryte` |
 | `<sov/dc.h>` | 4 | `sov_dc_mixedop`, `sov_dc_sigma`, `sov_dc_crt`, `sov_dc_translate` |
+| `<sov/dayan.h>` | 2 | `sov_dayan_multiplier`, `sov_crt2` |
 | `<sov/adc.h>` | 1 | `sov_adc64` |
 | `<sov/bridge.h>` | 1 | `sov_lcm_step` |
 | `<sov/l6.h>` | 1 | `sov_zhonglv_step` |
@@ -62,7 +63,7 @@
 | 闸门 | 命令 | 判据 |
 |---|---|---|
 | 导出面 | `engineering/verify_export_surface.sh` | 三语言 dynsym == 契约（缺/多皆红） |
-| 实现一致 | `engineering/ffi_conformance.sh` | 三语言同一向量 **949 行逐行相同** |
+| 实现一致 | `engineering/ffi_conformance.sh` | 三语言同一向量 **959 行逐行相同** |
 | 头合规 | `engineering/c99_compliance_check.py` | 保留标识符 / 自足性 / 版本闸门 |
 | 档位矩阵 | `engineering/c_standard_matrix.sh` | C99..C23 × C++11..23 × gcc/clang |
 | 安装 | `engineering/install_c_abi.sh` | `dist/` 标准布局 + pkg-config 三套 |
@@ -161,6 +162,8 @@ cpp 的 `NSESolver::step` 与 rust/hs 的 `step_once` 在 delta 公式上不同�
 | `sov_gf9_mul` | 解析 `GF9.agda`（`α² = −1`、`GF9 = GF3 × GF3`）→ 独立评估 81 项乘法表 | ✅ 81/81 |
 | `sov_eis_mul` | 解析 `Eisenstein.agda` 的 `_*ᵉ_` 公式原文并断言规范形 `(a*c-b*d, a*d+b*c-b*d)`；再用该公式独立评估 625 乘积校验和 | ✅ 公式逐字一致；625/625 校验和相同（694701810） |
 | `sov_dc_crt` | 逐行解析 `Duodecimal.agda` 的 12 条 `crt12` 子句 + `toℕ₁₂` 表 | ✅ 12/12 |
+| `sov_dayan_multiplier` | 解析 `DayanState.agda` 的 `dayan-init`/`dayan-step` 原文形态；用 ℤ 版独立实现核对 ABI | ✅ 1101/1101 互素对（m≤60），校验和 823007911 |
+| `sov_crt2` | 广义二模 CRT：验证解满足两同余且唯一落在 [0,m₁m₂) | ✅ 576/576（模数对取自 {2,3,5,7,11}），物不知数 → 23 |
 
 核对器：`engineering/verify_agda_anchors.py`（直接读 Agda 源文件，**不读我方表**；已并入 `abi_check.sh` 第 4.5 步）。
 当前覆盖 **754 项**：十二律 12 + 损益 12 + 余数 12 + 闭合常数 2 + GF(9) 81 + Eisenstein 625 + CRT 12。
@@ -171,3 +174,28 @@ cpp 的 `NSESolver::step` 与 rust/hs 的 `step_once` 在 delta 公式上不同�
 - 篡改 CRT `(2,2)` 为 9（应为 2）→ `不一致 1` FAIL
 
 ⚠ 其余设施仍是**定义级对应**（未做逐条转写 + 全状态对照），不得声称已强验证。
+
+## 十、大衍求一术：道与术（以及一处必须说明的分歧）
+
+**道（principle）**：求乘率 `k` 使 `奇 · k ≡ 1 (mod 定)` —— 即 Bezout 系数存在性。
+**术（technique）**：秦九韶《数书九章》「置奇右上，定居右下，立天元一于左上……递互除乘，须使右上末后奇一而止」。
+
+形式化依据：`Algebra/GroupTheory/DayanState.agda`（四格状态 + `dayan-step` + `乘率-full`）、
+`DayanCorrect.agda`（把 `init-invariant` / `step-invariant` / `terminate-correct` 写成**义务类型**）。
+
+### ⚠ 实测分歧：ℕ 版术给不出模逆
+
+| 版本 | 系数 | 递推 | 互素对通过率（m≤60） |
+|---|---|---|---|
+| Agda 原文（ℕ + `∸` 饱和减） | `ℕ` | `lt ← q·lt ∸ lb`，`乘率 = 定 ∸ lt`（步数>0） | **249/1101（22.6%）** |
+| ABI 采用（ℤ 带符号） | `ℤ` | `lt ← lb − q·lt` | **1101/1101（100%）**；扩到 m≤200 为 12231/12231 |
+
+证据链：`DayanCorrect.agda` 自己把三个义务留作类型未证，并注明「用 ℤ 实现更干净、忠实秦九韶算筹正负约定」——
+实测与该注释一致。故 **ABI 采用 ℤ 版**，`ℕ` 版作为「形式化待修正」记录在案（不是我们实现错，而是形式化本身的开放项）。
+
+反例（ℕ 版）：`(奇=3, 定=5)` 得乘率 5，而 `3×5 ≡ 0 (mod 5) ≠ 1`；ℤ 版得 2（`3×2=6≡1` ✓）。
+
+### 经典实例（ABI 实测）
+
+- 物不知数：`x≡2(3), x≡3(5), x≡2(7)` → `crt2` 两步得 **23**（`23 ≡ 2 mod 3, 3 mod 5, 2 mod 7`）✓
+- 乘率：`乘率(2,3)=2`、`乘率(1,5)=1`、`乘率(3,5)=2` ✓
