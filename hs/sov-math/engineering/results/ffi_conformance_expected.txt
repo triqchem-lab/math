@@ -1027,5 +1027,13 @@ gf9_norm_full_bad=0,chk=703378107
 gf9_norm_mul_bad=0,chk=777517667
 t6_index_full_bad=0,bad_range=0,chk=553190244
 sunyi_boundary_full_bad=0,chk=1
+u384_overflow_ok=1
+u384_add_comm=1
+u384_add_assoc=1
+u384_mul3_carry=0,chk=517088888
+u384_mul0_ok=1
+u384_mul1_ok=1
+u384_shr16_chk=50555795
+u384_shr32_chk=95659065
 err_null=-4
 runtime_fini=0

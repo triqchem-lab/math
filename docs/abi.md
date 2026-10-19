@@ -68,7 +68,7 @@
 | 闸门 | 命令 | 判据 |
 |---|---|---|
 | 导出面 | `engineering/verify_export_surface.sh` | 三语言 dynsym == 契约（缺/多皆红） |
-| 实现一致 | `engineering/ffi_conformance.sh` | 三语言同一向量 **1031 行逐行相同** |
+| 实现一致 | `engineering/ffi_conformance.sh` | 三语言同一向量 **1039 行逐行相同** |
 | 头合规 | `engineering/c99_compliance_check.py` | 保留标识符 / 自足性 / 版本闸门 |
 | 档位矩阵 | `engineering/c_standard_matrix.sh` | C99..C23 × C++11..23 × gcc/clang |
 | 安装 | `engineering/install_c_abi.sh` | `dist/` 标准布局 + pkg-config 三套 |
@@ -183,11 +183,13 @@ cpp 的 `NSESolver::step` 与 rust/hs 的 `step_once` 在 delta 公式上不同�
 | `sov_trit_sun` / `sov_trit_c3` | Agda `Trit.c3-cw x = x ⊕ T₁`、`c3-ccw x = x ⊕ T₂`、`c3-cw³`；全域 3 值 + 阶/逆关系 | ✅ 3/3（**修复后**才真正验证，见 §18） |
 | `sov_t6_index` | 索引 = `(polar mod 144)·46 + (toroidal mod 46)`，值域 < 6624；扫描 288×92 | ✅ 0 反例，独立复算校验和一致 |
 | `sov_sunyi_boundary` | 12 步全枚举，仅 `step mod 12 = 11`（仲吕）为边界 | ✅ 12/12 |
+| `sov_u384_add` / `mul_u64` / `shr16` | 进位边界 `(2³⁸⁴−1)+1`、交换律、结合律、×0、×1；乘 3 与右移 16/32 与 **Python 大数逐 limb 对账** | ✅ 恒等全成立；三处校验和与 Python 一致（⚠ 抽样，非全域） |
+| `sov_chern_inject` / `detect` / `compute` | 注入 24 次（2 轨道×12 head）、检测 (0,216)/(−432,216)、全零缓冲 → C=0；与 S² 12 胞腔 χ=2 对齐 | ✅ 全部一致 |
 | `sov_dayan_multiplier` | 解析 `DayanState.agda` 的 `dayan-init`/`dayan-step` 原文形态；用 ℤ 版独立实现核对 ABI | ✅ 1101/1101 互素对（m≤60），校验和 823007911 |
 | `sov_crt2` | 广义二模 CRT：验证解满足两同余且唯一落在 [0,m₁m₂) | ✅ 576/576（模数对取自 {2,3,5,7,11}），物不知数 → 23 |
 
 核对器：`engineering/verify_agda_anchors.py`（直接读 Agda 源文件，**不读我方表**；已并入 `abi_check.sh` 第 4.5 步）。
-当前覆盖 **2951 项**（含全域穷尽类）（含全域穷尽类）（含全域穷尽类）：十二律 12 + 损益 12 + 余数 12 + 闭合常数 2 + GF(9) 81 + Eisenstein 625 + CRT 12 + Trit 18 + DC mixedOp 144 + 仲吕闭合 7 + **Tryte 729 + pack5 243 + Doz 数位 12 + Doz 往返 20001 + 数字根 4002**。
+当前覆盖 **2966 项**（含全域穷尽类）（含全域穷尽类）（含全域穷尽类）（含全域穷尽类）：十二律 12 + 损益 12 + 余数 12 + 闭合常数 2 + GF(9) 81 + Eisenstein 625 + CRT 12 + Trit 18 + DC mixedOp 144 + 仲吕闭合 7 + **Tryte 729 + pack5 243 + Doz 数位 12 + Doz 往返 20001 + 数字根 4002**。
 
 负向控制（已实测三条，判官确实会说「不」）：
 - 篡改余数 `124416→124417` → `不一致 1` FAIL

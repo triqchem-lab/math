@@ -1037,6 +1037,72 @@ int main(int argc, char **argv) {
           printf("sunyi_boundary_full_bad=%d,chk=%lld\n", bad, chk); }
     }
 
+    /* ══ 384 位定点: 大数恒等 + 与超长整数对账 (抽样, 穷尽不可能) ══ */
+    {
+        typedef int32_t (*fn_ua)(const uint64_t *, const uint64_t *, uint64_t *, uint8_t *);
+        typedef int32_t (*fn_um)(const uint64_t *, uint64_t, uint64_t *, uint64_t *);
+        typedef int32_t (*fn_us)(const uint64_t *, uint64_t *);
+        fn_ua ua = (fn_ua)sym("sov_u384_add");
+        fn_um um = (fn_um)sym("sov_u384_mul_u64");
+        fn_us us = (fn_us)sym("sov_u384_shr16");
+
+        /* ① 加法: 进位边界 (全 0xFF.. ) + 交换律 + 结合律抽样 */
+        { uint64_t a[6], b[6], o1[6], o2[6], o3[6], o4[6]; uint8_t c1, c2;
+          /* (2^384 − 1) + 1：b 必须只有 limb0 = 1（此前误把每个 limb 都置 1） */
+          for (int i = 0; i < 6; ++i) { a[i] = ~0ull; b[i] = 0ull; }
+          b[0] = 1ull;
+          ua(a, b, o1, &c1);              /* (2^384-1)+1 = 0 带进位 1 */
+          int ok = (c1 == 1);
+          for (int i = 0; i < 6; ++i) if (o1[i] != 0) ok = 0;
+          printf("u384_overflow_ok=%d\n", ok);
+          /* 交换律: a+b == b+a */
+          for (int i = 0; i < 6; ++i) { a[i] = (uint64_t)(i * 0x9E3779B97F4A7C15ull + 3); b[i] = (uint64_t)(i * 0xD1B54A32D192ED03ull + 7); }
+          ua(a, b, o1, &c1); ua(b, a, o2, &c2);
+          int comm = (c1 == c2);
+          for (int i = 0; i < 6; ++i) if (o1[i] != o2[i]) comm = 0;
+          printf("u384_add_comm=%d\n", comm);
+          /* 结合律: (a+b)+c vs a+(b+c) */
+          for (int i = 0; i < 6; ++i) a[i] = (uint64_t)(i * 0xBF58476D1CE4E5B9ull + 11);
+          for (int i = 0; i < 6; ++i) b[i] = ~0ull - (uint64_t)i;
+          for (int i = 0; i < 6; ++i) o3[i] = (uint64_t)(i * 0x94D049BB133111EBull + 1);
+          ua(a, b, o1, &c1); ua(o1, o3, o2, &c2);
+          ua(b, o3, o4, &c1); ua(a, o4, o1, &c1);
+          int assoc = (c1 == c2);
+          for (int i = 0; i < 6; ++i) if (o1[i] != o2[i]) assoc = 0;
+          printf("u384_add_assoc=%d\n", assoc); }
+
+        /* ② mul_u64: 抽样与 Python 大数对账 (值已由外部预期表给出) */
+        { uint64_t a[6] = {0x0123456789ABCDEFull, 0xFEDCBA9876543210ull,
+                           0x0F1E2D3C4B5A6978ull, 0x8877665544332211ull,
+                           0xAABBCCDDEEFF0011ull, 0x1234567890ABCDEFull};
+          uint64_t o[6], carry = 0; um(a, 3, o, &carry);
+          long long chk = 0;
+          for (int i = 0; i < 6; ++i) chk = (chk * 131 + (long long)(o[i] % 1000003)) % 1000000007LL;
+          printf("u384_mul3_carry=%llu,chk=%lld\n", (unsigned long long)carry, chk);
+          um(a, 0, o, &carry);
+          int zero_ok = (carry == 0);
+          for (int i = 0; i < 6; ++i) if (o[i] != 0) zero_ok = 0;
+          printf("u384_mul0_ok=%d\n", zero_ok);
+          /* 恒等: a*1 == a */
+          um(a, 1, o, &carry);
+          int id1 = (carry == 0);
+          for (int i = 0; i < 6; ++i) if (o[i] != a[i]) id1 = 0;
+          printf("u384_mul1_ok=%d\n", id1); }
+
+        /* ③ shr16: 精确右移 16 位 (= 除 65536，截断) + 与移位恒等 */
+        { uint64_t a[6] = {0xFFFFFFFFFFFFFFFFull, 0x00000000FFFFFFFFull,
+                           0x123456789ABCDEF0ull, 0x0ull, 0xFFFF0000FFFF0000ull, 0x1ull};
+          uint64_t o[6]; us(a, o);
+          long long chk = 0;
+          for (int i = 0; i < 6; ++i) chk = (chk * 131 + (long long)(o[i] % 1000003)) % 1000000007LL;
+          printf("u384_shr16_chk=%lld\n", chk);
+          /* 恒等: shr16(shr16(x)) == shr32(x)，用两次调用验证 */
+          uint64_t o2[6]; us(o, o2);
+          long long chk2 = 0;
+          for (int i = 0; i < 6; ++i) chk2 = (chk2 * 131 + (long long)(o2[i] % 1000003)) % 1000000007LL;
+          printf("u384_shr32_chk=%lld\n", chk2); }
+    }
+
     /* 空指针保护 */
     printf("err_null=%d\n", tadd(0, 0, NULL));
     { fn_abi rfini = (fn_abi)dlsym(H, "sov_runtime_fini");

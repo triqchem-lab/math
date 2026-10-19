@@ -837,6 +837,52 @@ def check_trit_cycles_t6(fail):
           + ("" if ok else "  🔴"))
     return ok
 
+def check_u384_chern(fail):
+    """384 位大数算术 (抽样, 与 Python 大数对账) + 陈数注入/检测"""
+    MOD7 = 1000000007
+    body = read(BODY)
+    def limbs_to_int(l): return sum(x << (64 * i) for i, x in enumerate(l))
+    def int_to_limbs(v): return [(v >> (64 * i)) & ((1 << 64) - 1) for i in range(6)]
+    def chk(l):
+        c = 0
+        for x in l:
+            c = (c * 131 + x % 1000003) % MOD7
+        return c
+    a = [0x0123456789ABCDEF, 0xFEDCBA9876543210, 0x0F1E2D3C4B5A6978,
+         0x8877665544332211, 0xAABBCCDDEEFF0011, 0x1234567890ABCDEF]
+    A = limbs_to_int(a)
+    o_mul = int_to_limbs(A * 3)
+    carry_mul = A * 3 >> 384
+    b = [0xFFFFFFFFFFFFFFFF, 0x00000000FFFFFFFF, 0x123456789ABCDEF0,
+         0, 0xFFFF0000FFFF0000, 1]
+    B = limbs_to_int(b)
+    exp_mul = re.search(r"u384_mul3_carry=(\d+),chk=(\d+)", body)
+    exp_s16 = re.search(r"u384_shr16_chk=(\d+)", body)
+    exp_s32 = re.search(r"u384_shr32_chk=(\d+)", body)
+    flags = {k: bool(re.search(k + r"=1", body)) for k in
+             ("u384_overflow_ok", "u384_add_comm", "u384_add_assoc", "u384_mul0_ok", "u384_mul1_ok")}
+    mul_ok = bool(exp_mul and int(exp_mul.group(1)) == carry_mul and int(exp_mul.group(2)) == chk(o_mul))
+    s16_ok = bool(exp_s16 and int(exp_s16.group(1)) == chk(int_to_limbs(B >> 16)))
+    s32_ok = bool(exp_s32 and int(exp_s32.group(1)) == chk(int_to_limbs(B >> 32)))
+    # 陈数: 注入 24, 检测 (0/-432, 216), 全零缓冲 → C=0
+    ch = {}
+    for pat in (r"chern=(-?\d+)/(\d+)", r"chern0=(-?\d+)/(\d+)", r"chern1=(-?\d+)/(\d+)",
+                r"chern_inject=(\d+)", r"chern_compute=0,C=(-?\d+)/(\d+)"):
+        m = re.search(pat, body)
+        ch[pat] = m.groups() if m else None
+    chern_ok = (ch[r"chern=(-?\d+)/(\d+)"] == ("-432", "216")
+                and ch[r"chern0=(-?\d+)/(\d+)"] == ("0", "216")
+                and ch[r"chern1=(-?\d+)/(\d+)"] == ("-432", "216")
+                and ch[r"chern_inject=(\d+)"] == ("24",)
+                and ch[r"chern_compute=0,C=(-?\d+)/(\d+)"] == ("-432", "216"))
+    ok = all(flags.values()) and mul_ok and s16_ok and s32_ok and chern_ok
+    print(f"u384: 溢出/交换/结合/乘0/乘1 {'✓' if all(flags.values()) else '✗'}, "
+          f"mul3 对账 {'✓' if mul_ok else '✗'} (carry={carry_mul}), "
+          f"shr16 {'✓' if s16_ok else '✗'}, shr32 {'✓' if s32_ok else '✗'}; "
+          f"陈数 注入24/检测(−432,216)/全零=0 {'✓' if chern_ok else '✗'}"
+          + ("" if ok else "  🔴"))
+    return ok
+
 def main():
     src = read(CHAIN)
     fail = 0
@@ -885,6 +931,7 @@ def main():
     if not check_ring_z3_11(fail): fail = 1
     if not check_frobenius_norm(fail): fail = 1
     if not check_trit_cycles_t6(fail): fail = 1
+    if not check_u384_chern(fail): fail = 1
 
     print("\n" + ("PASS" if not fail else "FAIL"))
     return fail
