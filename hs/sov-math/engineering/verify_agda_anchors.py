@@ -1136,6 +1136,42 @@ def check_holographic(fail):
           + ("" if ok else "  🔴"))
     return ok
 
+def check_nse(fail):
+    """NSE: 模式 0/1 不变量 (启发式) + 模式 2 的固定点/错误码
+
+    模式 2 = Agda `nsStep v = v +F grad (div v)`：对散度为零的初场是**固定点**，
+    故 4 步摘要必须完全相同 (这一点与定义一致，不是巧合)。
+    模式 0/1 为启发式，只核对不变量 (rho 值域、步数单调、格点 ∈ {0,1,2})。
+    """
+    body = read(BODY)
+    bad = []
+    # 模式 0/1: rho ∈ [0,65536], step 递增, 格点 ∈ {0,1,2}
+    for m in re.finditer(r"m([01])s(\d+):rho(\d+),step(\d+),\(0,0\)=(\d+),\(1,1\)=(\d+),\(2,2\)=(\d+)", body):
+        mode, idx, rho, step, c00, c11, c22 = (int(m.group(i)) for i in range(1, 8))
+        if not (0 <= rho <= 65536): bad.append(("rho", mode, idx, rho))
+        if step != idx: bad.append(("step", mode, idx, step))
+        if any(c > 2 for c in (c00, c11, c22)): bad.append(("cell", mode, idx))
+    for mode in (0, 1):
+        if not re.search(rf"m{mode}_final:rho\d+,step\d+", body):
+            bad.append(("final", mode))
+        if not re.search(rf"m{mode}_err_cell=-2,-2", body):
+            bad.append(("err", mode))
+        if not re.search(rf"m{mode}_free=0", body):
+            bad.append(("free", mode))
+    # 模式 2: 4 步摘要相同 (固定点) + 头部串合法 + 错误码
+    heads = re.findall(r"nse2_s(\d+):(.*)", body)
+    head_set = {h for _, h in heads}
+    fixed = len(heads) == 4 and len(head_set) == 1
+    head_ok = all(set(re.findall(r"/[012]+", h)[0][1:]) <= {"0", "1", "2"} for _, h in heads) if heads else False
+    err_ok = bool(re.search(r"nse2_err=-2,-2,-1,0", body))
+    free_ok = bool(re.search(r"nse2_free=0", body))
+    ok = not bad and fixed and head_ok and err_ok and free_ok
+    print(f"NSE: 模式0/1 不变量 {'✓' if not bad else '✗ ' + str(bad[:3])}; "
+          f"模式2 4 步固定点 {'✓' if fixed else '✗'}, 头部串合法 {'✓' if head_ok else '✗'}, "
+          f"错误码 (-2,-2,-1,0) {'✓' if err_ok else '✗'}, free {'✓' if free_ok else '✗'}"
+          + ("" if ok else "  🔴"))
+    return ok
+
 def main():
     src = read(CHAIN)
     fail = 0
@@ -1190,6 +1226,7 @@ def main():
     if not check_adc_lcm_chain(fail): fail = 1
     if not check_eis_misc(fail): fail = 1
     if not check_holographic(fail): fail = 1
+    if not check_nse(fail): fail = 1
 
     print("\n" + ("PASS" if not fail else "FAIL"))
     return fail
