@@ -753,6 +753,7 @@ def check_ring_z3_11(fail):
     ok = ok and d.group(1) == "0" and int(d.group(2)) == c_d
     ok = ok and a.group(1) == "0" and int(a.group(2)) == c_a
     ok = ok and m.group(1) == "0" and int(m.group(2)) == c_m
+    ok = ok and p3 and p3.group(1) == "0" and int(p3.group(2)) == c_p
     print(f"Z/3^11: 表示层全域 177147 (to_tryte {'✓' if t and t.group(1)=='0' else '✗'}, "
           f"double {'✓' if d and d.group(1)=='0' else '✗'}, 独立复算 {'✓' if t and d and int(t.group(2))==c_t and int(d.group(2))==c_d else '✗'}); "
           f"加法扫描 177147×{len(bs_add)} {'✓' if a and a.group(1)=='0' else '✗'}; "
