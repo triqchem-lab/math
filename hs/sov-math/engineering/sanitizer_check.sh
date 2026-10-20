@@ -33,4 +33,16 @@ nonnull=$(grep -v '=-4$' "$TMP/ep.txt" | grep -v 'nse_free=0' | grep -v 'nse_dou
 dfree=$(grep -c 'nse_double_free=0,0,-3' "$TMP/ep.txt" || true)
 [ "$rc" -eq 0 ] && [ "$bad2" -eq 0 ] && [ "$nonnull" -eq 0 ] && [ "$dfree" -eq 1 ] \
     || { echo "🔴 错误路径: exit=$rc sanitizer=$bad2 非法返回码=$nonnull 重复释放=$dfree"; head -5 "$TMP/err2.txt"; exit 1; }
-echo "✅ ASan+UBSan 零报告; 输出与 golden 一致; 错误路径 63/63 正确; 重复释放 = SOV_ERR_STATE(非 UB)"
+echo "[4/4] 多句柄并发 (TSan)"
+g++ -O1 -g -std=c++23 -fPIC -shared -fsanitize=thread -I "$ROOT/cpp/include" \
+    -Wl,--version-script="$ROOT/cpp/packaging/sov_ffi.map" \
+    "$ROOT/cpp/src/sov_ffi_cpp.cpp" -o "$TMP/libsov_tsan.so" || exit 2
+gcc -O1 -g -std=c11 -fsanitize=thread -pthread "$ROOT/cpp/tests/abi_thread_check.c" -o "$TMP/th_tsan" -ldl || exit 2
+"$TMP/th_tsan" "$TMP/libsov_tsan.so" > "$TMP/th.txt" 2> "$TMP/err3.txt"
+rc=$?
+races=$(grep -c "WARNING: ThreadSanitizer" "$TMP/err3.txt" || true)
+cons=$(grep -c "thread_consistent=1" "$TMP/th.txt" || true)
+[ "$rc" -eq 0 ] && [ "$races" -eq 0 ] && [ "$cons" -eq 1 ] \
+    || { echo "🔴 并发: exit=$rc TSan 告警=$races 一致性=$cons"; head -8 "$TMP/err3.txt"; exit 1; }
+
+echo "✅ ASan+UBSan 零报告; 输出与 golden 一致; 错误路径 63/63 正确; 重复释放 = SOV_ERR_STATE(非 UB); 多句柄并发 TSan 零告警"

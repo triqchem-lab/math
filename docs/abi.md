@@ -604,3 +604,23 @@ python3 hs/sov-math/engineering/negative_controls.py
 
 ⚠ 顺带记录：该测试初版又犯了**printf 实参求值顺序**的错（`printf(..., r0, ff(hh), ff(hh))`），
 打印出 `0,-3,0` 的假象。分语句后为 `0,0,-3`。**同类错已第三次**（§18/§19 各一次）。
+
+## 二十四、多句柄并发：串行 = 并发，TSan 零告警
+
+契约称「句柄本身非线程安全，但不同句柄可跨线程并行」。本轮**实测**该声明：
+
+`cpp/tests/abi_thread_check.c`：两种模式（0 与 2）各建一句柄，主线程先跑**串行基线**，
+再起两线程各持一个句柄各步进 13 次，最后比较全状态摘要。
+
+| 模式 | 串行摘要 | 并发摘要 | 一致 |
+|---|---|---|---|
+| 0（微泵） | 800261008 | 800261008 | ✅ |
+| 2（Agda nsStep，非平凡初场） | 240541335 | 240541335 | ✅ |
+
+在 **ThreadSanitizer** 下重建 cpp 库并运行：**0 条 `WARNING: ThreadSanitizer`**。
+（模式 2 的初场用与 `nse_agda_check` 相同的确定性配方填充，避免空场 0 摘要的空洞结论。）
+
+已并入闸门步骤 4.7（`sanitizer_check.sh` 第 4 步），整套 ASan+UBSan+TSan 约 22 秒。
+
+⚠ 边界：并发证据仅覆盖 **cpp**；rust（`-Zsanitizer=thread` 需 nightly）与 hs（GHC 无 TSan 集成）
+未做，其线程安全依赖「无全局可变状态」的结构性论证 + 一致性向量。
