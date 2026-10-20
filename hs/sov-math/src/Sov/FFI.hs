@@ -117,7 +117,8 @@ import qualified Sov.Math.Topology.Soliton as SOL
 import Foreign.C.String (CString, withCString)
 import Data.List (foldl')
 import System.IO.Unsafe (unsafePerformIO)
-import Data.IORef (IORef, newIORef, readIORef, writeIORef)
+import qualified Data.Set as Set
+import Data.IORef (IORef, newIORef, readIORef, writeIORef, modifyIORef')
 import Foreign.StablePtr (StablePtr, newStablePtr, deRefStablePtr, freeStablePtr)
 import Data.Array.Unboxed (UArray, listArray, (!), elems, (//))
 import qualified Sov.Math.Vec as V
@@ -130,6 +131,11 @@ sovOk       = 0
 sovErrTrit  = -1
 sovErrRange = -2
 sovErrState = -3
+
+-- | 活句柄注册表: 使 sov_nse_free 可重复调用 (第二次返回 sovErrState, 非 UB)
+{-# NOINLINE nseLive #-}
+nseLive :: IORef (Set.Set WordPtr)
+nseLive = unsafePerformIO (newIORef Set.empty)
 sovErrNull  = -4
 
 huangzhong, lcmTotal :: Word64
@@ -915,6 +921,7 @@ sov_nse_new_wrapper mode out
               (listArray (0, 4373) (replicate 4374 0))
               0 (fromIntegral mode))
       sp <- newStablePtr ref
+      modifyIORef' nseLive (Set.insert (ptrToWordPtr (castPtr (unsafeCoerce sp :: Ptr ()))))
       poke (castPtr out) (castPtr (unsafeCoerce sp :: Ptr ()))
       return 0
 foreign export ccall "sov_nse_new" sov_nse_new_wrapper :: CUChar -> Ptr (Ptr ()) -> IO CInt
@@ -991,9 +998,14 @@ sov_nse_free_wrapper :: Ptr () -> IO CInt
 sov_nse_free_wrapper h
   | h == nullPtr = return 0     -- free(NULL) 合法且无操作
   | otherwise = do
-      let sp = unsafeCoerce (castPtr h) :: NsePtr
-      freeStablePtr sp
-      return 0
+      let key = ptrToWordPtr (castPtr h)
+      live <- readIORef nseLive
+      if not (Set.member key live)
+        then return (fromIntegral sovErrState)      -- 重复释放/外来指针
+        else do
+          modifyIORef' nseLive (Set.delete key)
+          freeStablePtr (unsafeCoerce (castPtr h) :: NsePtr)
+          return 0
 foreign export ccall "sov_nse_free" sov_nse_free_wrapper :: Ptr () -> IO CInt
 
 

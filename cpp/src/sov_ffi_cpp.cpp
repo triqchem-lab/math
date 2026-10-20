@@ -12,6 +12,8 @@
 #include <array>
 #include <new>
 #include <cstring>
+#include <mutex>
+#include <unordered_set>
 
 using namespace sov::math;
 using namespace sov::math::dc;
@@ -592,6 +594,13 @@ struct sov_nse_handle {
     uint8_t mode = 0;
 };
 
+/* 活句柄注册表: 使 sov_nse_free 可重复调用 (第二次返回 SOV_ERR_STATE, 不是 UB)。
+ * 契约: 句柄本身非线程安全, 但多个句柄可跨线程; 故注册表加锁保护。 */
+namespace {
+std::mutex g_nse_mtx;
+std::unordered_set<const sov_nse_handle*> g_nse_live;
+} // namespace
+
 namespace {
 inline int32_t nse_nonzero(const sov_nse_handle* h) {
     int32_t c = 0;
@@ -640,6 +649,10 @@ int32_t sov_nse_new(uint8_t mode, sov_nse_handle** out) {
     auto* h = new (std::nothrow) sov_nse_handle();
     if (!h) return SOV_ERR_STATE;
     h->mode = mode;
+    {
+        std::lock_guard<std::mutex> lk(g_nse_mtx);
+        g_nse_live.insert(h);
+    }
     *out = h;
     return SOV_OK;
 }
@@ -708,6 +721,13 @@ int32_t sov_nse_set_component(sov_nse_handle* h, uint16_t x, uint8_t i, uint8_t 
 }
 
 int32_t sov_nse_free(sov_nse_handle* h) {
+    if (!h) return SOV_OK;                       /* free(NULL) 合法 */
+    {
+        std::lock_guard<std::mutex> lk(g_nse_mtx);
+        auto it = g_nse_live.find(h);
+        if (it == g_nse_live.end()) return SOV_ERR_STATE;   /* 重复释放/外来指针 */
+        g_nse_live.erase(it);
+    }
     delete h;
     return SOV_OK;
 }

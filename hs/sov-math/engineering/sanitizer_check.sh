@@ -29,7 +29,8 @@ gcc $CFLAGS -std=c11 "$ROOT/cpp/tests/abi_error_paths.c" -o "$TMP/ep" -ldl || ex
 ASAN_OPTIONS=detect_leaks=1 "$TMP/ep" "$TMP/libsov_ffi_asan.so" > "$TMP/ep.txt" 2> "$TMP/err2.txt"
 rc=$?
 bad2=$(grep -cE 'ERROR: (AddressSanitizer|LeakSanitizer)|runtime error:' "$TMP/err2.txt" || true)
-nonnull=$(grep -v '=-4$' "$TMP/ep.txt" | grep -v 'nse_free=0' | grep -v '^host_hs_init' | wc -l)
-[ "$rc" -eq 0 ] && [ "$bad2" -eq 0 ] && [ "$nonnull" -eq 0 ] \
-    || { echo "🔴 错误路径: exit=$rc sanitizer=$bad2 非法返回码=$nonnull"; head -5 "$TMP/err2.txt"; exit 1; }
-echo "✅ ASan+UBSan 零报告; 输出与 golden 一致; 错误路径 63/63 正确"
+nonnull=$(grep -v '=-4$' "$TMP/ep.txt" | grep -v 'nse_free=0' | grep -v 'nse_double_free=0,0,-3' | grep -v '^host_hs_init' | wc -l)
+dfree=$(grep -c 'nse_double_free=0,0,-3' "$TMP/ep.txt" || true)
+[ "$rc" -eq 0 ] && [ "$bad2" -eq 0 ] && [ "$nonnull" -eq 0 ] && [ "$dfree" -eq 1 ] \
+    || { echo "🔴 错误路径: exit=$rc sanitizer=$bad2 非法返回码=$nonnull 重复释放=$dfree"; head -5 "$TMP/err2.txt"; exit 1; }
+echo "✅ ASan+UBSan 零报告; 输出与 golden 一致; 错误路径 63/63 正确; 重复释放 = SOV_ERR_STATE(非 UB)"

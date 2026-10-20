@@ -86,6 +86,14 @@ int main(int argc, char **argv) {
     printf("nse_density=%d\n", ((int32_t(*)(void*,int32_t*))sym("sov_nse_density_q16"))(NULL,NULL));
     printf("nse_component=%d\n", ((int32_t(*)(const void*,uint16_t,uint8_t,uint8_t*))sym("sov_nse_component"))(NULL,0,0,&u8));
     printf("nse_free=%d\n", ((int32_t(*)(void*))sym("sov_nse_free"))(NULL));   /* free(NULL) 合法 → 0 */
+    /* 重复释放: 必须返回 SOV_ERR_STATE(-3)，不是 UB（活句柄注册表） */
+    { typedef int32_t (*fn_new)(uint8_t, void **); typedef int32_t (*fn_free)(void *);
+      fn_new nn = (fn_new)sym("sov_nse_new"); fn_free ff = (fn_free)sym("sov_nse_free");
+      void *hh = NULL;
+      int r0 = nn(0, &hh);
+      int r1 = ff(hh);      /* 必须分语句: 参数求值顺序未指定 */
+      int r2 = ff(hh);
+      printf("nse_double_free=%d,%d,%d\n", r0, r1, r2); }
     dlclose(H);
     return 0;
 }

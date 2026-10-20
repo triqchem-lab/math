@@ -5,7 +5,7 @@ set -euo pipefail
 cd "$(dirname "$0")/../../.."   # 仓库根
 OUT="${1:-$PWD/hs/sov-math/build/libsovffi.so}"
 mkdir -p "$(dirname "$OUT")"
-ghc -shared -dynamic -fPIC -O2 -package array \
+ghc -shared -dynamic -fPIC -O2 -package array -package containers \
     -XDataKinds -XGADTs -XKindSignatures -XTypeOperators -XScopedTypeVariables \
     -XLambdaCase -XTupleSections -XTypeFamilies -XForeignFunctionInterface \
     -ihs/sov-math/src -outputdir "$PWD/hs/sov-math/build/obj" \

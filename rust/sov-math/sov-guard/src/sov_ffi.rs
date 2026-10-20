@@ -15,6 +15,7 @@ const OK: i32 = 0;
 const ERR_TRIT: i32 = -1;
 const ERR_RANGE: i32 = -2;
 const ERR_NULL: i32 = -4;
+const ERR_STATE: i32 = -3;
 
 const HUANGZHONG: u64 = 177147;
 const LCM_TOTAL: u64 = 11609505792;
@@ -687,6 +688,13 @@ impl NseHandle {
     fn rho_q16(&self) -> i32 { (self.nonzero() as i64 * 65536 / NSE_TOTAL as i64) as i32 }
 }
 
+// 活句柄注册表: 使 sov_nse_free 可重复调用 (第二次返回 ERR_STATE, 非 UB)
+fn nse_live() -> &'static std::sync::Mutex<std::collections::HashSet<usize>> {
+    static LIVE: std::sync::OnceLock<std::sync::Mutex<std::collections::HashSet<usize>>> =
+        std::sync::OnceLock::new();
+    LIVE.get_or_init(|| std::sync::Mutex::new(std::collections::HashSet::new()))
+}
+
 #[unsafe(no_mangle)]
 pub extern "C" fn sov_nse_new(mode: u8, out: *mut *mut NseHandle) -> i32 {
     if out.is_null() { return ERR_NULL; }
@@ -698,6 +706,7 @@ pub extern "C" fn sov_nse_new(mode: u8, out: *mut *mut NseHandle) -> i32 {
         mode,
     });
     unsafe { *out = Box::into_raw(h); }
+    nse_live().lock().unwrap().insert(unsafe { *out } as usize);
     OK
 }
 
@@ -773,7 +782,13 @@ pub extern "C" fn sov_nse_set_component(h: *mut NseHandle, x: u16, i: u8, v: u8)
 
 #[unsafe(no_mangle)]
 pub extern "C" fn sov_nse_free(h: *mut NseHandle) -> i32 {
-    if !h.is_null() { unsafe { drop(Box::from_raw(h)); } }
+    if h.is_null() { return OK; }                    // free(NULL) 合法
+    let key = h as usize;
+    {
+        let mut live = nse_live().lock().unwrap();
+        if !live.remove(&key) { return ERR_STATE; }   // 重复释放/外来指针
+    }
+    unsafe { drop(Box::from_raw(h)); }
     OK
 }
 

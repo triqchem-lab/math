@@ -580,3 +580,27 @@ python3 hs/sov-math/engineering/negative_controls.py
 
 **边界**：rust 侧 `-Zsanitizer` 需 nightly，未做；hs 侧 GHC sanitizer 支持有限，未做。
 即：内存安全证据目前只覆盖 **cpp 实现**，另两语言的同类保证依赖编译期检查 + 一致性向量。
+
+## 二十三、句柄生命周期的健壮性：重复释放从 UB 变为可定义错误
+
+**问题**（ASan 实测）：初版 `sov_nse_free` 直接 `delete`，宿主若重复释放（例如错误路径里
+清理两次）触发 **double-free UB**——ASan 直接报 `attempting double-free`。
+
+**修复**：三语言实现都加**活句柄注册表**（cpp `std::mutex + unordered_set`，rust
+`OnceLock<Mutex<HashSet<usize>>>`，hs `IORef (Set WordPtr)`）：
+
+| 调用 | 语义 |
+|---|---|
+| `sov_nse_free(NULL)` | 0（无操作，契约原有） |
+| `sov_nse_free(h)` 首次 | 0，并从注册表移除后释放 |
+| `sov_nse_free(h)` 再次 | **`SOV_ERR_STATE = −3`**（不再是 UB，也不重复 delete） |
+| 外来指针 | `SOV_ERR_STATE = −3` |
+
+**验证**：`abi_error_paths.c` 打印 `nse_double_free=0,0,-3`，三语言完全一致；
+`sanitizer_check.sh`（闸门 4.7）在 ASan+UBSan 下断言该行**且**零 sanitizer 报告。
+
+⚠ **语义变更**：这是行为修正（UB → 定义错误），不是破坏性变更；
+但宿主若依赖「重复释放静默成功」需知情——已写进本节与契约 §5.5。
+
+⚠ 顺带记录：该测试初版又犯了**printf 实参求值顺序**的错（`printf(..., r0, ff(hh), ff(hh))`），
+打印出 `0,-3,0` 的假象。分语句后为 `0,0,-3`。**同类错已第三次**（§18/§19 各一次）。
