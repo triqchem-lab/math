@@ -27,7 +27,7 @@
 | `<sov/t6.h>` | 2 | `sov_t6_index`, `sov_is_standing_node` |
 | `<sov/wide.h>` | 3 | `sov_wide_rho`, `sov_wide_const_pi`, `sov_wide_const_sqrt3` |
 | `<sov/chern.h>` | 4 | `sov_chern_inject`, `sov_chern_detect`, `sov_chern_inject_monopole`, `sov_chern_compute` |
-| `<sov/sunyi.h>` | 4 | `sov_sunyi_length`, `sov_sunyi_gain`, `sov_sunyi_boundary`, `sov_chiral_collapse` |
+| `<sov/sunyi.h>` | 5 | `sov_sunyi_length`, `sov_sunyi_gain`, `sov_sunyi_boundary`, `sov_sunyi_remainder`, `sov_chiral_collapse` |
 | `<sov/soliton.h>` | 3 | `sov_soliton_sin_q32`, `sov_soliton_rho_q16`, `sov_soliton_phase` |
 | `<sov/eis.h>` | 2 | `sov_eis_mul`, `sov_eis_norm` |
 | `<sov/holo.h>` | 1 | `sov_holographic` |
@@ -624,3 +624,30 @@ python3 hs/sov-math/engineering/negative_controls.py
 
 ⚠ 边界：并发证据仅覆盖 **cpp**；rust（`-Zsanitizer=thread` 需 nightly）与 hs（GHC 无 TSan 集成）
 未做，其线程安全依赖「无全局可变状态」的结构性论证 + 一致性向量。
+
+## 二十五、交付面：文档漂移检查 与 pkg-config 消费冒烟（闸门步骤 4.8）
+
+### 1. 文档 ↔ 头文件漂移（`doc_drift_check.py`）
+
+逐个头文件解析导出符号，与 `docs/abi.md` §1 设施表**逐名**比对，并核对标题声明的总数：
+
+| 检查 | 结果 |
+|---|---|
+| 设施头行覆盖 | 23/23 |
+| 每行计数与符号集合 | 全部一致 |
+| 标题声明 | 71 符号 / 23 头，与实际一致 |
+
+**首次运行就抓到一处真实漂移**：`<sov/sunyi.h>` 声明 `sov_sunyi_remainder` 但文档表漏列
+（文档写 4 个符号，实际 5 个）。已修正。这说明该检查不是形式主义——它抓到过东西。
+
+### 2. pkg-config 消费冒烟（`pkgconfig_smoke.sh`）
+
+用 `pkg-config --cflags --libs sov-ffi` 编译一个真实消费者（`#include <sov/sov.h>`，
+调用 `sov_runtime_init` / `sov_dc_mixedop` / `sov_trit_add` / `sov_sovereign_lcm` / `sov_lcm_step` /
+`sov_runtime_fini`），运行并校验输出；同时确认 `sov-ffi.pc`、`sov-ffi-rust.pc`、`sov-ffi-hs.pc` 三份都在。
+
+| 检查 | 结果 |
+|---|---|
+| 编译（仅用 pkg-config 提供的 flags） | ✅ |
+| 运行 + 语义断言（mixedop/trit/lcm） | ✅ `smoke ok` |
+| 版本 | 1.0.0 |
