@@ -41,6 +41,9 @@ python3 hs/sov-math/engineering/verify_agda_anchors.py "$ROOT/dist/ffi_cpp.body"
 step 4.6 "NSE 模式2 ↔ Agda nsStep 全状态比对 (4 步演化, 17496 trits)"
 python3 hs/sov-math/engineering/nse_agda_check.py || fail=1
 
+step 4.7 "内存安全与未定义行为 (ASan+UBSan 全量向量 + 错误路径)"
+hs/sov-math/engineering/sanitizer_check.sh | tail -1 || fail=1
+
 step 5/6 "语言档位矩阵"
 hs/sov-math/engineering/c_standard_matrix.sh | tail -1 || fail=1
 

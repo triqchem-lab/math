@@ -550,3 +550,33 @@ python3 hs/sov-math/engineering/negative_controls.py
 
 ⚠ 语义边界（照抄 Agda 模块头）：`div`/`grad` 只覆盖 3 个轴（`C3 = Fin 3`，轴 0,1,2 各重复两次），
 这是 `NSEOnT6.agda` 自报的 **Q5 缺陷**，本核对与该定义一致，**不代表**物理正确的 6 轴动量方程。
+
+## 二十二、两条新验证轴：错误路径全覆盖 与 内存安全 (ASan+UBSan)
+
+### 1. 错误路径全覆盖（`cpp/tests/abi_error_paths.c`）
+
+对**每个带指针参数的导出符号**逐一传 `NULL`，要求返回 `SOV_ERR_NULL = −4`：
+
+| 结果 | 数量 |
+|---|---|
+| 符号总数（有指针参数） | 63 |
+| 返回 `−4` | **62** |
+| 唯一例外 | `sov_nse_free(NULL) = 0`（契约允许，`free(NULL)` 语义） |
+| 三语言一致性 | ✅ cpp / rust / hs 完全相同（hs 需 RTS 先初始化） |
+
+⚠ hs 库的特殊性：宿主必须先 `hs_init` 再 `dlopen`（已知 ABI 约束）。因此该驱动对 hs 用
+`ghc -no-hs-main` 链接，并以**弱符号** `extern void hs_init(...) __attribute__((weak))` 检测。
+
+### 2. 内存安全与未定义行为（`sanitizer_check.sh`，闸门步骤 4.7）
+
+用 `-fsanitize=address,undefined -g` 重建 cpp 库与两个驱动：
+
+| 检查 | 结果 |
+|---|---|
+| 全量一致性向量（约 600 万次调用，含 NSE 句柄生命周期） | ✅ 零 ASan/UBSan/LSan 报告 |
+| 输出与 golden **逐行相同**（sanitizer 不改变行为） | ✅ |
+| 错误路径 63 个 NULL 调用 | ✅ 零报告，返回码正确 |
+| 耗时 | ≈ 20 s（已入闸门，可接受） |
+
+**边界**：rust 侧 `-Zsanitizer` 需 nightly，未做；hs 侧 GHC sanitizer 支持有限，未做。
+即：内存安全证据目前只覆盖 **cpp 实现**，另两语言的同类保证依赖编译期检查 + 一致性向量。
