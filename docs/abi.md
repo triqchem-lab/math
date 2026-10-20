@@ -709,7 +709,7 @@ lint 的 `--self-test` 会把三类历史 bug 注入临时文件，要求**各�
 | task-1 **大衍求一术** | `DayanState` 的 `(q·lt) ∸ lb` + `定 ∸ lt` ⇒ 1101 组互素对仅 **22.6%** 给出模逆 | `DayanNatFix.agda`：修正形 + 上游三义务全证 + 原版反例 `¬(3·乘率(3,5)≡1)` | ✅ exit 0 / 0 postulate / 0 hole |
 | task-2 **数字根** | `DigitalRoot.agda` 长期未更新：只有 `n % 9`，无经典版/幂等/周期 | `DigitalRootClassic.agda`：46 个签名（8 条模 9 枢纽 + 5 条主定理 + `abiRoot≡classicRoot`） | ✅ 同上 |
 | task-3 **NSE Q5** | `NSEOnT6` 自报：`div`/`grad` 只有 3 轴，6 分量两两共用轴 | `NSE6Axis.agda`：6 轴算子 + `div-grad6 = refl` + **判别引理**（六轴≢三轴复刻、Δ 不恒零） | ✅ 同上 |
-| task-4 **Z/3¹¹ 环** | Agda 侧只有 `HenselMod177147`（x²≡1 根），无环律 ⇒ `sov_ring_*` 无形式化背书 | `Ring3pow11.agda`：表示层双射 + 值语义 + 交换/结合 | 🚧 进行中 |
+| task-4 **Z/3¹¹ 环** | Agda 侧只有 `HenselMod177147`（x²≡1 根），无环律 ⇒ `sov_ring_*` 无形式化背书 | `Ring3pow11.agda`：`toℕ`/`repr` 全域互逆 + 值语义 + **交换/结合/单位/逆/左右分配全给** + `split3` 核心引理；oracle 177147/177147 | ✅ exit 0 / 0 postulate / 0 hole |
 
 ### 两项「诚实边界」（由智能体自报，已写入 bridge README/PATCHES）
 
@@ -724,3 +724,21 @@ lint 的 `--self-test` 会把三类历史 bug 注入临时文件，要求**各�
 
 `bridge-from-sov-math/PATCHES.md` 给出每项的上游改法（改哪个文件、迁哪些定理、验证命令、未含项）。
 本仓库（sov-math）不复制这些模块，避免双份漂移；ABI 侧只保留实测证据与契约引用。
+
+### 四项交付总览（本地智能体执行，Lead 独立复核）
+
+| 任务 | 模块 | 我的独立复核 |
+|---|---|---|
+| task-1 大衍 | `DayanNatFix.agda`（508 行） | 重跑编译 exit 0；0 postulate/hole/sorry |
+| task-2 数字根 | `DigitalRootClassic.agda`（291 行） | exit 0；0/0/0；46 签名 |
+| task-3 NSE Q5 | `NSE6Axis.agda`（497 行） | exit 0；0/0/0；40 签名 |
+| task-4 环 | `Ring3pow11.agda`（463 行） | exit 0；0/0/0；oracle 177147/177147 已入库可复跑 |
+
+**共同纪律**：只新建 `bridge-from-sov-math/` 下文件、不改上游跟踪树、`--rewriting` 只在文件头
+（命令行不加）、0 postulate / 0 hole。四项全部满足。
+
+**四项自报的诚实边界**（已写入 bridge README/PATCHES，未掩饰）：
+① 数字根：上游文件层面仍未改（桥不是补丁）；未做经典版同态。
+② 大衍：整术终止性未证；12231/12231 是 oracle 事实非 Agda 定理。
+③ NSE：全局 `Δ≡T₀` 前提可满足性为假 ⇒ 条件式定理空洞；逐场版可用；adv6/Leray/秩核未做。
+④ 环：`add`/`mul` 定义在值层，**按位进位算法 ≡ 值语义**的一致性未证（明确的下一个任务）。
