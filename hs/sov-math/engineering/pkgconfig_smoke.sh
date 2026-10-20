@@ -61,4 +61,11 @@ cc "$TMP/dl.c" $(pkg-config --cflags --libs sov-ffi-hs) -o "$TMP/dl" 2>/dev/null
     || { echo "🔴 sov-ffi-hs 编译失败（RTS flags 缺失？）"; exit 1; }
 LD_LIBRARY_PATH="$ROOT/dist/lib" "$TMP/dl" || { echo "🔴 sov-ffi-hs dlopen 失败"; exit 1; }
 
-echo "✅ pkg-config 消费端冒烟通过（cpp/rust 静态链接 + hs dlopen；$(pkg-config --modversion sov-ffi)）"
+# C++ 消费端（验证头文件的 extern "C" 保护与 C++ 运行期可用性）
+cp "$TMP/app.c" "$TMP/app.cpp"
+c++ "$TMP/app.cpp" $(pkg-config --cflags --libs sov-ffi) -o "$TMP/app_cpp" 2>/dev/null \
+    || { echo "🔴 C++ 消费端编译失败"; exit 1; }
+LD_LIBRARY_PATH="$ROOT/dist/lib" "$TMP/app_cpp" > /dev/null 2>&1 \
+    || { echo "🔴 C++ 消费端运行失败"; exit 1; }
+
+echo "✅ pkg-config 消费端冒烟通过（cpp/rust 静态链接 + hs dlopen + C++ 运行期；$(pkg-config --modversion sov-ffi)）"

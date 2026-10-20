@@ -1343,6 +1343,32 @@ def check_fuzz2(fail):
           + ("" if ok else "  🔴"))
     return ok
 
+def check_boundaries(fail):
+    """边界值矩阵: 各小域设施 min/max/越界（独立复算期望值）"""
+    body = read(BODY)
+    exp = [
+        ("b_doz11=B", "doz_digit(11)='B'"),
+        ("b_doz12=-2", "doz_digit(12)=ERR_RANGE"),
+        ("b_sunyi11=30", "十二律长度[11]=30"),
+        ("b_sunyi12=-2", "越界 → ERR_RANGE"),
+        ("b_sb11=1", "边界步 11"),
+        ("b_sb12=0", "步 12 非边界"),
+        ("b_t6max=6623", "T⁶ 索引上界 143·46+45"),
+        ("b_t6wrap=0", "144 回绕到 0"),
+        (f"b_cap3_40={3**40}", "3⁴⁰ = 12157665459056928801"),
+        ("b_cap3_41=-2", "trits=41 → ERR_RANGE"),
+        (f"b_cap2_63={1<<63}", "2⁶³"),
+        ("b_cap2_64=-2", "bits=64 → ERR_RANGE"),
+        ("b_pack5max=242", "5 trit 最大打包值 3⁵−1"),
+        ("b_unpack5=22222", "高位优先解包"),
+        ("b_tryte729=-2", "tryte 值 ≥729 → ERR_RANGE"),
+    ]
+    bad = [name for name, _ in exp if name not in body]
+    ok = not bad
+    print(f"边界矩阵: {len(exp) - len(bad)}/{len(exp)} 项符合"
+          + ("" if ok else f" → 缺/错 {bad[:3]}") + ("" if ok else "  🔴"))
+    return ok
+
 def main():
     src = read(CHAIN)
     fail = 0
@@ -1400,6 +1426,7 @@ def main():
     if not check_nse(fail): fail = 1
     if not check_fuzz(fail): fail = 1
     if not check_fuzz2(fail): fail = 1
+    if not check_boundaries(fail): fail = 1
 
     print("\n" + ("PASS" if not fail else "FAIL"))
     return fail

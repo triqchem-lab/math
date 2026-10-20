@@ -1508,6 +1508,43 @@ int main(int argc, char **argv) {
         printf("fuzz2_dayan=%d/%d,fuzz2_crt=%d/%d\n", dayan_ok, dayan_tot, crt_ok, crt_tot);
     }
 
+    /* ══ 边界值矩阵: 各设施 min/max/越界 ══ */
+    {
+        typedef int32_t (*f_dz)(uint8_t, char *);
+        typedef int32_t (*f_sl)(uint8_t, uint16_t *);
+        typedef int32_t (*f_sb)(uint8_t, uint8_t *);
+        typedef int32_t (*f_t6)(uint32_t, uint32_t, uint16_t *);
+        typedef int32_t (*f_wct)(uint8_t, uint64_t *);
+        typedef int32_t (*f_wcb)(uint8_t, uint64_t *);
+        typedef int32_t (*f_p5)(uint8_t, uint8_t, uint8_t, uint8_t, uint8_t, uint8_t *);
+        typedef int32_t (*f_u5)(uint8_t, uint8_t *);
+        typedef int32_t (*f_tu)(uint16_t, uint8_t *);
+        f_dz dz = (f_dz)sym("sov_doz_digit");
+        f_sl sl = (f_sl)sym("sov_sunyi_length");
+        f_sb sb = (f_sb)sym("sov_sunyi_boundary");
+        f_t6 t6i = (f_t6)sym("sov_t6_index");
+        f_wct wct = (f_wct)sym("sov_width_capacity_trits");
+        f_wcb wcb = (f_wcb)sym("sov_width_capacity_bits");
+        f_p5 p5 = (f_p5)sym("sov_trit_pack5");
+        f_u5 u5 = (f_u5)sym("sov_trit_unpack5");
+        f_tu tu = (f_tu)sym("sov_tryte_unpack");
+        { char c = '?'; dz(11, &c); printf("b_doz11=%c;", c);
+          printf("b_doz12=%d\n", dz(12, &c)); }
+        { uint16_t v = 0; sl(11, &v); printf("b_sunyi11=%u;", v);
+          printf("b_sunyi12=%d\n", sl(12, &v)); }
+        { uint8_t o = 9; sb(11, &o); printf("b_sb11=%d;", o);
+          sb(12, &o); printf("b_sb12=%d\n", o); }
+        { uint16_t o = 0; t6i(143, 45, &o); printf("b_t6max=%u;", o);
+          t6i(144, 0, &o); printf("b_t6wrap=%u\n", o); }
+        { uint64_t o = 0; wct(40, &o); printf("b_cap3_40=%llu;", (unsigned long long)o);
+          printf("b_cap3_41=%d\n", wct(41, &o)); }
+        { uint64_t o = 0; wcb(63, &o); printf("b_cap2_63=%llu;", (unsigned long long)o);
+          printf("b_cap2_64=%d\n", wcb(64, &o)); }
+        { uint8_t p = 0; p5(2,2,2,2,2, &p); printf("b_pack5max=%u;", p);
+          { uint8_t t[5]; u5(p, t); printf("b_unpack5=%d%d%d%d%d\n", t[0],t[1],t[2],t[3],t[4]); } }
+        { uint8_t t[6]; printf("b_tryte729=%d\n", tu(729, t)); }
+    }
+
     /* 空指针保护 */
     printf("err_null=%d\n", tadd(0, 0, NULL));
     { fn_abi rfini = (fn_abi)dlsym(H, "sov_runtime_fini");

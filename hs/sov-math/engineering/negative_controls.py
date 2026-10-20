@@ -30,6 +30,7 @@ MUTATIONS = [
     ("NSE 格点越界",     lambda s: s.replace("m0s3:rho37289,step3,(0,0)=0", "m0s3:rho37289,step3,(0,0)=5", 1)),
     ("ring 729² 子域",   lambda s: s.replace("ring_add_729sq_bad=0", "ring_add_729sq_bad=1", 1)),
     ("DC 平移任意起点",  lambda s: s.replace("dc_translate_full_bad=0", "dc_translate_full_bad=1", 1)),
+    ("边界矩阵 (十二律 30)", lambda s: s.replace("b_sunyi11=30", "b_sunyi11=31", 1)),
     ("随机差分2 校验和",  lambda s: re.sub(r"(fuzz2_chk=\d+,)", lambda m: m.group(1)[:-1] + ("0" if m.group(1)[-2] != "0" else "1") + ",", s, count=1)),
     ("随机差分校验和",   lambda s: re.sub(r"(fuzz_chk=\d+,)", lambda m: m.group(1)[:-1] + ("0" if m.group(1)[-2] != "0" else "1") + ",", s, count=1)),
 ]

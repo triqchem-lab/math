@@ -1114,5 +1114,13 @@ fuzz_eisnorm=536397642
 fuzz2_u384=3335490
 fuzz2_chk=743355395,56940942,880270039,843679658,851727682
 fuzz2_dayan=969/969,fuzz2_crt=915/915
+b_doz11=B;b_doz12=-2
+b_sunyi11=30;b_sunyi12=-2
+b_sb11=1;b_sb12=0
+b_t6max=6623;b_t6wrap=0
+b_cap3_40=12157665459056928801;b_cap3_41=-2
+b_cap2_63=9223372036854775808;b_cap2_64=-2
+b_pack5max=242;b_unpack5=22222
+b_tryte729=-2
 err_null=-4
 runtime_fini=0
