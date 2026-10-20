@@ -48,6 +48,10 @@ step 4.8 "文档↔头文件一致性 + pkg-config 消费冒烟"
 python3 hs/sov-math/engineering/doc_drift_check.py || fail=1
 hs/sov-math/engineering/pkgconfig_smoke.sh || fail=1
 
+step 4.9 "测试代码静态 lint (未定序 / 窄化 / 调用点参数数)"
+python3 hs/sov-math/engineering/test_lint.py || fail=1
+python3 hs/sov-math/engineering/test_lint.py --self-test | tail -1 || fail=1
+
 step 5/6 "语言档位矩阵"
 hs/sov-math/engineering/c_standard_matrix.sh | tail -1 || fail=1
 
