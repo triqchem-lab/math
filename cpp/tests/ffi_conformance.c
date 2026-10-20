@@ -1446,6 +1446,68 @@ int main(int argc, char **argv) {
           printf("fuzz_eisnorm=%lld\n", c); }
     }
 
+    /* ══ 随机差分 2: 环 / DC / 大衍 / CRT2 / u384 (同种子, Python 独立复算) ══ */
+    {
+        typedef int32_t (*f_ra)(const uint8_t *, const uint8_t *, uint8_t *);
+        typedef int32_t (*f_rm)(const uint8_t *, const uint8_t *, uint8_t *);
+        typedef int32_t (*f_mix)(uint8_t, uint8_t, uint8_t, uint8_t, uint8_t *, uint8_t *);
+        typedef int32_t (*f_crt1)(uint8_t, uint8_t, uint8_t *);
+        typedef int32_t (*f_dm)(uint32_t, uint32_t, uint32_t *);
+        typedef int32_t (*f_c2)(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t *);
+        typedef int32_t (*f_ua)(const uint64_t *, const uint64_t *, uint64_t *, uint8_t *);
+        f_ra ra = (f_ra)sym("sov_ring_add");
+        f_rm rm = (f_rm)sym("sov_ring_mul");
+        f_mix mix = (f_mix)sym("sov_dc_mixedop");
+        f_crt1 crt1 = (f_crt1)sym("sov_dc_crt");
+        f_dm dm = (f_dm)sym("sov_dayan_multiplier");
+        f_c2 c2 = (f_c2)sym("sov_crt2");
+        f_ua ua = (f_ua)sym("sov_u384_add");
+        uint64_t st = 0xC2B2AE3D27D4EB4Full;
+        long long ch[5] = {0,0,0,0,0};
+        int dayan_ok = 0, dayan_tot = 0, crt_ok = 0, crt_tot = 0;
+        for (int i = 0; i < 1500; ++i) {
+            st = st * 6364136223846793005ull + 1442695040888963407ull;
+            uint8_t A[11], B[11], O[11];
+            for (int j = 0; j < 11; ++j) { A[j] = (uint8_t)((st >> (j * 3 % 64)) % 3); B[j] = (uint8_t)((st >> ((j * 5 + 7) % 64)) % 3); }
+            ra(A, B, O);
+            { uint64_t w = 0, q = 1; for (int j = 0; j < 11; ++j) { w += (uint64_t)O[j] * q; q *= 3; }
+              ch[0] = (ch[0] * 131 + (long long)(w % 1000003)) % 1000000007LL; }
+            rm(A, B, O);
+            { uint64_t w = 0, q = 1; for (int j = 0; j < 11; ++j) { w += (uint64_t)O[j] * q; q *= 3; }
+              ch[1] = (ch[1] * 131 + (long long)(w % 1000003)) % 1000000007LL; }
+            { uint8_t t1 = (uint8_t)(st % 3), t2 = (uint8_t)((st >> 2) % 3);
+              uint8_t k1 = (uint8_t)((st >> 4) % 4), k2 = (uint8_t)((st >> 6) % 4);
+              uint8_t to = 0, ko = 0; mix(t1, k1, t2, k2, &to, &ko);
+              uint8_t xo = 0; crt1(to, ko, &xo);
+              ch[2] = (ch[2] * 131 + to * 10 + ko + xo) % 1000000007LL; }
+            { uint32_t m = 3 + (uint32_t)((st >> 8) % 60), a = 1 + (uint32_t)((st >> 16) % (m - 1));
+              uint32_t g = a, h = m; while (h) { uint32_t t = g % h; g = h; h = t; }
+              if (g == 1) { uint32_t k = 0; dm(a, m, &k); ++dayan_tot;
+                  if ((uint64_t)a * k % m == 1) ++dayan_ok;
+                  ch[3] = (ch[3] * 131 + k) % 1000000007LL; } }
+            { uint32_t m1 = 2 + (uint32_t)((st >> 24) % 48), m2 = 2 + (uint32_t)((st >> 32) % 48);
+              if (m1 != m2) {
+                  uint32_t g = m1, h = m2; while (h) { uint32_t t = g % h; g = h; h = t; }
+                  if (g == 1) { uint32_t a1 = (uint32_t)(st % m1), a2 = (uint32_t)(st % m2), x = 0;
+                      if (c2(a1, m1, a2, m2, &x) == 0) { ++crt_tot;
+                          if (x % m1 == a1 && x % m2 == a2) ++crt_ok;
+                          ch[4] = (ch[4] * 131 + x) % 1000000007LL; } } } }
+        }
+        /* u384 随机加法: 恒等 checksum */
+        { long long c = 0; uint64_t st2 = 0xA4093822299F31D0ull;
+          for (int i = 0; i < 800; ++i) {
+              uint64_t a[6], b[6], o[6]; uint8_t cy = 0;
+              for (int j = 0; j < 6; ++j) { st2 = st2 * 6364136223846793005ull + 1442695040888963407ull; a[j] = st2;
+                                            st2 = st2 * 6364136223846793005ull + 1442695040888963407ull; b[j] = st2; }
+              ua(a, b, o, &cy);
+              for (int j = 0; j < 6; ++j) c = (c * 131 + (long long)(o[j] % 1000003)) % 1000000007LL;
+              c = (c * 131 + cy) % 1000000007LL;
+          }
+          printf("fuzz2_u384=%lld\n", c); }
+        printf("fuzz2_chk=%lld,%lld,%lld,%lld,%lld\n", ch[0], ch[1], ch[2], ch[3], ch[4]);
+        printf("fuzz2_dayan=%d/%d,fuzz2_crt=%d/%d\n", dayan_ok, dayan_tot, crt_ok, crt_tot);
+    }
+
     /* 空指针保护 */
     printf("err_null=%d\n", tadd(0, 0, NULL));
     { fn_abi rfini = (fn_abi)dlsym(H, "sov_runtime_fini");

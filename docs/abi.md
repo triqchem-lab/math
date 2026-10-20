@@ -68,7 +68,7 @@
 | 闸门 | 命令 | 判据 |
 |---|---|---|
 | 导出面 | `engineering/verify_export_surface.sh` | 三语言 dynsym == 契约（缺/多皆红） |
-| 实现一致 | `engineering/ffi_conformance.sh` | 三语言同一向量 **1115 行逐行相同** |
+| 实现一致 | `engineering/ffi_conformance.sh` | 三语言同一向量 **1118 行逐行相同** |
 | 头合规 | `engineering/c99_compliance_check.py` | 保留标识符 / 自足性 / 版本闸门 |
 | 档位矩阵 | `engineering/c_standard_matrix.sh` | C99..C23 × C++11..23 × gcc/clang |
 | 安装 | `engineering/install_c_abi.sh` | `dist/` 标准布局 + pkg-config 三套 |
@@ -203,6 +203,7 @@ cpp 的 `NSESolver::step` 与 rust/hs 的 `step_once` 在 delta 公式上不同�
 | `sov_ring_add` 完备子域 | **低 6 位子环全域 729² = 531441 对**（完全子域，非抽样） | ✅ 0 反例 |
 | `sov_dc_translate` | **12 个起点 × 13 个步长全域**（156 项）：`gⁿ·(T_t,α_k) = (T_{t+n mod 3}, α_{(k+n) mod 4})` | ✅ 0 反例 |
 | **随机差分**（2000×7） | 固定 LCG 种子，三语言必须给出相同校验和；**同时**用独立 Python 复算（防共模） | ✅ 7/7 与 Python 一致 |
+| **随机差分 2**（1500×5 + 800） | 环加/乘（11 trit 随机向量）、DC mixedop+CRT、**大衍互素对**、**CRT2 两模**、u384 加法 | ✅ 5/5 校验和与 Python 一致；大衍 **969/969**、CRT2 **915/915** 全对 |
 | `sov_dayan_multiplier` | 解析 `DayanState.agda` 的 `dayan-init`/`dayan-step` 原文形态；用 ℤ 版独立实现核对 ABI | ✅ 1101/1101 互素对（m≤60），校验和 823007911 |
 | `sov_crt2` | 广义二模 CRT：验证解满足两同余且唯一落在 [0,m₁m₂) | ✅ 576/576（模数对取自 {2,3,5,7,11}），物不知数 → 23 |
 

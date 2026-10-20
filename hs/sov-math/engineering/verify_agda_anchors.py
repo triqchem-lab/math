@@ -1256,6 +1256,93 @@ def check_fuzz(fail):
           + "（覆盖 trit 加乘 / Eisenstein 乘与范数 / ADC64 / 位宽 / tryte+数字根+σ）")
     return ok
 
+def check_fuzz2(fail):
+    """随机差分 2: 环 / DC / 大衍 / CRT2 / u384 —— 与 C 驱动同一 LCG，独立复算全部校验和"""
+    MOD7 = 1000000007
+    M64 = (1 << 64) - 1
+    def lcg(st):
+        return (st * 6364136223846793005 + 1442695040888963407) & M64
+    def w_of(v):        # 11 trit → 值
+        return sum(d * 3 ** i for i, d in enumerate(v))
+    def mul3(a, b):     # GF(3) 乘法
+        return (a * b) % 3
+    def trit_add(a, b):
+        return (a + b) % 3
+    st = 0xC2B2AE3D27D4EB4F
+    ch = [0] * 5
+    dayan_ok = dayan_tot = 0
+    crt_ok = crt_tot = 0
+    def inv_mod(a, m):
+        for k in range(m):
+            if a * k % m == 1:
+                return k
+        return None
+    for _ in range(1500):
+        st = lcg(st)
+        A = [(st >> ((j * 3) % 64)) % 3 for j in range(11)]
+        B = [(st >> ((j * 5 + 7) % 64)) % 3 for j in range(11)]
+        wa, wb = w_of(A), w_of(B)
+        ch[0] = (ch[0] * 131 + ((wa + wb) % 177147) % 1000003) % MOD7
+        ch[1] = (ch[1] * 131 + ((wa * wb) % 177147) % 1000003) % MOD7
+        t1, t2 = st % 3, (st >> 2) % 3
+        k1, k2 = (st >> 4) % 4, (st >> 6) % 4
+        to, ko = trit_add(t1, t2), (k1 + k2) % 4
+        # CRT: 3/4 互素 ⇒ x = 4·(to·4^{-1} mod 3) + 3·(ko·3^{-1} mod 4) mod 12
+        xo = (4 * (to * 1 % 3) + 3 * (ko * 3 % 4)) % 12
+        ch[2] = (ch[2] * 131 + to * 10 + ko + xo) % MOD7
+        m = 3 + (st >> 8) % 60
+        a = 1 + (st >> 16) % (m - 1)
+        import math as _m
+        if _m.gcd(a, m) == 1:
+            dayan_tot += 1
+            k = inv_mod(a, m)
+            if k is not None and a * k % m == 1:
+                dayan_ok += 1
+            ch[3] = (ch[3] * 131 + k) % MOD7
+        m1 = 2 + (st >> 24) % 48
+        m2 = 2 + (st >> 32) % 48
+        if m1 != m2 and _m.gcd(m1, m2) == 1:
+            a1, a2 = st % m1, st % m2
+            # CRT 唯一解 in [0, m1*m2)
+            x = next((v for v in range(m1 * m2) if v % m1 == a1 and v % m2 == a2), None)
+            if x is not None:
+                crt_tot += 1
+                if x % m1 == a1 and x % m2 == a2:
+                    crt_ok += 1
+                ch[4] = (ch[4] * 131 + x) % MOD7
+    # u384
+    c = 0
+    st2 = 0xA4093822299F31D0
+    for _ in range(800):
+        a = []; b = []
+        for j in range(6):
+            st2 = lcg(st2); a.append(st2)
+            st2 = lcg(st2); b.append(st2)
+        tot = [a[j] + b[j] for j in range(6)]
+        o = [0] * 6
+        carry = 0
+        for j in range(6):
+            t = a[j] + b[j] + carry
+            o[j] = t & M64
+            carry = t >> 64
+        for j in range(6):
+            c = (c * 131 + (o[j] % 1000003)) % MOD7
+        c = (c * 131 + carry) % MOD7
+    body = read(BODY)
+    m2 = re.search(r"fuzz2_chk=([\d,]+)", body)
+    mu = re.search(r"fuzz2_u384=(\d+)", body)
+    md = re.search(r"fuzz2_dayan=(\d+)/(\d+),fuzz2_crt=(\d+)/(\d+)", body)
+    got = [int(t) for t in m2.group(1).split(",")] if m2 else []
+    ok = (got == ch and mu and int(mu.group(1)) == c
+          and md and int(md.group(1)) == dayan_ok and int(md.group(2)) == dayan_tot
+          and int(md.group(3)) == crt_ok and int(md.group(4)) == crt_tot
+          and dayan_ok == dayan_tot and crt_ok == crt_tot)
+    print(f"随机差分 2 (1500×5 + 800 u384): {'✓ 与独立复算一致' if got == ch and mu and int(mu.group(1)) == c else '✗ ' + str(got) + ' vs ' + str(ch)}; "
+          f"大衍 {md.group(1) if md else '?'}/{md.group(2) if md else '?'} 互素对全对; "
+          f"CRT2 {md.group(3) if md else '?'}/{md.group(4) if md else '?'} 全对"
+          + ("" if ok else "  🔴"))
+    return ok
+
 def main():
     src = read(CHAIN)
     fail = 0
@@ -1312,6 +1399,7 @@ def main():
     if not check_holographic(fail): fail = 1
     if not check_nse(fail): fail = 1
     if not check_fuzz(fail): fail = 1
+    if not check_fuzz2(fail): fail = 1
 
     print("\n" + ("PASS" if not fail else "FAIL"))
     return fail
