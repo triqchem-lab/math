@@ -1202,6 +1202,60 @@ def check_nse(fail):
           + ("" if ok else "  🔴"))
     return ok
 
+def check_fuzz(fail):
+    """随机差分: 固定 LCG 种子下 7 个校验和，与独立 Python 复算比对
+
+    覆盖 trit 加/乘、Eisenstein 乘、ADC64、位宽、tryte 往返+数字根+σ、Eisenstein 范数。
+    """
+    MOD7 = 1000000007
+    M64 = (1 << 64) - 1
+    st = 0x9E3779B97F4A7C15
+    def lcg():
+        nonlocal st
+        st = (st * 6364136223846793005 + 1442695040888963407) & M64
+        return st
+    def wtb(bits):
+        cap = 1 << bits
+        k = 0
+        p = 1
+        while p <= cap // 3:
+            p *= 3
+            k += 1
+        return k
+    ch = [0] * 6
+    for _ in range(2000):
+        v = lcg()
+        a, b = v % 3, (v >> 8) % 3
+        ch[0] = (ch[0] * 131 + (a + b) % 3) % MOD7
+        ch[1] = (ch[1] * 131 + (a * b) % 3) % MOD7
+        x = (v >> 16) % 2001 - 1000
+        y = (v >> 32) % 2001 - 1000
+        im = (x * x + y * y - y * x) % MOD7
+        ch[2] = (ch[2] * 131 + im) % MOD7          # re = 0（(x+yi) 的对称参数）
+        ua, ub, ci = v, v >> 7, (v >> 63) & 1
+        tot = ua + ub + ci
+        sm = tot & M64
+        co = 1 if tot > M64 else 0
+        ch[3] = (ch[3] * 131 + (sm % 1000003) + co) % MOD7
+        ch[4] = (ch[4] * 131 + (3 ** (v % 41)) % 1000003 + wtb(v % 64)) % MOD7
+        ch[5] = (ch[5] * 131 + (v % 729) + (v % 9) * 7) % MOD7
+        ch[5] = (ch[5] * 131 + a * 10 + (4 - ((v >> 4) % 4)) % 4) % MOD7
+    c_n = 0
+    for _ in range(2000):
+        v = lcg()
+        p = (v >> 8) % 4001 - 2000
+        q = (v >> 24) % 4001 - 2000
+        c_n = (c_n * 131 + (p * p - p * q + q * q) % 1000003) % MOD7
+    body = read(BODY)
+    m = re.search(r"fuzz_chk=([\d,]+)", body)
+    mn = re.search(r"fuzz_eisnorm=(\d+)", body)
+    got = [int(t) for t in m.group(1).split(",")] if m else []
+    ok = (got == ch and mn and int(mn.group(1)) == c_n)
+    print(f"随机差分 2000×7: {'✓ 与独立复算一致' if ok else '✗ ' + str(got) + ' vs ' + str(ch)}"
+          + ("" if ok else "  🔴")
+          + "（覆盖 trit 加乘 / Eisenstein 乘与范数 / ADC64 / 位宽 / tryte+数字根+σ）")
+    return ok
+
 def main():
     src = read(CHAIN)
     fail = 0
@@ -1257,6 +1311,7 @@ def main():
     if not check_eis_misc(fail): fail = 1
     if not check_holographic(fail): fail = 1
     if not check_nse(fail): fail = 1
+    if not check_fuzz(fail): fail = 1
 
     print("\n" + ("PASS" if not fail else "FAIL"))
     return fail

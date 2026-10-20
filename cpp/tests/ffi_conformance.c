@@ -1381,6 +1381,71 @@ int main(int argc, char **argv) {
           printf("dc_translate_full_bad=%d,chk=%lld\n", bad, chk); }
     }
 
+    /* ══ 随机差分: 固定 LCG 种子，三语言必须给出相同校验和 ══ */
+    {
+        typedef int32_t (*f_t1)(uint8_t, uint8_t *);
+        typedef int32_t (*f_t2)(uint8_t, uint8_t, uint8_t *);
+        typedef int32_t (*f_em)(int64_t, int64_t, int64_t, int64_t, int64_t *, int64_t *);
+        typedef int32_t (*f_en)(int64_t, int64_t, int64_t *);
+        typedef int32_t (*f_adc)(uint64_t, uint64_t, uint8_t, uint64_t *, uint8_t *);
+        typedef int32_t (*f_wid)(uint8_t, uint64_t *);
+        typedef int32_t (*f_wtb)(uint8_t, uint8_t *);
+        typedef int32_t (*f_tv)(const uint8_t *, uint16_t *);
+        typedef int32_t (*f_tu)(uint16_t, uint8_t *);
+        typedef int32_t (*f_d9)(uint64_t, uint8_t *);
+        typedef int32_t (*f_sg)(uint8_t, uint8_t, uint8_t *, uint8_t *);
+        f_t2 tadd = (f_t2)sym("sov_trit_add"), tmul = (f_t2)sym("sov_trit_mul");
+        f_em em = (f_em)sym("sov_eis_mul");
+        f_en en = (f_en)sym("sov_eis_norm");
+        f_adc adc = (f_adc)sym("sov_adc64");
+        f_wid wct = (f_wid)sym("sov_width_capacity_trits");
+        f_wtb wtb = (f_wtb)sym("sov_width_trits_for_bits");
+        f_tv tv = (f_tv)sym("sov_tryte_value");
+        f_tu tu = (f_tu)sym("sov_tryte_unpack");
+        f_d9 d9 = (f_d9)sym("sov_digital_root_mod9");
+        f_sg sg = (f_sg)sym("sov_dc_sigma");
+        uint64_t st = 0x9E3779B97F4A7C15ull;
+        long long chks[6] = {0,0,0,0,0,0};
+        for (int i = 0; i < 2000; ++i) {
+            st = st * 6364136223846793005ull + 1442695040888963407ull;
+            uint8_t a = (uint8_t)(st % 3), b = (uint8_t)((st >> 8) % 3);
+            uint8_t o8 = 0;
+            tadd(a, b, &o8); chks[0] = (chks[0] * 131 + o8) % 1000000007LL;
+            tmul(a, b, &o8); chks[1] = (chks[1] * 131 + o8) % 1000000007LL;
+            int64_t x = (int64_t)((st >> 16) % 2001) - 1000;
+            int64_t y = (int64_t)((st >> 32) % 2001) - 1000;
+            int64_t re = 0, im = 0;
+            em(x, y, y, x, &re, &im); chks[2] = (chks[2] * 131 + (re * 7 + im) % 1000000007LL) % 1000000007LL;
+            uint64_t ua = st, ub = st >> 7; uint8_t ci = (uint8_t)((st >> 63) & 1), co = 0; uint64_t sm = 0;
+            adc(ua, ub, ci, &sm, &co); chks[3] = (chks[3] * 131 + (long long)(sm % 1000003) + co) % 1000000007LL;
+            uint64_t cap = 0; wct((uint8_t)(st % 41), &cap);
+            uint8_t tb = 0; wtb((uint8_t)(st % 64), &tb);
+            chks[4] = (chks[4] * 131 + (long long)(cap % 1000003) + tb) % 1000000007LL;
+            /* ⚠ 先 unpack 再 value: 曾把 tv(值函数) 当 unpack 用, 三语言同错 (共模) */
+            uint16_t v = (uint16_t)(st % 729); uint8_t t6[6];
+            tu(v, t6);
+            uint16_t back = 0; tv(t6, &back);
+            uint8_t m9 = 0; d9(st, &m9);
+            chks[5] = (chks[5] * 131 + back + m9 * 7) % 1000000007LL;
+            uint8_t so = 0, ko = 0; sg(a, (uint8_t)((st >> 4) % 4), &so, &ko);
+            chks[5] = (chks[5] * 131 + so * 10 + ko) % 1000000007LL;
+        }
+        printf("fuzz_chk=%lld,%lld,%lld,%lld,%lld,%lld\n",
+               chks[0], chks[1], chks[2], chks[3], chks[4], chks[5]);
+        /* 随机 11-trit 向量上的范数/乘性抽样 */
+        { typedef int32_t (*f_nm2)(int64_t, int64_t, int64_t *);
+          f_nm2 nn = (f_nm2)sym("sov_eis_norm");
+          long long c = 0;
+          for (int i = 0; i < 2000; ++i) {
+              st = st * 6364136223846793005ull + 1442695040888963407ull;
+              int64_t p = (int64_t)((st >> 8) % 4001) - 2000;
+              int64_t q = (int64_t)((st >> 24) % 4001) - 2000;
+              int64_t n = 0; nn(p, q, &n);
+              c = (c * 131 + (n % 1000003)) % 1000000007LL;
+          }
+          printf("fuzz_eisnorm=%lld\n", c); }
+    }
+
     /* 空指针保护 */
     printf("err_null=%d\n", tadd(0, 0, NULL));
     { fn_abi rfini = (fn_abi)dlsym(H, "sov_runtime_fini");
