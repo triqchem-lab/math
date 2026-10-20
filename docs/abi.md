@@ -698,3 +698,29 @@ lint 的 `--self-test` 会把三类历史 bug 注入临时文件，要求**各�
 
 ⚠ 边界：lint 是文本级启发式（单文件、按行维护变量映射），能抓遗漏但**不保证**完备；
 第 4 类（API 误用）只在「变量名可追踪且未遮蔽」时有效。
+
+## 二十七、形式化侧修复排期（本地智能体执行）
+
+用户指出「形式化没有哪些需要解决」——盘点后共 4 项，已建共享任务并派给本地智能体，
+全部要求：**只新建 `bridge-from-sov-math/` 下模块、不改上游跟踪树、0 postulate / 0 hole、agda exit 0**。
+
+| 任务 | 上游问题（实测） | 交付 | 状态 |
+|---|---|---|---|
+| task-1 **大衍求一术** | `DayanState` 的 `(q·lt) ∸ lb` + `定 ∸ lt` ⇒ 1101 组互素对仅 **22.6%** 给出模逆 | `DayanNatFix.agda`：修正形 + 上游三义务全证 + 原版反例 `¬(3·乘率(3,5)≡1)` | ✅ exit 0 / 0 postulate / 0 hole |
+| task-2 **数字根** | `DigitalRoot.agda` 长期未更新：只有 `n % 9`，无经典版/幂等/周期 | `DigitalRootClassic.agda`：46 个签名（8 条模 9 枢纽 + 5 条主定理 + `abiRoot≡classicRoot`） | ✅ 同上 |
+| task-3 **NSE Q5** | `NSEOnT6` 自报：`div`/`grad` 只有 3 轴，6 分量两两共用轴 | `NSE6Axis.agda`：6 轴算子 + `div-grad6 = refl` + **判别引理**（六轴≢三轴复刻、Δ 不恒零） | ✅ 同上 |
+| task-4 **Z/3¹¹ 环** | Agda 侧只有 `HenselMod177147`（x²≡1 根），无环律 ⇒ `sov_ring_*` 无形式化背书 | `Ring3pow11.agda`：表示层双射 + 值语义 + 交换/结合 | 🚧 进行中 |
+
+### 两项「诚实边界」（由智能体自报，已写入 bridge README/PATCHES）
+
+1. **`div-grad = refl` 不构成轴分配正确的证据**：上游缺陷版里它同样成立（三处定义自洽）。
+   故 task-3 额外构造判别引理：δ_{e₄} 在原点 `laplacian6 = T₁` 而三轴复刻 `= T₀`；
+   oracle 全 729 格点实测差异 laplacian **12 点** / div **2 点**。
+   —— 这正是本库「`refl` 只确认定义自洽，不产生结构」红线的又一实例。
+2. **大衍整术终止性未证**（`rt` 严格递减，上游 roadmap S-D3）；12231/12231 覆盖率是 Python oracle 事实，
+   **不是** Agda 定理。
+
+### 迁移路径
+
+`bridge-from-sov-math/PATCHES.md` 给出每项的上游改法（改哪个文件、迁哪些定理、验证命令、未含项）。
+本仓库（sov-math）不复制这些模块，避免双份漂移；ABI 侧只保留实测证据与契约引用。
