@@ -31,4 +31,34 @@ grep -q "smoke ok" "$TMP/out.txt" || { echo "🔴 输出不符"; cat "$TMP/out.t
 for pc in "$ROOT/dist/lib/pkgconfig/sov-ffi.pc" "$ROOT/dist/lib/pkgconfig/sov-ffi-rust.pc" "$ROOT/dist/lib/pkgconfig/sov-ffi-hs.pc"; do
     [ -f "$pc" ] || { echo "🔴 缺 pkg-config 文件: $pc"; exit 1; }
 done
-echo "✅ pkg-config 消费端冒烟通过（$(pkg-config --modversion sov-ffi)）"
+
+# cpp / rust 变体: 直接链接并运行（与上一段同源，这里换 -l 变体各跑一次）
+for pc in sov-ffi sov-ffi-rust; do
+    cc "$TMP/app.c" $(pkg-config --cflags --libs $pc) -o "$TMP/app_$pc" 2>/dev/null \
+        || { echo "🔴 $pc 编译失败"; exit 1; }
+    LD_LIBRARY_PATH="$ROOT/dist/lib" "$TMP/app_$pc" > /dev/null 2>&1 \
+        || { echo "🔴 $pc 运行失败"; exit 1; }
+done
+
+# hs 变体: 契约要求 dlopen + hs_init（静态链接会在 main 前跑库构造函数而失败）
+cat > "$TMP/dl.c" <<'C'
+#include <sov/sov.h>
+#include <stdio.h>
+#include <dlfcn.h>
+int main(void) {
+    void (*hi)(int*, char***) = (void (*)(int*, char***))dlsym(RTLD_DEFAULT, "hs_init");
+    if (!hi) return 1;
+    hi(NULL, NULL);
+    void *H = dlopen("libsovffi.so", RTLD_NOW);
+    if (!H) return 2;
+    int32_t (*lcm)(uint64_t*) = (int32_t (*)(uint64_t*))dlsym(H, "sov_sovereign_lcm");
+    uint64_t v = 0;
+    if (!lcm || lcm(&v) != 0 || v != 11609505792ull) return 3;
+    return 0;
+}
+C
+cc "$TMP/dl.c" $(pkg-config --cflags --libs sov-ffi-hs) -o "$TMP/dl" 2>/dev/null \
+    || { echo "🔴 sov-ffi-hs 编译失败（RTS flags 缺失？）"; exit 1; }
+LD_LIBRARY_PATH="$ROOT/dist/lib" "$TMP/dl" || { echo "🔴 sov-ffi-hs dlopen 失败"; exit 1; }
+
+echo "✅ pkg-config 消费端冒烟通过（cpp/rust 静态链接 + hs dlopen；$(pkg-config --modversion sov-ffi)）"

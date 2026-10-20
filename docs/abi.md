@@ -650,7 +650,15 @@ python3 hs/sov-math/engineering/negative_controls.py
 |---|---|
 | 编译（仅用 pkg-config 提供的 flags） | ✅ |
 | 运行 + 语义断言（mixedop/trit/lcm） | ✅ `smoke ok` |
+| **三变体**：`sov-ffi`（cpp）与 `sov-ffi-rust` 静态链接并运行；`sov-ffi-hs` 走 dlopen + `hs_init` | ✅ 三个都通过 |
 | 版本 | 1.0.0 |
+
+**本轮修的真实缺陷**：`sov-ffi-hs.pc` 原先只给 `-lsovffi`，缺 RTS 链接参数 ⇒ 消费者
+`cc app.c $(pkg-config --libs sov-ffi-hs)` **链接失败**（`rts_mkWord32`/`newArena` 未定义）。
+现在安装脚本会追加 `-Wl,--no-as-needed -L<RTSDIR> -lHSrts-… -Wl,-rpath,<RTSDIR>`。
+
+⚠ 使用约束（契约原有）：hs 变体**必须** dlopen（先 `hs_init` 再 `dlopen`）；
+静态 `-lsovffi` 会让库构造函数在 `main` 之前运行而报 `RTS is not initialised`——冒烟测试按此路径验证。
 
 ## 二十六、诊断：这些是「测试理解偏差」，不是形式化问题
 

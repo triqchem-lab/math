@@ -52,6 +52,16 @@ mk_pc() { # name, libname, impl, extra
 mk_pc sov-ffi      sov_ffi      "cpp"
 mk_pc sov-ffi-rust sov_ffi_rust "rust"
 mk_pc sov-ffi-hs   sovffi       "haskell (requires hs_init before dlopen)"
+# hs 变体: 追加 RTS 链接参数（否则 dlopen 时 rts_* 符号未解析；静态链接会在 main 前跑库构造函数而失败）
+python3 - "$PREFIX/lib/pkgconfig/sov-ffi-hs.pc" "$RTSDIR" <<'PYEOF'
+import sys
+path, rtsdir = sys.argv[1], sys.argv[2]
+txt = open(path).read().rstrip("\n")
+rts = "-L%s -lHSrts-1.0.3_thr-ghc9.14.1 -Wl,-rpath,%s" % (rtsdir, rtsdir)
+if "HSrts" not in txt:
+    txt = txt.replace("Libs: ", "Libs: -Wl,--no-as-needed " + rts + " ")
+open(path, "w").write(txt + "\n")
+PYEOF
 
 echo
 echo "✅ 安装完成: $PREFIX"
