@@ -27,6 +27,16 @@ library
                       Sov.Math.Error
                       Sov.Math.FixedComplex
                       Sov.Math.Eis
+                      Sov.Math.A4
+                      Sov.Math.RepA4
+                      Sov.Math.Rep2A4
+                      Sov.Math.Complex2A4
+                      Sov.Math.Cover2A4
+                      Sov.Math.SL23
+                      Sov.Math.SpinHopf
+                      Sov.Math.CarrierA4
+                      Sov.Math.Hopf
+                      Sov.Math.Field
                       Sov.Math.Layer1
                       Sov.Math.L2Ops
                       Sov.Math.Block

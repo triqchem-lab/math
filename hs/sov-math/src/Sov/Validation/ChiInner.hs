@@ -1,10 +1,10 @@
 -- | Sov.Validation.ChiInner — 2·A₄ = SL(2,3) 特征标不可约性 (镜像 rust chi_inner.rs)
 --
+-- 数据（7 个共轭类的大小、三个 2 维旋量特征标）已上移到 `Sov.Math.Rep2A4`；
+-- 本模块保留原有核对入口（`innerNum` / `verifyChiIrreducible`），
+-- 并从 Math 层取值，既有调用点零改动。
+--
 -- 预验证: ⟨χ,χ⟩·|G| = Σ_c |c|·χ(c)·χ̄(c) — Z[ω] 精确整数内积 (复用 Sov.Math.Eis)。
--- χ₂  = [2,−2,−1,−1,1,1,0]
--- χ₂′ = χ₂⊗χ₁′ = [2,−2,−ω,−ω²,ω,ω²,0]
--- χ₂″ = χ₂⊗χ₁″ = [2,−2,−ω²,−ω,ω²,ω,0]
--- 共轭类大小 [1,1,4,4,4,4,6] (Σ=24=|G|)
 module Sov.Validation.ChiInner
   ( classSizes
   , chi2, chi2', chi2''
@@ -13,24 +13,22 @@ module Sov.Validation.ChiInner
   ) where
 
 import Sov.Math.Eis
+import Sov.Math.Rep2A4
+  ( Spinor (..), classSizes7, groupOrder, spinorChar )
 
 -- 共轭类大小 (Σ=24)
 classSizes :: [Integer]
-classSizes = [1, 1, 4, 4, 4, 4, 6]
+classSizes = classSizes7
 
 chi2, chi2', chi2'' :: [Eis]
-chi2   = [eis 2 0, eis (-2) 0, eis (-1) 0, eis (-1) 0, eis 1 0, eis 1 0, eis 0 0]
-chi2'  = [eis 2 0, eis (-2) 0, negE eisOmega, negE eisOmega2, eisOmega, eisOmega2, eis 0 0]
-chi2'' = [eis 2 0, eis (-2) 0, negE eisOmega2, negE eisOmega, eisOmega2, eisOmega, eis 0 0]
-
--- 别名辅助 (eis 语义: a + bω)
-eis :: Integer -> Integer -> Eis
-eis = Eis
+chi2   = spinorChar S2
+chi2'  = spinorChar S2'
+chi2'' = spinorChar S2''
 
 -- 内积分子: Σ_c |c|·χ(c)·χ̄(c)
 innerNum :: [Eis] -> Eis
 innerNum chi = foldl addE eisZero
-  [ fromIntegral size `scaleE` mulE (chi !! k) (conjE (chi !! k))
+  [ size `scaleE` mulE (chi !! k) (conjE (chi !! k))
   | (k, size) <- zip [0 ..] classSizes ]
   where
     scaleE :: Integer -> Eis -> Eis
@@ -39,5 +37,5 @@ innerNum chi = foldl addE eisZero
 -- 验证: Σ|c|=24 且三个特征标内积分子 = 24 (⟨χ,χ⟩=1 → 不可约)
 verifyChiIrreducible :: Bool
 verifyChiIrreducible =
-  sum classSizes == 24
+  sum classSizes == groupOrder
   && all (\c -> innerNum c == Eis 24 0) [chi2, chi2', chi2'']

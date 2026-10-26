@@ -3,10 +3,22 @@
 -- 每条测试对应 rust 侧同名测试, 三语言 (C++/Rust/Haskell) 交叉验证。
 module Sov.Tests.Core (runAllTests) where
 
+import Data.List (nub, permutations, sort)
+
 import Sov.Math.Adc
 import Sov.Math.Bridge
 import qualified Sov.Math.Constants as C
 import Sov.Math.Eis
+import Sov.Math.A4
+import Sov.Math.CarrierA4
+import qualified Sov.Math.RepA4 as RA4
+import qualified Sov.Math.Rep2A4 as R2
+import qualified Sov.Math.Cover2A4 as CV
+import qualified Sov.Math.Complex2A4 as C2
+import qualified Sov.Math.SL23 as SL
+import qualified Sov.Math.SpinHopf as SH
+import qualified Sov.Math.Field as FD
+import Sov.Math.Hopf
 import Sov.Math.FixedComplex
 import Sov.Math.Layer1
 import Sov.Math.L2Ops
@@ -382,9 +394,325 @@ approxEq :: Q16Complex -> Q16Complex -> Bool
 approxEq (Q16Complex a b) (Q16Complex c d) =
   abs (unQ16 a - unQ16 c) <= 16 && abs (unQ16 b - unQ16 d) <= 16
 
+--------------------------------------------------------------------------------
+-- C[A₄] 载体 + Plancherel 内积（2026-10-26 新增）
+--
+-- 判据：载体是**函数空间**（12 维），不是点集；内积是 Plancherel 配对，
+-- 不是点积。基 δ_g 在该配对下正交归一（144 对全检）。
+--------------------------------------------------------------------------------
+
+carrierTests :: [Test]
+carrierTests =
+  [ check "a4_card"              (length allA4 == a4Card && a4Card == 12)
+  , check "a4_perm_distinct"     (length (nub (map a4Perm allA4)) == 12)
+  , check "a4_perm_even"         (all (evenPerm4 . a4Perm) allA4)
+  , check "a4_identity_l"        (all (\g -> mulA4 idA4 g == g) allA4)
+  , check "a4_identity_r"        (all (\g -> mulA4 g idA4 == g) allA4)
+  , check "a4_inverse"           (all (\g -> mulA4 g (invA4 g) == idA4
+                                       && mulA4 (invA4 g) g == idA4) allA4)
+  , check "a4_assoc"             (all (\(g, h, k) -> mulA4 (mulA4 g h) k
+                                                   == mulA4 g (mulA4 h k)) triples)
+  , check "carrier_dim"          (dimCarrier == 12)
+  , check "carrier_basis_orthonormal"
+      (all (\(g, h) -> dotC (basisVec g) (basisVec h)
+                        == (if g == h then eisOne else eisZero)) pairs)
+  , check "carrier_parseval_delta" (all (\g -> normC2 (basisVec g) == eisOne) allA4)
+  , check "plancherel_identity"  (plancherelSum == 12 && plancherelSum == dimCarrier)
+  , check "a4_rot_fixes_its_vertex"
+      (all (\i -> all (\j -> pAt (Rot i j) (f4i i) == f4i i) [G0, G1]) [F0, F1, F2, F3])
+  , check "carrier_regular_action_hom"
+      (all (\(g, h) -> all (\i -> regAct g (regAct h (basisVec (elemAt i)))
+                              == regAct (mulA4 g h) (basisVec (elemAt i))) [0 .. 11]) pairs)
+  , check "carrier_unitary"
+      (all (\g -> all (\(i, j) -> dotC (regAct g (basisVec (elemAt i))) (regAct g (basisVec (elemAt j)))
+                                == dotC (basisVec (elemAt i)) (basisVec (elemAt j))) idxPairs) allA4)
+  , check "a4_generated_by_two_elements" a4Generated
+  , check "a4_perm_set_equals_alt4"
+      (sort (map a4Perm allA4) == sort [ q | q <- permutations [0 .. 3], evenPerm4 q ])
+  , check "a4_flip_two_transpositions"
+      (all (\k -> all (\i -> pAt (Flip k) i /= i
+                            && pAt (Flip k) (pAt (Flip k) i) == i) [0 .. 3])
+           [H0, H1, H2])
+  ]
+  where
+    pairs   = [ (g, h) | g <- allA4, h <- allA4 ]
+    triples = [ (g, h, k) | g <- allA4, h <- allA4, k <- allA4 ]
+    f4i F0 = 0; f4i F1 = 1; f4i F2 = 2; f4i F3 = 3
+    elemAt k = case drop k allA4 of
+                 (x : _) -> x
+                 []      -> Id
+    idxPairs = [ (i, j) | i <- [0 .. 11], j <- [0 .. 11] ]
+    pAt g k = case drop k (a4Perm g) of
+                (v : _) -> v
+                []      -> -1
+    -- 偶置换判定：逆序数奇偶
+    evenPerm4 p = even (inversions p)
+    inversions p = length [ () | i <- [0 .. 3], j <- [i + 1 .. 3]
+                               , at p i > at p j ]
+    at xs k = maybe 0 id (safeIdx k xs)
+    safeIdx :: Int -> [a] -> Maybe a
+    safeIdx _ []       = Nothing
+    safeIdx 0 (x : _)  = Just x
+    safeIdx k (_ : xs) = safeIdx (k - 1) xs
+
+--------------------------------------------------------------------------------
+-- 离散 Hopf 纤维化 T⁶ → T⁶/A₄（2026-10-26 新增）
+--
+-- 判据：底空间 135 类；投影在 A₄ 轨道上不变；纤维大小分布
+-- {1:27, 4:54, 6:27, 12:27}（全枚举，非估计）。
+--------------------------------------------------------------------------------
+
+hopfTests :: [Test]
+hopfTests =
+  [ check "hopf_points_729"        (length allT6Points == 729)
+  , check "hopf_orbit_invariant"   (all (\(g, x) -> projClass (actOn g x) == projClass x) gxPairs)
+  , check "hopf_base_card_135"     (length (nub (map projClass allT6Points)) == baseCard
+                                    && baseCard == 135)
+  , check "hopf_fiber_distribution"
+      (fiberSizeDistribution == [(1, 27), (4, 54), (6, 27), (12, 27)])
+  , check "hopf_fiber_sum_729"
+      (sum [ s * n | (s, n) <- fiberSizeDistribution ] == 729)
+  , check "hopf_no_54_orbit"       (all (\(s, _) -> s <= 12) fiberSizeDistribution)
+  , check "hopf_key_complete"
+      (all (\x -> let same = [ y | y <- allT6Points, projClass y == projClass x ]
+                      orb  = orbitOf x
+                  in length same == length orb && all (`elem` orb) same) allT6Points)
+  ]
+  where
+    gxPairs = [ (g, x) | g <- allA4, x <- allT6Points ]
+
+--------------------------------------------------------------------------------
+-- 口径声明（T6）：以下所有 "全枚举" 验证（49 对正交、729 点 key 完备性、
+-- 1728 三元组结合律、24 个偶置换比对、576 对覆盖同态）都是**有限对象的全枚举**，
+-- 与归纳证明等价但不等于归纳证明；引用时必须写"全枚举"。
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+-- A₄ 表示论：特征标表 + 正交性（2026-10-26 新增）
+--
+-- 判据：行正交 Σ_g χ_ρ conj χ_σ = 12·δ；正则多重度 = 12·d_ρ；
+-- 列正交在单位元处 ⇒ Σ d_ρ² = 12（Plancherel 的结构证明）；三个 1 维表示非忠实。
+--------------------------------------------------------------------------------
+
+repA4Tests :: [Test]
+repA4Tests =
+  [ check "rep_chi_orthonormal"
+      (all (\(a, b) -> RA4.chiOrth a b == (if a == b then Eis 12 0 else eisZero))
+           irrPairs)
+  , check "rep_regular_multiplicity"
+      (all (\r -> RA4.regularMultiplicityNum r == Eis (fromIntegral (12 * RA4.dimI r)) 0)
+           RA4.allIrreps)
+  , check "rep_col_orth_at_id_12"   (RA4.colOrthAtId == Eis 12 0)
+  , check "rep_one_dim_non_faithful" RA4.oneDimRepsNonFaithful
+  , check "rep_one_dim_hom"
+      (all (\r -> all (\(g, h) -> RA4.chi r (mulA4 g h)
+                                  == mulE (RA4.chi r g) (RA4.chi r h)) ghPairs)
+           [RA4.R1, RA4.R1', RA4.R1''])
+  , check "rep_three_dim_values"
+      (RA4.chi RA4.R3 Id == Eis 3 0
+        && RA4.chi RA4.R3 (Flip H0) == Eis (-1) 0
+        && RA4.chi RA4.R3 (Rot F0 G0) == eisZero)
+  , check "rep_chi_at_identity_is_dim"
+      (all (\r -> RA4.chi r Id == Eis (fromIntegral (RA4.dimI r)) 0) RA4.allIrreps)
+  , check "rep_class_partition_4_3_4_4"
+      (length [ () | g <- allA4, RA4.classOf g == RA4.CE  ] == 1
+    && length [ () | g <- allA4, RA4.classOf g == RA4.CV4 ] == 3
+    && length [ () | g <- allA4, RA4.classOf g == RA4.CA  ] == 4
+    && length [ () | g <- allA4, RA4.classOf g == RA4.CB  ] == 4)
+  , check "rep_class_conj_invariant"
+      (all (\(g, h) -> RA4.classOf (mulA4 (mulA4 h g) (invA4 h)) == RA4.classOf g) ghPairs)
+  ]
+  where
+    irrPairs = [ (a, b) | a <- RA4.allIrreps, b <- RA4.allIrreps ]
+    ghPairs  = [ (g, h) | g <- allA4, h <- allA4 ]
+
+--------------------------------------------------------------------------------
+-- 2A₄ = SL(2,F₃)：旋量/相位那条腿（2026-10-26 新增）
+--
+-- 判据：24 元素、忠实（24 个互不相同）、W=(σ₁σ₂)³ = −I、−I 中心且阶 2、
+-- 存在 4 阶元（A₄ 没有 ⇒ 相位必须上双层覆盖）、在 8 个非零向量上传递 ⇒ 9 = 1+8。
+--------------------------------------------------------------------------------
+
+sl23Tests :: [Test]
+sl23Tests =
+  [ check "sl23_card_24"          (length SL.allSL23 == SL.sl23Card
+                                    && length (nub SL.allSL23) == 24)
+  , check "sl23_det_one"          (all (\m -> SL.matDet m == T1) SL.allSL23)
+  , check "sl23_closed"           (all (\(a, b) -> SL.matMul a b `elem` SL.allSL23) pairs)
+  , check "sl23_identity"         (all (\m -> SL.matMul m SL.matId == m
+                                          && SL.matMul SL.matId m == m) SL.allSL23)
+  , check "sl23_inverse"          (all (\m -> SL.matMul m (SL.matInv m) == SL.matId
+                                          && SL.matMul (SL.matInv m) m == SL.matId) SL.allSL23)
+  , check "sl23_sigma_orders"     (SL.orderOf SL.sigma1 == 3 && SL.orderOf SL.sigma2 == 3)
+  , check "sl23_W_is_negI"        (SL.wElement == SL.negI)
+  , check "sl23_negI_order2"      (SL.orderOf SL.negI == 2)
+  , check "sl23_negI_central"     (all (\m -> SL.matMul m SL.negI == SL.matMul SL.negI m) SL.allSL23)
+  , check "sl23_has_order4"       (not (null SL.elemsOfOrder4) && length SL.elemsOfOrder4 == 6)
+  , check "sl23_a4_has_no_order4" (all (\g -> orderOfA4 g /= 4) allA4)
+  , check "sl23_vec_transitive_8" (length (SL.orbitOfVec (T1, T0)) == 8
+                                    && length (nub (concatMap SL.orbitOfVec SL.nonzeroVectors)) == 8)
+  , check "sl23_zero_fixed"       (all (\m -> SL.actVec m (T0, T0) == (T0, T0)) SL.allSL23)
+  , check "sl23_nine_is_1_plus_8" (1 + length (SL.orbitOfVec (T1, T0)) == 9)
+  , check "sl23_all_order4_square_negI"
+      (all (\m -> SL.matMul m m == SL.negI) SL.elemsOfOrder4)
+  ]
+  where
+    pairs = [ (a, b) | a <- SL.allSL23, b <- SL.allSL23 ]
+    -- A₄ 元素阶：用群乘法反复左乘，直到回到单位元（总函数，12 步内必停）
+    orderOfA4 :: A4 -> Int
+    orderOfA4 g = go 1 g
+      where
+        go k x
+          | x == idA4 = k
+          | k > 12    = 0
+          | otherwise = go (k + 1) (mulA4 x g)
+
+--------------------------------------------------------------------------------
+-- 旋量 Hopf 丛 T⁶ × GF(3)²（2026-10-26 新增）
+--
+-- 判据：α 阶 4；α² = −I；−I 在旋量纤维上取负；W=(σ₁σ₂)³ 在同一纤维上**同样**取负；
+-- 投影在全自旋作用下不变；8 个非零向量在 ⟨α⟩ 下分成 2 条 4 元轨道。
+--------------------------------------------------------------------------------
+
+spinHopfTests :: [Test]
+spinHopfTests =
+  [ check "spin_fiber_card_9"      (SH.spinFiberCard == 9)
+  , check "spin_total_card_6561"   (SH.spinTotalCard == 729 * 9 && SH.spinTotalCard == 6561)
+  , check "spin_alpha_order4"      (SL.orderOf SH.alphaMat == 4)
+  , check "spin_alpha_sq_is_negI"  (SH.alphaPow 2 == SL.negI)
+  , check "spin_alpha_fourth_id"   (SH.alphaPow 4 == SL.matId)
+  , check "spin_negI_negates"      (all (\v -> SH.phaseAct 2 v == negPair v) allVecs)
+  , check "spin_W_negates"         (all (\v -> SL.actVec SL.wElement v == negPair v) allVecs)
+  , check "spin_alpha_fixes_zero"  (SH.phaseAct 1 (T0, T0) == (T0, T0))
+  , check "spin_proj_invariant"
+      (all (\(g, k, x) -> SH.spinProj (SH.spinAct (g, k) (x, (T1, T0))) == projClass x)
+           gkx)
+  , check "spin_phase_orbits_2x4"  (map length SH.phaseOrbits == [4, 4])
+  , check "spin_orbit_reps_135"    (length SH.spinOrbitReps == 135)
+  ]
+  where
+    allVecs = [ (x, y) | x <- allTrits, y <- allTrits ]
+    gkx     = [ (g, k, x) | g <- allA4, k <- [0 .. 3], x <- allT6Points ]
+    negPair (x, y) = (negT x, negT y)
+
+--------------------------------------------------------------------------------
+-- 截面空间 + 扭转缺陷（2026-10-26 新增）
+--
+-- 判据：平纤维维数 135×12=1620；有效维数 Σ|fiber|=729；缺陷 891。
+-- 「891 = 扭转类大小」是**解释**，不是定理；这里钉住的是等式。
+--------------------------------------------------------------------------------
+
+fieldTests :: [Test]
+fieldTests =
+  [ check "field_base_135"        (FD.baseDim == 135)
+  , check "field_fiber_12"        (FD.fiberDim == 12)
+  , check "field_flat_1620"       (FD.flatDim == 1620 && FD.flatDim == 135 * 12)
+  , check "field_effective_729"   (FD.effectiveDim == 729)
+  , check "field_overcount_891"       (FD.overcount == 891
+                                    && FD.flatDim - FD.effectiveDim == FD.overcount)
+  , check "field_free_orbits_27"  (FD.freeOrbitCount == 27)
+  , check "field_nonfree_108"     (FD.nonFreeOrbitCount == 108
+                                    && FD.freeOrbitCount + FD.nonFreeOrbitCount == 135)
+  , check "field_section_length"  (case FD.mkSection (replicate 135 zeroC) of
+                                     Just _  -> True
+                                     Nothing -> False)
+  , check "field_section_reject"  (case FD.mkSection (replicate 134 zeroC) of
+                                     Just _  -> False
+                                     Nothing -> True)
+  , check "field_zero_norm"       (case FD.mkBaseKey 0 of
+                                     Just k  -> FD.sectionNorm FD.zeroSection k == Just eisZero
+                                     Nothing -> False)
+  , check "field_basekey_rejects_out_of_range"
+      (FD.mkBaseKey 135 == Nothing && FD.mkBaseKey (-1) == Nothing
+        && FD.mkBaseKey 0 /= Nothing && length FD.allBaseKeys == 135)
+  , check "field_min_fiber_1"     (FD.minFiberSize == 1 && FD.maxFiberSize == 12)
+  , check "field_uniform_coords_not_faithful"
+      (FD.uniformCoordsFaithful == False)
+  , check "field_overcount_by_orbit"
+      (FD.overcountByOrbit == [(1, 27, 297), (4, 54, 432), (6, 27, 162), (12, 27, 0)])
+  , check "field_overcount_decomposition"  FD.overcountDecomposition
+  , check "field_no_equivariant_section"
+      (FD.equivariantSectionPossible == False)
+  ]
+
+--------------------------------------------------------------------------------
+-- 2A₄ 旋量特征标 + 正交性（2026-10-26 新增）
+--
+-- 判据：7 类大小 Σ=24；三个 2 维旋量两两正交且各自范数 24；
+-- 维数恒等式 Σd²=24，由此剩余四个 irrep 的维数被唯一确定为 {1,1,1,3}。
+--------------------------------------------------------------------------------
+
+rep2A4Tests :: [Test]
+rep2A4Tests =
+  [ check "rep2_class_sizes_sum_24" (R2.classSizesSum == 24
+                                      && R2.classSizesSum == R2.groupOrder)
+  , check "rep2_spinor_orthogonality" R2.spinorOrthogonality
+  , check "rep2_spinor_distinct"
+      (length (nub [ R2.spinorChar s | s <- R2.allSpinors ]) == 3)
+  , check "rep2_spinor_dim_2"
+      (all (\s -> nthOf (R2.identityClassIndex) (R2.spinorChar s) == Eis 2 0) R2.allSpinors)
+  , check "rep2_dims_identity_24"    R2.dimsIdentity
+  , check "rep2_predicted_dims"
+      (R2.predictedDims == [1, 1, 1, 2, 2, 2, 3])
+  , check "rep2_class_structure_computed"  R2.classStructureOk
+  , check "rep2_class_count_7"             (length R2.sl23Classes == 7)
+  , check "rep2_all_chars_orthogonal"      R2.allCharsOrthogonal
+  , check "rep2_all_chars_distinct"        R2.allCharsDistinct
+  , check "rep2_full_table_dims"
+      (map (nthOf R2.identityClassIndex) R2.allChars == replicate 3 (Eis 1 0)
+        ++ replicate 3 (Eis 2 0) ++ [Eis 3 0])
+  , check "rep2_identity_class_size_order"
+      (nthPair R2.identityClassIndex R2.classInfoC == (1, 1))
+  , check "rep2_class_order_signature"
+      (R2.classSignature == R2.expectedSignature)
+  , check "rep2_neg_class_involutive"
+      (all (\i -> R2.negClassOf (R2.negClassOf i) == i) [0 .. 6])
+  , check "rep2_one_dim_homs_3"      (length R2.oneDimHoms == 3)
+  , check "rep2_chars_orthogonal_computed" R2.allCharsOrthogonal
+  , check "rep2_regular_multiplicity" R2.regularMultiplicityOk
+    -- ── T1（P0）：SL(2,F₃) → A₄ 覆盖映射 ──
+  , check "cover_homomorphism"
+      (all (\(g, h) -> CV.permOfM (SL.matMul g h) == CV.composeP (CV.permOfM g) (CV.permOfM h))
+           [ (g, h) | g <- SL.allSL23, h <- SL.allSL23 ])
+  , check "cover_image_even"        (all CV.isEvenP CV.imagePerms)
+  , check "cover_image_is_a4"
+      (sort CV.imagePerms == sort (map a4Perm allA4))
+  , check "cover_kernel_is_pm_I"    (length CV.kernelOfCover == 2
+                                      && SL.matId `elem` CV.kernelOfCover
+                                      && SL.negI `elem` CV.kernelOfCover)
+  , check "cover_quotient_12"       (length CV.imagePerms == 12)
+  , check "cover_ok"                CV.coverOk
+    -- ── T2：2 维复表示（Z[ω] 显式矩阵），χ = tr ──
+  , check "c2a4_model_ok"           C2.modelOk
+  , check "c2a4_class_signature_matches"
+      (C2.classInfoM == sort R2.classInfoC)   -- classInfoM 已排序；classInfoC 是计算序
+  , check "c2a4_24_elements_distinct"
+      (length C2.group24 == 24 && length (nub C2.group24) == 24)
+  , check "rep2_spinor_matches_model"
+      (all (\(sz, od) -> R2.spinorValue od == C2.spinorCharFromModel sz od
+                          && R2.spinorValue od /= Eis 99 0) R2.classInfoC)
+  , check "rep2_neg_pairs_3_6"
+      (all (\i -> case snd (nthPair i R2.classInfoC) of
+                     3 -> snd (nthPair (R2.negClassOf i) R2.classInfoC) == 6
+                     6 -> snd (nthPair (R2.negClassOf i) R2.classInfoC) == 3
+                     4 -> R2.negClassOf i == i
+                     _ -> True) [0 .. 6])
+  ]
+  where
+    -- 取第 k 类上的值（计算序下的类索引）
+    nthOf :: Int -> [Eis] -> Eis
+    nthOf k xs = case drop k xs of
+                   (x : _) -> x
+                   []      -> Eis 0 0
+    nthPair :: Int -> [(Int, Int)] -> (Int, Int)
+    nthPair k xs = case drop k xs of
+                     (x : _) -> x
+                     []      -> (0, 0)
+
 runAllTests :: IO ()
 runAllTests = do
-  let results = allTests
+  let results = allTests ++ carrierTests ++ hopfTests ++ repA4Tests ++ rep2A4Tests
+                  ++ sl23Tests ++ spinHopfTests ++ fieldTests
       failed  = [ n | (n, ok) <- results, not ok ]
   mapM_ (\(n, ok) -> putStrLn ((if ok then "✅ " else "🔴 ") ++ n)) results
   putStrLn $ replicate 40 '-'
