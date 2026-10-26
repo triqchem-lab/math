@@ -3,13 +3,21 @@
 -- 深化（第 3 项）：把 `Complex2A4` 的"χ = tr"接到 Plancherel 一侧。
 -- 字符只是矩阵系数的**迹**（χ = Σᵢ uᵢᵢ）；真正的内积结构在矩阵系数上：
 --
--- ⚠ 一条**被实测否决**的假设（2026-10-26）：经典 Schur 关系
---     Σ_g ρᵢⱼ(g)·conj ρₖₗ(g) = (|G|/d)·δᵢₖ·δⱼₗ = 12·δ
---   **只对酉表示**成立。本模型是 Z[ω] 上的非酉实现（实测 U†U = [[1,−1],[−1,2]] ≠ I），
---   该式不成立。非酉情形下正确的、可算的判据是**系数 Gram 矩阵可逆**：
---     G_{(ij),(kl)} = Σ_g uᵢⱼ(g)·conj uₖₗ(g) 是 4×4 Hermite 阵，det ≠ 0
---   ⇒ 4 个矩阵系数线性无关 ⇒ 系数空间维数 d² = 4 ⇒ 不可约（系数层面）。
---   迹只是 G 的"对角和"：χ = Σᵢ uᵢᵢ，故 ⟨χ,χ⟩ = 24 与 G 的可逆性相容。
+-- ⚠ 两条实测结论（2026-10-26）——都改变了原计划：
+--
+-- ① **Hermite 型 Schur 关系不成立**（原计划要验的）：
+--      Σ_g ρᵢⱼ(g)·conj ρₖₗ(g) = (|G|/d)·δᵢₖ·δⱼₗ
+--    只对**酉**表示成立；本模型是 Z[ω] 上的非酉实现（U†U = [[1,−1],[−1,2]] ≠ I）。
+--    酉化需要 H = Σ_g ρ(g)†ρ(g) = [[36, −24−12ω],[−12+12ω, 36]] 的平方根，
+--    det H = **864 = 144·6** ⇒ 需 √6 ⇒ 出 Z[ω]。**故这条路要扩环，代价太大。**
+--
+-- ② **双线性（不共轭）Schur 关系在 Z[ω] 内精确成立**，常数 12：
+--      Σ_g ρᵢⱼ(g)·ρₖₗ(g) = 12·εᵢₖ·εⱼₗ ,   ε = [[0,1],[−1,0]]
+--    这正是 **quaternionic 型**（Frobenius–Schur 指标 −1）的特征：
+--      Σ_g χ(g²) = −24 ⇒ 指标 = −24/24 = −1 ⇒ 不变形式是**反对称**的。
+--    故"Schur 定理"在本模型里应写成双线性版本，**不需要扩环**。
+--
+-- ⇒ 结论：扩环（Z[ω] → Z[ω,√6]）**不必要**；真正的定理是 ②。
 --
 -- 载体：Field = 2A₄ → Z[ω]（24 维自由模），配
 --   · 左正则作用 (ρ_h f)(x) = f(h⁻¹x)
@@ -21,13 +29,14 @@ module Sov.Math.Carrier2A4
   ( Field, dimField, zeroF, basisAt, dotF, normF2
   , regAct2, matrixCoeff, eqF
   , coefficientGram, gramHermitian, gramDet, coefficientsIndependent
+  , epsilon, bilinearGram, bilinearSchur, frobeniusSchurNum, quaternionic
   , deltaOrthonormal, regAct2Hom, regAct2Unitary
   , carrier2Ok
   ) where
 
 import Data.List (nub)
 
-import Sov.Math.Complex2A4 (M2E (..), group24, idM, invM, mulM)
+import Sov.Math.Complex2A4 (M2E (..), group24, idM, invM, mulM, traceM)
 import Sov.Math.Eis
 
 -- | 2A₄ 上的函数空间（24 维自由 Z[ω]-模）
@@ -140,9 +149,44 @@ det4 m = detN m
 gramDet :: Eis
 gramDet = det4 coefficientGram
 
--- | 系数线性无关（非酉情形下代替 Schur 常数的判据）
+-- | 系数线性无关（Hermite Gram 可逆 ⇒ d² 维系数空间）
 coefficientsIndependent :: Bool
 coefficientsIndependent = gramDet /= eisZero
+
+--------------------------------------------------------------------------------
+-- 双线性 Schur（quaternionic 型）——在 Z[ω] 内精确，常数 12
+--------------------------------------------------------------------------------
+
+-- | ε = [[0,1],[−1,0]] 的分量
+epsilon :: Int -> Int -> Int
+epsilon 0 1 = 1
+epsilon 1 0 = -1
+epsilon _ _ = 0
+
+-- | 双线性 Gram：M_{(ij),(kl)} = Σ_g ρᵢⱼ(g)·ρₖₗ(g)（**不共轭**）
+bilinearGram :: [[Eis]]
+bilinearGram =
+  [ [ foldl addE eisZero
+        [ mulE (matrixCoeff i j g) (matrixCoeff k l g) | g <- group24 ]
+    | (k, l) <- coeffPairs ]
+  | (i, j) <- coeffPairs ]
+
+-- | Σ_g ρᵢⱼ ρₖₗ = 12·εᵢₖ·εⱼₗ
+bilinearSchur :: Bool
+bilinearSchur =
+  all (\(i, j, k, l) ->
+        let v = foldl addE eisZero
+                  [ mulE (matrixCoeff i j g) (matrixCoeff k l g) | g <- group24 ]
+        in v == Eis (fromIntegral (12 * epsilon i k * epsilon j l)) 0)
+      [ (i, j, k, l) | i <- [0, 1], j <- [0, 1], k <- [0, 1], l <- [0, 1] ]
+
+-- | Frobenius–Schur 指标的分子：Σ_g χ(g²)（= −24 ⇒ 指标 −1 ⇒ quaternionic）
+frobeniusSchurNum :: Eis
+frobeniusSchurNum =
+  foldl addE eisZero [ traceM (mulM g g) | g <- group24 ]
+
+quaternionic :: Bool
+quaternionic = frobeniusSchurNum == Eis (-24) 0
 
 carrier2Ok :: Bool
 carrier2Ok =
@@ -153,3 +197,5 @@ carrier2Ok =
   && regAct2Unitary
   && gramHermitian
   && coefficientsIndependent
+  && bilinearSchur
+  && quaternionic

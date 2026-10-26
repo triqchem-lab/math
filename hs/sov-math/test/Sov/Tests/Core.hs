@@ -699,6 +699,8 @@ rep2A4Tests =
   , check "c2a4_regact2_unitary"     K2.regAct2Unitary
   , check "c2a4_coefficient_gram_hermitian" K2.gramHermitian
   , check "c2a4_coefficients_independent"   K2.coefficientsIndependent
+  , check "c2a4_bilinear_schur_12"          K2.bilinearSchur
+  , check "c2a4_fs_indicator_neg1"          K2.quaternionic
   , check "rep2_spinor_matches_model"
       (all (\(sz, od) -> R2.spinorValue od == C2.spinorCharFromModel sz od
                           && R2.spinorValue od /= Eis 99 0) R2.classInfoC)
