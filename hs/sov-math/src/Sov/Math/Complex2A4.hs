@@ -35,6 +35,7 @@ module Sov.Math.Complex2A4
 import Data.List (nub, sort)
 
 import Sov.Math.Eis
+import Sov.Math.Error (constitutionalPanic)
 
 -- | Z[ω] 上的 2×2 矩阵
 data M2E = M2E Eis Eis Eis Eis deriving (Eq, Show)
@@ -93,7 +94,7 @@ group24 = go [idM] [idM]
 orderOfM :: M2E -> Int
 orderOfM m = case [ k | k <- [1 .. 24], powM k m == idM ] of
     (k : _) -> k
-    []      -> 0    -- 不可达
+    []      -> constitutionalPanic "Complex2A4: 元素阶超过 24（不可达）"
 
 conjClassM :: M2E -> [M2E]
 conjClassM m = nub [ mulM (mulM h m) (invM h) | h <- group24 ]
@@ -140,7 +141,7 @@ spinorCharFromModel :: Int -> Int -> Eis
 spinorCharFromModel sz od =
   case [ chi | (s, o, chi) <- charBySizeOrder, s == sz, o == od ] of
     (chi : _) -> chi
-    []        -> eisZero
+    []        -> constitutionalPanic "Complex2A4: (size,order) 无对应类（不可达）"
 
 --------------------------------------------------------------------------------
 -- 三个 2 维表示 = 定义表示 ⊗ 三个 1 维表示（矩阵级，不只是字符级）
@@ -173,7 +174,7 @@ oneDimChar :: Int -> M2E -> Eis
 oneDimChar k g =
   case [ m | (y, m) <- mIndex, y == g ] of
     (m : _) -> powEis ((k * m) `mod` 3)
-    []      -> eisOne
+    []      -> constitutionalPanic "Complex2A4: 元素不在 mIndex 中（不可达）"
 
 powEis :: Int -> Eis
 powEis 0 = eisOne
@@ -219,6 +220,7 @@ modelOk =
   && modelOrders == [1, 2, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4
                     , 6, 6, 6, 6, 6, 6, 6, 6]
   && traceDependsOnlyOnSizeOrder
+  && length (nub (map fst mIndex)) == 24   -- mIndex 覆盖全部 24 元（不只是条数）
   && length mIndex == 24          -- 1 维特征指数在 24 元上一致
   && tensorRepsFaithful           -- 三个 2 维表示（矩阵级）都忠实
   && tensorRepsHom                -- 三个都是同态

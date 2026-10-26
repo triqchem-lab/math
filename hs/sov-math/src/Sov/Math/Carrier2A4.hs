@@ -38,6 +38,7 @@ import Data.List (nub)
 
 import Sov.Math.Complex2A4 (M2E (..), group24, idM, invM, mulM, traceM)
 import Sov.Math.Eis
+import Sov.Math.Error (constitutionalPanic)
 
 -- | 2A₄ 上的函数空间（24 维自由 Z[ω]-模）
 type Field = M2E -> Eis
@@ -123,8 +124,8 @@ gramHermitian =
     matrixAt i j = case drop i coefficientGram of
                      (row : _) -> case drop j row of
                                     (x : _) -> x
-                                    []      -> eisZero
-                     []        -> eisZero
+                                    []      -> constitutionalPanic "Carrier2A4: 4×4 下标越界（不可达）"
+                     []        -> constitutionalPanic "Carrier2A4: 4×4 下标越界（不可达）"
 
 -- | 4×4 行列式（Laplace；Eis 上精确）
 det4 :: [[Eis]] -> Eis
@@ -141,8 +142,8 @@ det4 m = detN m
     entry rows i k = case drop i rows of
                        (r : _) -> case drop k r of
                                     (x : _) -> x
-                                    []      -> eisZero
-                       []      -> eisZero
+                                    []      -> constitutionalPanic "Carrier2A4: det4 下标越界（不可达）"
+                       []      -> constitutionalPanic "Carrier2A4: det4 下标越界（不可达）"
     minor rows k = [ [ e | (j, e) <- zip [0 ..] r, j /= k ] | r <- drop 1 rows ]
     sign k = if even k then eisOne else Eis (-1) 0
 
