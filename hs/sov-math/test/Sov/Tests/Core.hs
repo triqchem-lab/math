@@ -15,6 +15,7 @@ import qualified Sov.Math.RepA4 as RA4
 import qualified Sov.Math.Rep2A4 as R2
 import qualified Sov.Math.Cover2A4 as CV
 import qualified Sov.Math.Complex2A4 as C2
+import qualified Sov.Math.Carrier2A4 as K2
 import qualified Sov.Math.SL23 as SL
 import qualified Sov.Math.SpinHopf as SH
 import qualified Sov.Math.Field as FD
@@ -691,6 +692,13 @@ rep2A4Tests =
   , check "c2a4_one_dim_index_24"    (length C2.mIndex == 24)
   , check "c2a4_tensor_reps_hom"     C2.tensorRepsHom
   , check "c2a4_tensor_reps_faithful" C2.tensorRepsFaithful
+    -- ── 深化：C[2A₄] + Schur 正交性（迹=特征标的上层结构）──
+  , check "c2a4_carrier_ok"          K2.carrier2Ok
+  , check "c2a4_delta_orthonormal"   K2.deltaOrthonormal
+  , check "c2a4_regact2_hom"         K2.regAct2Hom
+  , check "c2a4_regact2_unitary"     K2.regAct2Unitary
+  , check "c2a4_coefficient_gram_hermitian" K2.gramHermitian
+  , check "c2a4_coefficients_independent"   K2.coefficientsIndependent
   , check "rep2_spinor_matches_model"
       (all (\(sz, od) -> R2.spinorValue od == C2.spinorCharFromModel sz od
                           && R2.spinorValue od /= Eis 99 0) R2.classInfoC)

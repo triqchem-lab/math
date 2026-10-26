@@ -35,6 +35,7 @@ library
                       Sov.Math.SL23
                       Sov.Math.SpinHopf
                       Sov.Math.CarrierA4
+                      Sov.Math.Carrier2A4
                       Sov.Math.Hopf
                       Sov.Math.Field
                       Sov.Math.Layer1
