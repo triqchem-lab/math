@@ -688,6 +688,9 @@ rep2A4Tests =
       (C2.classInfoM == sort R2.classInfoC)   -- classInfoM 已排序；classInfoC 是计算序
   , check "c2a4_24_elements_distinct"
       (length C2.group24 == 24 && length (nub C2.group24) == 24)
+  , check "c2a4_one_dim_index_24"    (length C2.mIndex == 24)
+  , check "c2a4_tensor_reps_hom"     C2.tensorRepsHom
+  , check "c2a4_tensor_reps_faithful" C2.tensorRepsFaithful
   , check "rep2_spinor_matches_model"
       (all (\(sz, od) -> R2.spinorValue od == C2.spinorCharFromModel sz od
                           && R2.spinorValue od /= Eis 99 0) R2.classInfoC)

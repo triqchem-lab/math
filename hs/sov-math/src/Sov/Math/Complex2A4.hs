@@ -27,6 +27,8 @@ module Sov.Math.Complex2A4
   , conjClassM, classesM, classInfoM
   , charBySizeOrder, spinorCharFromModel
   , modelOrders, modelTraces, traceDependsOnlyOnSizeOrder
+  , mIndex, oneDimChar, tensorRep, tensorFaithful, tensorHom
+  , tensorRepsFaithful, tensorRepsHom
   , modelOk
   ) where
 
@@ -141,6 +143,65 @@ spinorCharFromModel sz od =
     []        -> eisZero
 
 --------------------------------------------------------------------------------
+-- 三个 2 维表示 = 定义表示 ⊗ 三个 1 维表示（矩阵级，不只是字符级）
+--
+-- 1 维表示经 2A₄ → A₄ → C₃ 分解，由 U 的像决定：m(i)=m(j)=0, m(U)=1，
+-- 再沿乘法一致化（BFS；不一致即说明假设有误，`mIndex` 会返回空）。
+-- λ_k(g) = ω^{k·m(g)}，张量表示 = λ_k(g)·M(g)（标量乘矩阵）。
+--------------------------------------------------------------------------------
+
+-- | 1 维表示的指数 m : G → {0,1,2}（BFS 一致化；不一致则缺失）
+mIndex :: [(M2E, Int)]
+mIndex = go [(idM, 0)] [(idM, 0)]
+  where
+    genExp = [ (iGen, 0), (jGen, 0), (uGen, 1) ]
+    go acc [] = acc
+    go acc ((x, mx) : rest) =
+      let news =
+            [ (mulM g x, (d + mx) `mod` 3)
+            | (g, d) <- genExp
+            , all (\(y, _) -> y /= mulM g x) acc ]        -- 只看新元素
+          newNeg =
+            [ (mulM (invM g) x, ((3 - d) + mx) `mod` 3)
+            | (g, d) <- genExp
+            , all (\(y, _) -> y /= mulM (invM g) x) acc ]
+          fresh = news ++ newNeg
+      in go (acc ++ fresh) (rest ++ fresh)
+
+-- | λ_k(g) = ω^{k·m(g)}；不在表中（不可达）返回 1
+oneDimChar :: Int -> M2E -> Eis
+oneDimChar k g =
+  case [ m | (y, m) <- mIndex, y == g ] of
+    (m : _) -> powEis ((k * m) `mod` 3)
+    []      -> eisOne
+
+powEis :: Int -> Eis
+powEis 0 = eisOne
+powEis 1 = eisOmega
+powEis _ = eisOmega2
+
+scaleM :: Eis -> M2E -> M2E
+scaleM s (M2E a b c d) = M2E (mulE s a) (mulE s b) (mulE s c) (mulE s d)
+
+-- | 第 k 个 2 维表示（k = 0 即定义表示本身）：g ↦ λ_k(g)·M(g)
+tensorRep :: Int -> M2E -> M2E
+tensorRep k g = scaleM (oneDimChar k g) g
+
+tensorFaithful :: Int -> Bool
+tensorFaithful k = length (nub [ tensorRep k g | g <- group24 ]) == 24
+
+tensorHom :: Int -> Bool
+tensorHom k = all (\(g, h) -> tensorRep k (mulM g h)
+                              == mulM (tensorRep k g) (tensorRep k h)) ghPairs
+  where ghPairs = [ (g, h) | g <- group24, h <- group24 ]
+
+tensorRepsFaithful :: Bool
+tensorRepsFaithful = all tensorFaithful [0, 1, 2]
+
+tensorRepsHom :: Bool
+tensorRepsHom = all tensorHom [0, 1, 2]
+
+--------------------------------------------------------------------------------
 -- 自检
 --------------------------------------------------------------------------------
 
@@ -158,3 +219,6 @@ modelOk =
   && modelOrders == [1, 2, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4
                     , 6, 6, 6, 6, 6, 6, 6, 6]
   && traceDependsOnlyOnSizeOrder
+  && length mIndex == 24          -- 1 维特征指数在 24 元上一致
+  && tensorRepsFaithful           -- 三个 2 维表示（矩阵级）都忠实
+  && tensorRepsHom                -- 三个都是同态
