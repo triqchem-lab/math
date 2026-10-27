@@ -66,6 +66,16 @@ add_executable(test_eisenstein tests/test_eisenstein.cpp)
 target_link_libraries(test_eisenstein PRIVATE sov_math)
 add_test(NAME eisenstein COMMAND test_eisenstein)
 
+# A₄/2A₄ 族（2026-10-28 从 hs 同步；镜像 rust sov-a4 crate）
+add_executable(test_a4_family tests/test_a4_family.cpp)
+target_link_libraries(test_a4_family PRIVATE sov_math)
+add_test(NAME a4_family COMMAND test_a4_family)
+
+# Validation 族（2026-10-28 从 rust sov-validation 同步到 cpp）
+add_executable(test_validation tests/test_validation.cpp)
+target_link_libraries(test_validation PRIVATE sov_math)
+add_test(NAME validation COMMAND test_validation)
+
 add_executable(test_chern_exact tests/test_chern_exact.cpp)
 target_link_libraries(test_chern_exact PRIVATE sov_math)
 add_test(NAME chern_exact COMMAND test_chern_exact)

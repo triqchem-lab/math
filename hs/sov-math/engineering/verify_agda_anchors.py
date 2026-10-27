@@ -1124,12 +1124,12 @@ def check_eis_misc(fail):
           and one and one.groups() == ("3", "-5") and comm and comm.group(1) == "1"
           and st and st.group(1) == "0"
           and cc and cc.group(1) == "0"
-          and ver and ver.groups() == ("65536", "1", "0")
+          and ver and ver.groups() == ("65537", "1", "1")
           and se and se.groups() == ("1", "1") and se_unk and se_unk.group(1) == "1")
     print(f"Eisenstein: 乘 21⁴ {'✓' if m and m.group(1)=='0' else '✗'} (独立复算 {'✓' if m and int(m.group(2))==c_m else '✗'}), "
           f"范数 441 + 乘性 441² {'✓' if n and n.group(1)=='0' and n.group(3)=='0' else '✗'}, 单位元 (3,−5) {'✓' if one and one.groups()==('3','-5') else '✗'}, 交换 {'✓' if comm and comm.group(1)=='1' else '✗'}; "
           f"standing 12 {'✓' if st and st.group(1)=='0' else '✗'}, chiral 7 阈值 {'✓' if cc and cc.group(1)=='0' else '✗'}, "
-          f"版本 1.0 {'✓' if ver and ver.groups()==('65536','1','0') else '✗'}, strerror {'✓' if se and se.groups()==('1','1') else '✗'}"
+          f"版本 1.1 {'✓' if ver and ver.groups()==('65537','1','1') else '✗'}, strerror {'✓' if se and se.groups()==('1','1') else '✗'}"
           + ("" if ok else "  🔴"))
     return ok
 

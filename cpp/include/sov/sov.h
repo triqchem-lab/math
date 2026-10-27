@@ -15,6 +15,6 @@
 #define SOV_ABI_AT_LEAST(maj, min) \
     (SOV_ABI_VERSION_ENCODE(SOV_ABI_MAJOR, SOV_ABI_MINOR) >= SOV_ABI_VERSION_ENCODE((maj), (min)))
 
-#define SOV_ABI_VERSION_STRING "sov-math ABI 1.0"
+#define SOV_ABI_VERSION_STRING "sov-math ABI 1.1"
 
 #endif /* SOV_SOV_H */

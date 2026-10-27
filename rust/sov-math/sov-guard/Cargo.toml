@@ -11,6 +11,7 @@ crate-type = ["rlib", "cdylib"]
 [dependencies]
 sov-core = { path = "../sov-core" }
 sov-topology = { path = "../sov-topology" }
+sov-a4 = { path = "../sov-a4" }
 
 [dev-dependencies]
 sov-core = { path = "../sov-core" }

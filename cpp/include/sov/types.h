@@ -17,7 +17,7 @@
 
 /* ABI 版本 (契约头一致; 改 ABI 必须同时升 minor 并同步三实现) */
 #define SOV_ABI_MAJOR 1
-#define SOV_ABI_MINOR 0
+#define SOV_ABI_MINOR 1
 
 /* 状态码: 0 = OK, 负数 = 错误 */
 #define SOV_OK            0

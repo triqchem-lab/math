@@ -113,6 +113,20 @@ import qualified Sov.Math.SunYi as SY
 import qualified Sov.Math.Eis as EIS
 import qualified Sov.Math.Guard.L7L8 as L78
 import qualified Sov.Math.Guard.Chern as CH
+-- ABI 1.1: A₄ / 2A₄ 族
+import qualified Sov.Math.A4 as A4
+import qualified Sov.Math.SL23 as SL23
+import qualified Sov.Math.Cover2A4 as CV
+import qualified Sov.Math.RepA4 as RA4
+import qualified Sov.Math.Rep2A4 as R2
+import qualified Sov.Math.Hopf as HOPF
+import qualified Sov.Math.SpinHopf as SH
+import qualified Sov.Math.Spin2 as S2
+import qualified Sov.Math.Spin3 as S3
+import qualified Sov.Math.CarrierA4 as CA4
+import qualified Sov.Math.Carrier2A4 as K2
+import qualified Sov.Math.Field as FD
+import qualified Sov.Math.Tryte as TRY
 import qualified Sov.Math.Topology.Soliton as SOL
 import Foreign.C.String (CString, withCString)
 import Data.List (foldl')
@@ -161,7 +175,7 @@ pad11 xs = take 11 (xs ++ repeat 0)
 -- ═══ 元信息 ═══
 
 sov_abi_version_wrapper :: IO CInt
-sov_abi_version_wrapper = return (fromIntegral (((1 :: Int) `shiftL` 16) .|. 0))
+sov_abi_version_wrapper = return (fromIntegral (((1 :: Int) `shiftL` 16) .|. 1))
 
 foreign export ccall "sov_abi_version" sov_abi_version_wrapper :: IO CInt
 
@@ -1150,3 +1164,478 @@ sov_width_bits_for_trits_wrapper trits out
       poke out (fromIntegral b :: CUChar)
       return 0
 foreign export ccall "sov_width_bits_for_trits" sov_width_bits_for_trits_wrapper :: CUChar -> Ptr CUChar -> IO CInt
+
+-- ═══════════════════════════════════════════════════════════════════════
+-- 第十一批（ABI 1.1）：A₄ / 2A₄ / 覆盖 / 表示论 / Hopf 商 / 载体
+-- ═══════════════════════════════════════════════════════════════════════
+
+idxMay :: [a] -> Int -> Maybe a
+idxMay [] _ = Nothing
+idxMay (x : _) 0 = Just x
+idxMay (_ : xs) k = idxMay xs (k - 1)
+
+a4At :: CUChar -> Maybe A4.A4
+a4At v = idxMay A4.allA4 (fromIntegral v)
+
+sl23At :: Ptr CUChar -> IO (Maybe SL23.M2)
+sl23At p = do
+  bs <- peekArray 4 p
+  let vs = map (fromIntegral :: CUChar -> Int) bs
+  case vs of
+    [a, b, c, d]
+      | a < 3 && b < 3 && c < 3 && d < 3 ->
+          return (Just (SL23.M2 (toT a) (toT b) (toT c) (toT d)))
+    _ -> return Nothing
+  where
+    toT k = T.fromTritIndex (fromIntegral k)
+
+isT1 :: Trit -> Bool
+isT1 t = t == T1
+
+sl23Member :: SL23.M2 -> Bool
+sl23Member m = isT1 (SL23.matDet m)
+
+m2Bytes :: SL23.M2 -> [Word8]
+m2Bytes (SL23.M2 a b c d) = map T.toTritIndex [a, b, c, d]
+
+pokeBytes :: Ptr CUChar -> [Word8] -> IO ()
+pokeBytes p vs = pokeArray p (map (fromIntegral :: Word8 -> CUChar) (take 4 (vs ++ repeat 0)))
+
+pokeEis :: Ptr CLLong -> Ptr CLLong -> EIS.Eis -> IO ()
+pokeEis re im e = do
+  poke re (fromIntegral (EIS.eisA e) :: CLLong)
+  poke im (fromIntegral (EIS.eisB e) :: CLLong)
+
+irrepAt :: CUChar -> Maybe RA4.Irrep
+irrepAt v = case fromIntegral v :: Int of
+  0 -> Just RA4.R1
+  1 -> Just RA4.R1'
+  2 -> Just RA4.R1''
+  3 -> Just RA4.R3
+  _ -> Nothing
+
+-- ── A₄ 群 ─────────────────────────────────────────────────────────────
+
+sov_a4_card_wrapper :: Ptr CUChar -> IO CInt
+sov_a4_card_wrapper out
+  | out == nullPtr = return (fromIntegral sovErrNull)
+  | otherwise = do poke out (fromIntegral A4.a4Card :: CUChar); return 0
+foreign export ccall "sov_a4_card" sov_a4_card_wrapper :: Ptr CUChar -> IO CInt
+
+sov_a4_perm_wrapper :: CUChar -> Ptr CUChar -> IO CInt
+sov_a4_perm_wrapper elem out4
+  | out4 == nullPtr = return (fromIntegral sovErrNull)
+  | otherwise = case a4At elem of
+      Nothing -> return (fromIntegral sovErrRange)
+      Just g -> do pokeBytes out4 (map (fromIntegral :: Int -> Word8) (A4.a4Perm g)); return 0
+foreign export ccall "sov_a4_perm" sov_a4_perm_wrapper :: CUChar -> Ptr CUChar -> IO CInt
+
+sov_a4_index_wrapper :: Ptr CUChar -> Ptr CUChar -> IO CInt
+sov_a4_index_wrapper perm4 out
+  | perm4 == nullPtr || out == nullPtr = return (fromIntegral sovErrNull)
+  | otherwise = do
+      bs <- peekArray 4 perm4
+      let ps = map (fromIntegral :: CUChar -> Int) bs
+          isPerm = length ps == 4 && all (\k -> k `elem` ps) [0, 1, 2, 3]
+          inv = length [ () | (i, x) <- zip [0 ..] ps, (j, y) <- zip [0 ..] ps, i < j, x > y ]
+      if not isPerm || odd inv
+        then return (fromIntegral sovErrRange)
+        else do poke out (fromIntegral (A4.a4Index (A4.a4OfPerm ps)) :: CUChar); return 0
+foreign export ccall "sov_a4_index" sov_a4_index_wrapper :: Ptr CUChar -> Ptr CUChar -> IO CInt
+
+sov_a4_mul_wrapper :: CUChar -> CUChar -> Ptr CUChar -> IO CInt
+sov_a4_mul_wrapper g h out
+  | out == nullPtr = return (fromIntegral sovErrNull)
+  | otherwise = case (a4At g, a4At h) of
+      (Just ga, Just ha) -> do poke out (fromIntegral (A4.a4Index (A4.mulA4 ga ha)) :: CUChar); return 0
+      _ -> return (fromIntegral sovErrRange)
+foreign export ccall "sov_a4_mul" sov_a4_mul_wrapper :: CUChar -> CUChar -> Ptr CUChar -> IO CInt
+
+sov_a4_inv_wrapper :: CUChar -> Ptr CUChar -> IO CInt
+sov_a4_inv_wrapper g out
+  | out == nullPtr = return (fromIntegral sovErrNull)
+  | otherwise = case a4At g of
+      Just ga -> do poke out (fromIntegral (A4.a4Index (A4.invA4 ga)) :: CUChar); return 0
+      Nothing -> return (fromIntegral sovErrRange)
+foreign export ccall "sov_a4_inv" sov_a4_inv_wrapper :: CUChar -> Ptr CUChar -> IO CInt
+
+sov_a4_order_wrapper :: CUChar -> Ptr CUChar -> IO CInt
+sov_a4_order_wrapper g out
+  | out == nullPtr = return (fromIntegral sovErrNull)
+  | otherwise = case a4At g of
+      Just ga -> do poke out (fromIntegral (a4OrderLocal ga) :: CUChar); return 0
+      Nothing -> return (fromIntegral sovErrRange)
+foreign export ccall "sov_a4_order" sov_a4_order_wrapper :: CUChar -> Ptr CUChar -> IO CInt
+
+a4OrderLocal :: A4.A4 -> Int
+a4OrderLocal g = go 1 g
+  where
+    go k x
+      | x == A4.idA4 = k
+      | k > 12 = 0
+      | otherwise = go (k + 1) (A4.mulA4 x g)
+
+-- ── SL(2,F₃) ──────────────────────────────────────────────────────────
+
+sov_sl23_card_wrapper :: Ptr CUShort -> IO CInt
+sov_sl23_card_wrapper out
+  | out == nullPtr = return (fromIntegral sovErrNull)
+  | otherwise = do poke out (fromIntegral SL23.sl23Card :: CUShort); return 0
+foreign export ccall "sov_sl23_card" sov_sl23_card_wrapper :: Ptr CUShort -> IO CInt
+
+sov_sl23_mul_wrapper :: Ptr CUChar -> Ptr CUChar -> Ptr CUChar -> IO CInt
+sov_sl23_mul_wrapper g4 h4 out4
+  | g4 == nullPtr || h4 == nullPtr || out4 == nullPtr = return (fromIntegral sovErrNull)
+  | otherwise = do
+      mg <- sl23At g4
+      mh <- sl23At h4
+      case (mg, mh) of
+        (Just g, Just h) -> do pokeBytes out4 (m2Bytes (SL23.matMul g h)); return 0
+        _ -> return (fromIntegral sovErrTrit)
+foreign export ccall "sov_sl23_mul" sov_sl23_mul_wrapper :: Ptr CUChar -> Ptr CUChar -> Ptr CUChar -> IO CInt
+
+sov_sl23_det_wrapper :: Ptr CUChar -> Ptr CUChar -> IO CInt
+sov_sl23_det_wrapper g4 out
+  | g4 == nullPtr || out == nullPtr = return (fromIntegral sovErrNull)
+  | otherwise = do
+      mg <- sl23At g4
+      case mg of
+        Just g -> do poke out (fromIntegral (T.toTritIndex (SL23.matDet g)) :: CUChar); return 0
+        Nothing -> return (fromIntegral sovErrTrit)
+foreign export ccall "sov_sl23_det" sov_sl23_det_wrapper :: Ptr CUChar -> Ptr CUChar -> IO CInt
+
+sov_sl23_inv_wrapper :: Ptr CUChar -> Ptr CUChar -> IO CInt
+sov_sl23_inv_wrapper g4 out4
+  | g4 == nullPtr || out4 == nullPtr = return (fromIntegral sovErrNull)
+  | otherwise = do
+      mg <- sl23At g4
+      case mg of
+        Nothing -> return (fromIntegral sovErrTrit)
+        Just g
+          | not (sl23Member g) -> return (fromIntegral sovErrRange)
+          | otherwise -> do pokeBytes out4 (m2Bytes (SL23.matInv g)); return 0
+foreign export ccall "sov_sl23_inv" sov_sl23_inv_wrapper :: Ptr CUChar -> Ptr CUChar -> IO CInt
+
+sov_sl23_pow_wrapper :: Ptr CUChar -> CUInt -> Ptr CUChar -> IO CInt
+sov_sl23_pow_wrapper g4 n out4
+  | g4 == nullPtr || out4 == nullPtr = return (fromIntegral sovErrNull)
+  | otherwise = do
+      mg <- sl23At g4
+      case mg of
+        Nothing -> return (fromIntegral sovErrTrit)
+        Just g
+          | not (sl23Member g) -> return (fromIntegral sovErrRange)
+          | otherwise -> do pokeBytes out4 (m2Bytes (SL23.matPow (fromIntegral n) g)); return 0
+foreign export ccall "sov_sl23_pow" sov_sl23_pow_wrapper :: Ptr CUChar -> CUInt -> Ptr CUChar -> IO CInt
+
+sov_sl23_order_wrapper :: Ptr CUChar -> Ptr CUChar -> IO CInt
+sov_sl23_order_wrapper g4 out
+  | g4 == nullPtr || out == nullPtr = return (fromIntegral sovErrNull)
+  | otherwise = do
+      mg <- sl23At g4
+      case mg of
+        Nothing -> return (fromIntegral sovErrTrit)
+        Just g
+          | not (sl23Member g) -> return (fromIntegral sovErrRange)
+          | otherwise -> do poke out (fromIntegral (SL23.orderOf g) :: CUChar); return 0
+foreign export ccall "sov_sl23_order" sov_sl23_order_wrapper :: Ptr CUChar -> Ptr CUChar -> IO CInt
+
+sov_sl23_order4_count_wrapper :: Ptr CUChar -> IO CInt
+sov_sl23_order4_count_wrapper out
+  | out == nullPtr = return (fromIntegral sovErrNull)
+  | otherwise = do poke out (fromIntegral (length SL23.elemsOfOrder4) :: CUChar); return 0
+foreign export ccall "sov_sl23_order4_count" sov_sl23_order4_count_wrapper :: Ptr CUChar -> IO CInt
+
+sov_sl23_w_is_neg_i_wrapper :: Ptr CUChar -> IO CInt
+sov_sl23_w_is_neg_i_wrapper out
+  | out == nullPtr = return (fromIntegral sovErrNull)
+  | otherwise = do
+      poke out (if SL23.wElement == SL23.negI then 1 else 0 :: CUChar)
+      return 0
+foreign export ccall "sov_sl23_w_is_neg_i" sov_sl23_w_is_neg_i_wrapper :: Ptr CUChar -> IO CInt
+
+-- ── 覆盖映射 ──────────────────────────────────────────────────────────
+
+sov_cover_perm_wrapper :: Ptr CUChar -> Ptr CUChar -> IO CInt
+sov_cover_perm_wrapper g4 out4
+  | g4 == nullPtr || out4 == nullPtr = return (fromIntegral sovErrNull)
+  | otherwise = do
+      mg <- sl23At g4
+      case mg of
+        Nothing -> return (fromIntegral sovErrTrit)
+        Just g
+          | not (sl23Member g) -> return (fromIntegral sovErrRange)
+          | otherwise -> do
+              pokeBytes out4 (map (fromIntegral :: Int -> Word8) (CV.permOfM g))
+              return 0
+foreign export ccall "sov_cover_perm" sov_cover_perm_wrapper :: Ptr CUChar -> Ptr CUChar -> IO CInt
+
+sov_cover_kernel_size_wrapper :: Ptr CUChar -> IO CInt
+sov_cover_kernel_size_wrapper out
+  | out == nullPtr = return (fromIntegral sovErrNull)
+  | otherwise = do poke out (fromIntegral (length CV.kernelOfCover) :: CUChar); return 0
+foreign export ccall "sov_cover_kernel_size" sov_cover_kernel_size_wrapper :: Ptr CUChar -> IO CInt
+
+sov_cover_ok_wrapper :: Ptr CUChar -> IO CInt
+sov_cover_ok_wrapper out
+  | out == nullPtr = return (fromIntegral sovErrNull)
+  | otherwise = do poke out (if CV.coverOk then 1 else 0 :: CUChar); return 0
+foreign export ccall "sov_cover_ok" sov_cover_ok_wrapper :: Ptr CUChar -> IO CInt
+
+-- ── 表示论 ────────────────────────────────────────────────────────────
+
+sov_a4_chi_wrapper :: CUChar -> CUChar -> Ptr CLLong -> Ptr CLLong -> IO CInt
+sov_a4_chi_wrapper irrep elem re im
+  | re == nullPtr || im == nullPtr = return (fromIntegral sovErrNull)
+  | otherwise = case (irrepAt irrep, a4At elem) of
+      (Just r, Just g) -> do pokeEis re im (RA4.chi r g); return 0
+      _ -> return (fromIntegral sovErrRange)
+foreign export ccall "sov_a4_chi" sov_a4_chi_wrapper :: CUChar -> CUChar -> Ptr CLLong -> Ptr CLLong -> IO CInt
+
+sov_a4_chi_orth_wrapper :: CUChar -> CUChar -> Ptr CLLong -> Ptr CLLong -> IO CInt
+sov_a4_chi_orth_wrapper rho sigma re im
+  | re == nullPtr || im == nullPtr = return (fromIntegral sovErrNull)
+  | otherwise = case (irrepAt rho, irrepAt sigma) of
+      (Just a, Just b) -> do pokeEis re im (RA4.chiOrth a b); return 0
+      _ -> return (fromIntegral sovErrRange)
+foreign export ccall "sov_a4_chi_orth" sov_a4_chi_orth_wrapper :: CUChar -> CUChar -> Ptr CLLong -> Ptr CLLong -> IO CInt
+
+sov_a4_regular_mult_wrapper :: CUChar -> Ptr CLLong -> Ptr CLLong -> IO CInt
+sov_a4_regular_mult_wrapper irrep re im
+  | re == nullPtr || im == nullPtr = return (fromIntegral sovErrNull)
+  | otherwise = case irrepAt irrep of
+      Just r -> do pokeEis re im (RA4.regularMultiplicityNum r); return 0
+      Nothing -> return (fromIntegral sovErrRange)
+foreign export ccall "sov_a4_regular_mult" sov_a4_regular_mult_wrapper :: CUChar -> Ptr CLLong -> Ptr CLLong -> IO CInt
+
+sov_a4_col_orth_at_id_wrapper :: Ptr CLLong -> Ptr CLLong -> IO CInt
+sov_a4_col_orth_at_id_wrapper re im
+  | re == nullPtr || im == nullPtr = return (fromIntegral sovErrNull)
+  | otherwise = do pokeEis re im RA4.colOrthAtId; return 0
+foreign export ccall "sov_a4_col_orth_at_id" sov_a4_col_orth_at_id_wrapper :: Ptr CLLong -> Ptr CLLong -> IO CInt
+
+sov_a4_one_dim_nonfaithful_wrapper :: Ptr CUChar -> IO CInt
+sov_a4_one_dim_nonfaithful_wrapper out
+  | out == nullPtr = return (fromIntegral sovErrNull)
+  | otherwise = do
+      poke out (if RA4.oneDimRepsNonFaithful then 1 else 0 :: CUChar)
+      return 0
+foreign export ccall "sov_a4_one_dim_nonfaithful" sov_a4_one_dim_nonfaithful_wrapper :: Ptr CUChar -> IO CInt
+
+sov_rep2_class_sizes_wrapper :: Ptr CUChar -> IO CInt
+sov_rep2_class_sizes_wrapper out7
+  | out7 == nullPtr = return (fromIntegral sovErrNull)
+  | otherwise = do
+      let vs = map (fromIntegral :: Integer -> CUChar) (take 7 R2.classSizes7)
+      pokeArray out7 vs
+      return 0
+foreign export ccall "sov_rep2_class_sizes" sov_rep2_class_sizes_wrapper :: Ptr CUChar -> IO CInt
+
+sov_rep2_class_info_wrapper :: Ptr CUChar -> IO CInt
+sov_rep2_class_info_wrapper out14
+  | out14 == nullPtr = return (fromIntegral sovErrNull)
+  | otherwise = do
+      let vs = concatMap (\(a, b) -> [fromIntegral a, fromIntegral b]) (take 7 R2.classInfoC)
+      pokeArray out14 (map (fromIntegral :: Int -> CUChar) vs)
+      return 0
+foreign export ccall "sov_rep2_class_info" sov_rep2_class_info_wrapper :: Ptr CUChar -> IO CInt
+
+sov_rep2_char_wrapper :: CUChar -> CUChar -> Ptr CLLong -> Ptr CLLong -> IO CInt
+sov_rep2_char_wrapper row cls re im
+  | re == nullPtr || im == nullPtr = return (fromIntegral sovErrNull)
+  | otherwise =
+      let r = fromIntegral row :: Int
+          c = fromIntegral cls :: Int
+      in if r >= 7 || c >= 7
+           then return (fromIntegral sovErrRange)
+           else case (idxMay R2.allChars r, idxMay R2.allChars r >>= idxMay <*> pure c) of
+                  _ -> case idxMay R2.allChars r of
+                         Just line -> case idxMay line c of
+                           Just e -> do pokeEis re im e; return 0
+                           Nothing -> return (fromIntegral sovErrRange)
+                         Nothing -> return (fromIntegral sovErrRange)
+foreign export ccall "sov_rep2_char" sov_rep2_char_wrapper :: CUChar -> CUChar -> Ptr CLLong -> Ptr CLLong -> IO CInt
+
+sov_rep2_char_orth_wrapper :: CUChar -> CUChar -> Ptr CLLong -> Ptr CLLong -> IO CInt
+sov_rep2_char_orth_wrapper rowA rowB re im
+  | re == nullPtr || im == nullPtr = return (fromIntegral sovErrNull)
+  | otherwise =
+      let a = fromIntegral rowA :: Int
+          b = fromIntegral rowB :: Int
+      in if a >= 7 || b >= 7
+           then return (fromIntegral sovErrRange)
+           else case (idxMay R2.allChars a, idxMay R2.allChars b) of
+                  (Just la, Just lb) -> do pokeEis re im (R2.charPairingL la lb); return 0
+                  _ -> return (fromIntegral sovErrRange)
+foreign export ccall "sov_rep2_char_orth" sov_rep2_char_orth_wrapper :: CUChar -> CUChar -> Ptr CLLong -> Ptr CLLong -> IO CInt
+
+sov_rep2_dims_wrapper :: Ptr CUChar -> IO CInt
+sov_rep2_dims_wrapper out7
+  | out7 == nullPtr = return (fromIntegral sovErrNull)
+  | otherwise = do
+      let vs = take 7 R2.predictedDims
+      pokeArray out7 (map (fromIntegral :: Integer -> CUChar) vs)
+      return 0
+foreign export ccall "sov_rep2_dims" sov_rep2_dims_wrapper :: Ptr CUChar -> IO CInt
+
+sov_rep2_spinor_dim_wrapper :: Ptr CUChar -> IO CInt
+sov_rep2_spinor_dim_wrapper out
+  | out == nullPtr = return (fromIntegral sovErrNull)
+  | otherwise = do poke out (2 :: CUChar); return 0
+foreign export ccall "sov_rep2_spinor_dim" sov_rep2_spinor_dim_wrapper :: Ptr CUChar -> IO CInt
+
+sov_spin2_det_commutator_wrapper :: Ptr CLLong -> Ptr CLLong -> IO CInt
+sov_spin2_det_commutator_wrapper re im
+  | re == nullPtr || im == nullPtr = return (fromIntegral sovErrNull)
+  | otherwise = do pokeEis re im S2.detCommutator2; return 0
+foreign export ccall "sov_spin2_det_commutator" sov_spin2_det_commutator_wrapper :: Ptr CLLong -> Ptr CLLong -> IO CInt
+
+sov_spin2_no_common_eigenvector_wrapper :: Ptr CUChar -> IO CInt
+sov_spin2_no_common_eigenvector_wrapper out
+  | out == nullPtr = return (fromIntegral sovErrNull)
+  | otherwise = do
+      poke out (if S2.noCommonEigenvector2 then 1 else 0 :: CUChar)
+      return 0
+foreign export ccall "sov_spin2_no_common_eigenvector" sov_spin2_no_common_eigenvector_wrapper :: Ptr CUChar -> IO CInt
+
+sov_spin3_det_rows_wrapper :: Ptr CLLong -> Ptr CLLong -> IO CInt
+sov_spin3_det_rows_wrapper re im
+  | re == nullPtr || im == nullPtr = return (fromIntegral sovErrNull)
+  | otherwise = do pokeEis re im S3.detRows; return 0
+foreign export ccall "sov_spin3_det_rows" sov_spin3_det_rows_wrapper :: Ptr CLLong -> Ptr CLLong -> IO CInt
+
+sov_spin3_no_common_eigenvector_wrapper :: Ptr CUChar -> IO CInt
+sov_spin3_no_common_eigenvector_wrapper out
+  | out == nullPtr = return (fromIntegral sovErrNull)
+  | otherwise = do
+      poke out (if S3.noCommonEigenvector3 then 1 else 0 :: CUChar)
+      return 0
+foreign export ccall "sov_spin3_no_common_eigenvector" sov_spin3_no_common_eigenvector_wrapper :: Ptr CUChar -> IO CInt
+
+-- ── Hopf 商 / 旋量 / 截面 ─────────────────────────────────────────────
+
+sov_hopf_base_card_wrapper :: Ptr CUShort -> IO CInt
+sov_hopf_base_card_wrapper out
+  | out == nullPtr = return (fromIntegral sovErrNull)
+  | otherwise = do poke out (fromIntegral HOPF.baseCard :: CUShort); return 0
+foreign export ccall "sov_hopf_base_card" sov_hopf_base_card_wrapper :: Ptr CUShort -> IO CInt
+
+sov_hopf_proj_wrapper :: CUShort -> Ptr CUShort -> IO CInt
+sov_hopf_proj_wrapper point out
+  | out == nullPtr = return (fromIntegral sovErrNull)
+  | otherwise = case TRY.mkTryte (fromIntegral point) of
+      Nothing -> return (fromIntegral sovErrRange)
+      Just t -> do poke out (fromIntegral (HOPF.projClass t) :: CUShort); return 0
+foreign export ccall "sov_hopf_proj" sov_hopf_proj_wrapper :: CUShort -> Ptr CUShort -> IO CInt
+
+sov_hopf_fiber_size_wrapper :: CUShort -> Ptr CUChar -> IO CInt
+sov_hopf_fiber_size_wrapper point out
+  | out == nullPtr = return (fromIntegral sovErrNull)
+  | otherwise = case TRY.mkTryte (fromIntegral point) of
+      Nothing -> return (fromIntegral sovErrRange)
+      Just t -> do poke out (fromIntegral (HOPF.fiberSizeOf t) :: CUChar); return 0
+foreign export ccall "sov_hopf_fiber_size" sov_hopf_fiber_size_wrapper :: CUShort -> Ptr CUChar -> IO CInt
+
+sov_hopf_fiber_distribution_wrapper :: Ptr CUChar -> IO CInt
+sov_hopf_fiber_distribution_wrapper out8
+  | out8 == nullPtr = return (fromIntegral sovErrNull)
+  | otherwise = do
+      let vs = concatMap (\(a, b) -> [a, b]) (take 4 HOPF.fiberSizeDistribution)
+      pokeArray out8 (map (fromIntegral :: Int -> CUChar) vs)
+      return 0
+foreign export ccall "sov_hopf_fiber_distribution" sov_hopf_fiber_distribution_wrapper :: Ptr CUChar -> IO CInt
+
+sov_spin_fiber_card_wrapper :: Ptr CUChar -> IO CInt
+sov_spin_fiber_card_wrapper out
+  | out == nullPtr = return (fromIntegral sovErrNull)
+  | otherwise = do poke out (fromIntegral SH.spinFiberCard :: CUChar); return 0
+foreign export ccall "sov_spin_fiber_card" sov_spin_fiber_card_wrapper :: Ptr CUChar -> IO CInt
+
+sov_spin_total_card_wrapper :: Ptr CUInt -> IO CInt
+sov_spin_total_card_wrapper out
+  | out == nullPtr = return (fromIntegral sovErrNull)
+  | otherwise = do poke out (fromIntegral SH.spinTotalCard :: CUInt); return 0
+foreign export ccall "sov_spin_total_card" sov_spin_total_card_wrapper :: Ptr CUInt -> IO CInt
+
+sov_spin_phase_act_wrapper :: CUInt -> Ptr CUChar -> Ptr CUChar -> IO CInt
+sov_spin_phase_act_wrapper k v2 out2
+  | v2 == nullPtr || out2 == nullPtr = return (fromIntegral sovErrNull)
+  | otherwise = do
+      bs <- peekArray 2 v2
+      let vs = map (fromIntegral :: CUChar -> Int) bs
+      case vs of
+        [x, y]
+          | x < 3 && y < 3 -> do
+              let (r1, r2) = SH.phaseAct (fromIntegral k) (T.fromTritIndex (fromIntegral x), T.fromTritIndex (fromIntegral y))
+              pokeArray out2 (map (fromIntegral :: Word8 -> CUChar) [T.toTritIndex r1, T.toTritIndex r2])
+              return 0
+        _ -> return (fromIntegral sovErrTrit)
+foreign export ccall "sov_spin_phase_act" sov_spin_phase_act_wrapper :: CUInt -> Ptr CUChar -> Ptr CUChar -> IO CInt
+
+sov_spin_alpha_pow_wrapper :: CUInt -> Ptr CUChar -> IO CInt
+sov_spin_alpha_pow_wrapper k out4
+  | out4 == nullPtr = return (fromIntegral sovErrNull)
+  | otherwise = do
+      pokeBytes out4 (m2Bytes (SH.alphaPow (fromIntegral k)))
+      return 0
+foreign export ccall "sov_spin_alpha_pow" sov_spin_alpha_pow_wrapper :: CUInt -> Ptr CUChar -> IO CInt
+
+sov_section_dims_wrapper :: Ptr CUInt -> IO CInt
+sov_section_dims_wrapper out5
+  | out5 == nullPtr = return (fromIntegral sovErrNull)
+  | otherwise = do
+      pokeArray out5 (map (fromIntegral :: Int -> CUInt)
+        [FD.baseDim, FD.fiberDim, FD.flatDim, FD.effectiveDim, FD.overcount])
+      return 0
+foreign export ccall "sov_section_dims" sov_section_dims_wrapper :: Ptr CUInt -> IO CInt
+
+-- ── 载体 ──────────────────────────────────────────────────────────────
+
+sov_carrier_a4_dim_wrapper :: Ptr CUChar -> IO CInt
+sov_carrier_a4_dim_wrapper out
+  | out == nullPtr = return (fromIntegral sovErrNull)
+  | otherwise = do poke out (fromIntegral CA4.dimCarrier :: CUChar); return 0
+foreign export ccall "sov_carrier_a4_dim" sov_carrier_a4_dim_wrapper :: Ptr CUChar -> IO CInt
+
+sov_carrier_a4_plancherel_wrapper :: Ptr CUShort -> IO CInt
+sov_carrier_a4_plancherel_wrapper out
+  | out == nullPtr = return (fromIntegral sovErrNull)
+  | otherwise = do poke out (fromIntegral CA4.plancherelSum :: CUShort); return 0
+foreign export ccall "sov_carrier_a4_plancherel" sov_carrier_a4_plancherel_wrapper :: Ptr CUShort -> IO CInt
+
+sov_carrier_a4_basis_norm_wrapper :: CUChar -> Ptr CLLong -> Ptr CLLong -> IO CInt
+sov_carrier_a4_basis_norm_wrapper elem re im
+  | re == nullPtr || im == nullPtr = return (fromIntegral sovErrNull)
+  | otherwise = case a4At elem of
+      Just g -> do pokeEis re im (CA4.normC2 (CA4.basisVec g)); return 0
+      Nothing -> return (fromIntegral sovErrRange)
+foreign export ccall "sov_carrier_a4_basis_norm" sov_carrier_a4_basis_norm_wrapper :: CUChar -> Ptr CLLong -> Ptr CLLong -> IO CInt
+
+sov_carrier_2a4_dim_wrapper :: Ptr CUChar -> IO CInt
+sov_carrier_2a4_dim_wrapper out
+  | out == nullPtr = return (fromIntegral sovErrNull)
+  | otherwise = do poke out (fromIntegral K2.dimField :: CUChar); return 0
+foreign export ccall "sov_carrier_2a4_dim" sov_carrier_2a4_dim_wrapper :: Ptr CUChar -> IO CInt
+
+sov_carrier_2a4_bilinear_schur_wrapper :: Ptr CUChar -> IO CInt
+sov_carrier_2a4_bilinear_schur_wrapper out
+  | out == nullPtr = return (fromIntegral sovErrNull)
+  | otherwise = do
+      poke out (if K2.bilinearSchur then 1 else 0 :: CUChar)
+      return 0
+foreign export ccall "sov_carrier_2a4_bilinear_schur" sov_carrier_2a4_bilinear_schur_wrapper :: Ptr CUChar -> IO CInt
+
+sov_carrier_2a4_fs_indicator_wrapper :: Ptr CLLong -> IO CInt
+sov_carrier_2a4_fs_indicator_wrapper out
+  | out == nullPtr = return (fromIntegral sovErrNull)
+  | otherwise = do
+      let e = K2.frobeniusSchurNum
+      poke out (fromIntegral (EIS.eisA e `div` 24) :: CLLong)
+      return 0
+foreign export ccall "sov_carrier_2a4_fs_indicator" sov_carrier_2a4_fs_indicator_wrapper :: Ptr CLLong -> IO CInt
+
+sov_carrier_2a4_coefficient_gram_det_wrapper :: Ptr CLLong -> Ptr CLLong -> IO CInt
+sov_carrier_2a4_coefficient_gram_det_wrapper re im
+  | re == nullPtr || im == nullPtr = return (fromIntegral sovErrNull)
+  | otherwise = do pokeEis re im K2.gramDet; return 0
+foreign export ccall "sov_carrier_2a4_coefficient_gram_det" sov_carrier_2a4_coefficient_gram_det_wrapper :: Ptr CLLong -> Ptr CLLong -> IO CInt

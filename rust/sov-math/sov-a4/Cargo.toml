@@ -1,0 +1,9 @@
+[package]
+name = "sov-a4"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "A4/2A4：群、SL(2,F3)、覆盖映射、表示论、C[A4]/C[2A4] 载体、T6/A4 分层商、旋量判据"
+
+[dependencies]
+sov-core = { path = "../sov-core" }

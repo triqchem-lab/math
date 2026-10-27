@@ -4,11 +4,11 @@
 > 三语言实现（cpp / rust / hs）**逐符号等价**，可由任意 C/C++/带 FFI 的宿主加载。
 > 单一事实源：`cpp/include/sov/*.h`（版本脚本 `cpp/packaging/sov_ffi.map` 由此自动生成）。
 
-> **当前状态（2026-10-19）**：71 符号 / 23 头；三语言 1013 行逐行一致；Agda 强验证 946 项；总闸门全绿。
+> **当前状态（2026-10-28）**：119 符号 / 27 头；三语言 1420 行逐行一致；ABI 1.1（A₄/2A₄ 族新增 48 符号）；总闸门全绿。
 > 交接与待办见 [`docs/handoff-2026-10-19.md`](handoff-2026-10-19.md)。
 > ⚠ 已知欠账：**Agda 侧数字根形式化陈旧**（只有 `n % 9`，无经典数字根），见 §17 与交接文档 §四。
 
-## 一、符号清单（71 个，分 23 个设施头）
+## 一、符号清单（119 个，分 27 个设施头）
 
 | 头 | 符号数 | 符号 |
 |---|---|---|
@@ -35,6 +35,10 @@
 | `<sov/doz.h>` | 2 | `sov_format_doz`, `sov_parse_doz` |
 | `<sov/pack.h>` | 2 | `sov_trit_pack5`, `sov_trit_unpack5` |
 | `<sov/tryte.h>` | 2 | `sov_tryte_value`, `sov_tryte_unpack` |
+| `<sov/a4.h>` | 17 | `sov_a4_card`, `sov_a4_perm`, `sov_a4_index`, `sov_a4_mul`, `sov_a4_inv`, `sov_a4_order`, `sov_sl23_card`, `sov_sl23_mul`, `sov_sl23_det`, `sov_sl23_inv`, `sov_sl23_pow`, `sov_sl23_order`, `sov_sl23_order4_count`, `sov_sl23_w_is_neg_i`, `sov_cover_perm`, `sov_cover_kernel_size`, `sov_cover_ok` |
+| `<sov/rep.h>` | 15 | `sov_a4_chi`, `sov_a4_chi_orth`, `sov_a4_regular_mult`, `sov_a4_col_orth_at_id`, `sov_a4_one_dim_nonfaithful`, `sov_rep2_class_sizes`, `sov_rep2_class_info`, `sov_rep2_char`, `sov_rep2_char_orth`, `sov_rep2_dims`, `sov_rep2_spinor_dim`, `sov_spin2_det_commutator`, `sov_spin2_no_common_eigenvector`, `sov_spin3_det_rows`, `sov_spin3_no_common_eigenvector` |
+| `<sov/hopf.h>` | 9 | `sov_hopf_base_card`, `sov_hopf_proj`, `sov_hopf_fiber_size`, `sov_hopf_fiber_distribution`, `sov_spin_fiber_card`, `sov_spin_total_card`, `sov_spin_phase_act`, `sov_spin_alpha_pow`, `sov_section_dims` |
+| `<sov/carrier.h>` | 7 | `sov_carrier_a4_dim`, `sov_carrier_a4_plancherel`, `sov_carrier_a4_basis_norm`, `sov_carrier_2a4_dim`, `sov_carrier_2a4_bilinear_schur`, `sov_carrier_2a4_fs_indicator`, `sov_carrier_2a4_coefficient_gram_det` |
 
 契约外符号 **零容忍**：`engineering/verify_export_surface.sh` 断言三语言 dynsym **恰好等于**上表
 （缺失 = ABI 不完整；多出 = 导出面失控）。实测：hs 未加版本脚本时泄漏 1224 个 GHC 运行时符号。
@@ -57,6 +61,9 @@
 
 - 版本宏：`SOV_ABI_MAJOR`/`SOV_ABI_MINOR`、`SOV_ABI_VERSION_ENCODE`、`SOV_ABI_AT_LEAST(maj,min)`、`sov_abi_version()`
 - **兼容规则**：新增符号 ⇒ 升 MINOR（向后兼容）；改签名/语义/删符号 ⇒ 升 MAJOR（破坏性）
+- **当前版本 1.1**（2026-10-28）：在 1.0 的 71 符号之上**新增 48 符号**（A₄/2A₄ 族：
+  `<sov/a4.h>` `<sov/rep.h>` `<sov/hopf.h>` `<sov/carrier.h>`），**零删改** ⇒ MINOR +1。
+  1.0 的符号、语义与返回码一字未动（semver 基线比对实测：新增 48、删除 0）。
 - **ELF 符号版本**：`SOV_FFI_1.0`（版本脚本节点）；`libsov_ffi.so.1`（soname）
 - **语言档位**：头文件支持 C99..C23 与 C++11..C++23（19 档位 × gcc/clang 矩阵全绿），
   语言探测宏 `SOV_HAS_C99/C11/C17/C23`、`SOV_HAS_CXX11/17/23`
@@ -68,7 +75,7 @@
 | 闸门 | 命令 | 判据 |
 |---|---|---|
 | 导出面 | `engineering/verify_export_surface.sh` | 三语言 dynsym == 契约（缺/多皆红） |
-| 实现一致 | `engineering/ffi_conformance.sh` | 三语言同一向量 **1126 行逐行相同** |
+| 实现一致 | `engineering/ffi_conformance.sh` | 三语言同一向量 **1420 行逐行相同** |
 | 头合规 | `engineering/c99_compliance_check.py` | 保留标识符 / 自足性 / 版本闸门 |
 | 档位矩阵 | `engineering/c_standard_matrix.sh` | C99..C23 × C++11..23 × gcc/clang |
 | 安装 | `engineering/install_c_abi.sh` | `dist/` 标准布局 + pkg-config 三套 |
@@ -126,6 +133,7 @@ cpp 的 `NSESolver::step` 与 rust/hs 的 `step_once` 在 delta 公式上不同�
 | 孤子 ρ 与实数域 sin² 的关系 | ⚠ 本 ABI 只保证**三语言同一整数配方**；与实数域 `sin²` 的一致性由 oracle 回执 `ba93f0e3` 承载（Q16 误差 ≤1 ulp），**不是**内核证明 |
 | 12 律音高 / 纳音 60 序列 | 部分已入（`sov_sunyi_*`），纳音全表待定 |
 | ~~Doz 字符串渲染~~ | ✅ 已入 ABI（第四批 `sov_format_doz`/`sov_parse_doz`，含 render→parse 往返不变式） |
+| ~~A₄/2A₄ 族（群 / 覆盖 / 表示论 / 旋量判据 / Hopf 商 / 载体）~~ | ✅ 已入 ABI（1.1 第十一批，48 符号；落点表见 [`docs/a4-sync-plan.md`](a4-sync-plan.md)） |
 | TDA 持续同调 / 手性几何完整面 | 三语言覆盖不一致，未入 |
 
 ## 七、往返不变式（可判定的强验证）

@@ -9,7 +9,7 @@ use sov_core::wide_constants::{PI_W, SQRT3_W};
 use sov_core::wide_fixed::wide_rho;
 
 const ABI_MAJOR: i32 = 1;
-const ABI_MINOR: i32 = 0;
+const ABI_MINOR: i32 = 1;
 
 const OK: i32 = 0;
 const ERR_TRIT: i32 = -1;
@@ -885,5 +885,461 @@ pub extern "C" fn sov_width_bits_for_trits(trits: u8, out: *mut u8) -> i32 {
 pub extern "C" fn sov_chern_inject(num: *mut i64, den: *mut i64) -> i32 {
     if num.is_null() || den.is_null() { return ERR_NULL; }
     unsafe { *num = -432; *den = 216; }
+    OK
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 第十一批（ABI 1.1）：A₄ / 2A₄ / 覆盖 / 表示论 / Hopf 商 / 载体
+// ═══════════════════════════════════════════════════════════════════════
+
+use sov_a4::{a4, carrier_2a4, carrier_a4, cover, hopf, rep_2a4, rep_a4, section, sl23, spin, spin_hopf};
+
+fn a4_of(v: u8) -> Option<a4::A4> {
+    if v < 12 { Some(a4::from_index(v)) } else { None }
+}
+
+fn m2_of(v: &[u8]) -> Option<sl23::M2> {
+    if v.len() < 4 || v[0] > 2 || v[1] > 2 || v[2] > 2 || v[3] > 2 {
+        return None;
+    }
+    Some(sl23::M2::from_u8s([v[0], v[1], v[2], v[3]]))
+}
+
+fn m2_is_member(m: sl23::M2) -> bool {
+    sl23::mat_det(m) == sov_core::types::Trit::T1
+}
+
+fn irrep_of(v: u8) -> Option<rep_a4::Irrep> {
+    match v {
+        0 => Some(rep_a4::Irrep::R1),
+        1 => Some(rep_a4::Irrep::R1p),
+        2 => Some(rep_a4::Irrep::R1pp),
+        3 => Some(rep_a4::Irrep::R3),
+        _ => None,
+    }
+}
+
+#[inline]
+fn put_eis(e: sov_core::eis::Eis, re: *mut i64, im: *mut i64) {
+    unsafe { *re = e.0; *im = e.1; }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_a4_card(out: *mut u8) -> i32 {
+    if out.is_null() { return ERR_NULL; }
+    unsafe { *out = a4::A4_CARD as u8; }
+    OK
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_a4_perm(elem: u8, out4: *mut u8) -> i32 {
+    if out4.is_null() { return ERR_NULL; }
+    let Some(g) = a4_of(elem) else { return ERR_RANGE; };
+    let p = g.perm();
+    unsafe { std::ptr::copy_nonoverlapping(p.as_ptr(), out4, 4); }
+    OK
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_a4_index(perm4: *const u8, out: *mut u8) -> i32 {
+    if perm4.is_null() || out.is_null() { return ERR_NULL; }
+    let p = unsafe { std::slice::from_raw_parts(perm4, 4) };
+    if p.iter().any(|v| *v >= 4) { return ERR_RANGE; }
+    let arr = [p[0], p[1], p[2], p[3]];
+    if !a4::is_even_perm(&arr) { return ERR_RANGE; }
+    let mut seen = [false; 4];
+    for v in arr {
+        if seen[v as usize] { return ERR_RANGE; }
+        seen[v as usize] = true;
+    }
+    unsafe { *out = a4::of_perm(&arr).index(); }
+    OK
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_a4_mul(g: u8, h: u8, out: *mut u8) -> i32 {
+    if out.is_null() { return ERR_NULL; }
+    let (Some(ga), Some(ha)) = (a4_of(g), a4_of(h)) else { return ERR_RANGE; };
+    unsafe { *out = a4::mul(ga, ha).index(); }
+    OK
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_a4_inv(g: u8, out: *mut u8) -> i32 {
+    if out.is_null() { return ERR_NULL; }
+    let Some(ga) = a4_of(g) else { return ERR_RANGE; };
+    unsafe { *out = a4::inv(ga).index(); }
+    OK
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_a4_order(g: u8, out: *mut u8) -> i32 {
+    if out.is_null() { return ERR_NULL; }
+    let Some(ga) = a4_of(g) else { return ERR_RANGE; };
+    unsafe { *out = a4::order(ga) as u8; }
+    OK
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_sl23_card(out: *mut u16) -> i32 {
+    if out.is_null() { return ERR_NULL; }
+    unsafe { *out = sl23::SL23_CARD as u16; }
+    OK
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_sl23_mul(g4: *const u8, h4: *const u8, out4: *mut u8) -> i32 {
+    if g4.is_null() || h4.is_null() || out4.is_null() { return ERR_NULL; }
+    let gv = unsafe { std::slice::from_raw_parts(g4, 4) };
+    let hv = unsafe { std::slice::from_raw_parts(h4, 4) };
+    let (Some(g), Some(h)) = (m2_of(gv), m2_of(hv)) else { return ERR_TRIT; };
+    let r = sl23::mat_mul(g, h).to_u8s();
+    unsafe { std::ptr::copy_nonoverlapping(r.as_ptr(), out4, 4); }
+    OK
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_sl23_det(g4: *const u8, out: *mut u8) -> i32 {
+    if g4.is_null() || out.is_null() { return ERR_NULL; }
+    let gv = unsafe { std::slice::from_raw_parts(g4, 4) };
+    let Some(g) = m2_of(gv) else { return ERR_TRIT; };
+    unsafe { *out = sl23::mat_det(g).to_u8(); }
+    OK
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_sl23_inv(g4: *const u8, out4: *mut u8) -> i32 {
+    if g4.is_null() || out4.is_null() { return ERR_NULL; }
+    let gv = unsafe { std::slice::from_raw_parts(g4, 4) };
+    let Some(g) = m2_of(gv) else { return ERR_TRIT; };
+    if !m2_is_member(g) { return ERR_RANGE; }
+    let r = sl23::mat_inv(g).to_u8s();
+    unsafe { std::ptr::copy_nonoverlapping(r.as_ptr(), out4, 4); }
+    OK
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_sl23_pow(g4: *const u8, n: u32, out4: *mut u8) -> i32 {
+    if g4.is_null() || out4.is_null() { return ERR_NULL; }
+    let gv = unsafe { std::slice::from_raw_parts(g4, 4) };
+    let Some(g) = m2_of(gv) else { return ERR_TRIT; };
+    if !m2_is_member(g) { return ERR_RANGE; }
+    let r = sl23::mat_pow(n, g).to_u8s();
+    unsafe { std::ptr::copy_nonoverlapping(r.as_ptr(), out4, 4); }
+    OK
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_sl23_order(g4: *const u8, out: *mut u8) -> i32 {
+    if g4.is_null() || out.is_null() { return ERR_NULL; }
+    let gv = unsafe { std::slice::from_raw_parts(g4, 4) };
+    let Some(g) = m2_of(gv) else { return ERR_TRIT; };
+    if !m2_is_member(g) { return ERR_RANGE; }
+    unsafe { *out = sl23::order_of(g) as u8; }
+    OK
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_sl23_order4_count(out: *mut u8) -> i32 {
+    if out.is_null() { return ERR_NULL; }
+    unsafe { *out = sl23::elems_of_order4().len() as u8; }
+    OK
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_sl23_w_is_neg_i(out: *mut u8) -> i32 {
+    if out.is_null() { return ERR_NULL; }
+    unsafe { *out = if sl23::w_element() == sl23::neg_i() { 1 } else { 0 }; }
+    OK
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_cover_perm(g4: *const u8, out4: *mut u8) -> i32 {
+    if g4.is_null() || out4.is_null() { return ERR_NULL; }
+    let gv = unsafe { std::slice::from_raw_parts(g4, 4) };
+    let Some(g) = m2_of(gv) else { return ERR_TRIT; };
+    if !m2_is_member(g) { return ERR_RANGE; }
+    let p = cover::perm_of_m(g);
+    unsafe { std::ptr::copy_nonoverlapping(p.as_ptr(), out4, 4); }
+    OK
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_cover_kernel_size(out: *mut u8) -> i32 {
+    if out.is_null() { return ERR_NULL; }
+    unsafe { *out = cover::kernel_of_cover().len() as u8; }
+    OK
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_cover_ok(out: *mut u8) -> i32 {
+    if out.is_null() { return ERR_NULL; }
+    unsafe { *out = if cover::cover_ok() { 1 } else { 0 }; }
+    OK
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_a4_chi(irrep: u8, elem: u8, re: *mut i64, im: *mut i64) -> i32 {
+    if re.is_null() || im.is_null() { return ERR_NULL; }
+    let (Some(r), Some(g)) = (irrep_of(irrep), a4_of(elem)) else { return ERR_RANGE; };
+    put_eis(rep_a4::chi(r, g), re, im);
+    OK
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_a4_chi_orth(rho: u8, sigma: u8, re: *mut i64, im: *mut i64) -> i32 {
+    if re.is_null() || im.is_null() { return ERR_NULL; }
+    let (Some(a), Some(b)) = (irrep_of(rho), irrep_of(sigma)) else { return ERR_RANGE; };
+    put_eis(rep_a4::chi_orth(a, b), re, im);
+    OK
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_a4_regular_mult(irrep: u8, re: *mut i64, im: *mut i64) -> i32 {
+    if re.is_null() || im.is_null() { return ERR_NULL; }
+    let Some(r) = irrep_of(irrep) else { return ERR_RANGE; };
+    put_eis(rep_a4::regular_multiplicity_num(r), re, im);
+    OK
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_a4_col_orth_at_id(re: *mut i64, im: *mut i64) -> i32 {
+    if re.is_null() || im.is_null() { return ERR_NULL; }
+    put_eis(rep_a4::col_orth_at_id(), re, im);
+    OK
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_a4_one_dim_nonfaithful(out: *mut u8) -> i32 {
+    if out.is_null() { return ERR_NULL; }
+    unsafe { *out = if rep_a4::one_dim_reps_non_faithful() { 1 } else { 0 }; }
+    OK
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_rep2_class_sizes(out7: *mut u8) -> i32 {
+    if out7.is_null() { return ERR_NULL; }
+    for (i, v) in rep_2a4::class_sizes7().iter().enumerate() {
+        unsafe { *out7.add(i) = *v as u8; }
+    }
+    OK
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_rep2_class_info(out14: *mut u8) -> i32 {
+    if out14.is_null() { return ERR_NULL; }
+    for (i, (sz, od)) in rep_2a4::class_info_c().iter().enumerate() {
+        unsafe {
+            *out14.add(2 * i) = *sz as u8;
+            *out14.add(2 * i + 1) = *od as u8;
+        }
+    }
+    OK
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_rep2_char(row: u8, cls: u8, re: *mut i64, im: *mut i64) -> i32 {
+    if re.is_null() || im.is_null() { return ERR_NULL; }
+    if row >= 7 || cls >= 7 { return ERR_RANGE; }
+    let rows = rep_2a4::all_chars();
+    put_eis(rows[row as usize][cls as usize], re, im);
+    OK
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_rep2_char_orth(row_a: u8, row_b: u8, re: *mut i64, im: *mut i64) -> i32 {
+    if re.is_null() || im.is_null() { return ERR_NULL; }
+    if row_a >= 7 || row_b >= 7 { return ERR_RANGE; }
+    let rows = rep_2a4::all_chars();
+    put_eis(
+        rep_2a4::char_pairing_l(&rows[row_a as usize], &rows[row_b as usize]),
+        re,
+        im,
+    );
+    OK
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_rep2_dims(out7: *mut u8) -> i32 {
+    if out7.is_null() { return ERR_NULL; }
+    for (i, v) in rep_2a4::predicted_dims().iter().enumerate() {
+        unsafe { *out7.add(i) = *v as u8; }
+    }
+    OK
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_rep2_spinor_dim(out: *mut u8) -> i32 {
+    if out.is_null() { return ERR_NULL; }
+    unsafe { *out = 2; }
+    OK
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_spin2_det_commutator(re: *mut i64, im: *mut i64) -> i32 {
+    if re.is_null() || im.is_null() { return ERR_NULL; }
+    put_eis(spin::det_commutator2(), re, im);
+    OK
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_spin2_no_common_eigenvector(out: *mut u8) -> i32 {
+    if out.is_null() { return ERR_NULL; }
+    unsafe { *out = if spin::no_common_eigenvector2() { 1 } else { 0 }; }
+    OK
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_spin3_det_rows(re: *mut i64, im: *mut i64) -> i32 {
+    if re.is_null() || im.is_null() { return ERR_NULL; }
+    put_eis(spin::det_rows(), re, im);
+    OK
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_spin3_no_common_eigenvector(out: *mut u8) -> i32 {
+    if out.is_null() { return ERR_NULL; }
+    unsafe { *out = if spin::no_common_eigenvector3() { 1 } else { 0 }; }
+    OK
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_hopf_base_card(out: *mut u16) -> i32 {
+    if out.is_null() { return ERR_NULL; }
+    unsafe { *out = hopf::base_card() as u16; }
+    OK
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_hopf_proj(point: u16, out: *mut u16) -> i32 {
+    if out.is_null() { return ERR_NULL; }
+    if point >= 729 { return ERR_RANGE; }
+    unsafe { *out = hopf::proj_class(&hopf::from_code(point)) as u16; }
+    OK
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_hopf_fiber_size(point: u16, out: *mut u8) -> i32 {
+    if out.is_null() { return ERR_NULL; }
+    if point >= 729 { return ERR_RANGE; }
+    unsafe { *out = hopf::fiber_size_of(&hopf::from_code(point)) as u8; }
+    OK
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_hopf_fiber_distribution(out8: *mut u8) -> i32 {
+    if out8.is_null() { return ERR_NULL; }
+    let dist = hopf::fiber_size_distribution();
+    if dist.len() != 4 { return ERR_STATE; }
+    for (i, (s, n)) in dist.iter().enumerate() {
+        unsafe {
+            *out8.add(2 * i) = *s as u8;
+            *out8.add(2 * i + 1) = *n as u8;
+        }
+    }
+    OK
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_spin_fiber_card(out: *mut u8) -> i32 {
+    if out.is_null() { return ERR_NULL; }
+    unsafe { *out = spin_hopf::SPIN_FIBER_CARD as u8; }
+    OK
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_spin_total_card(out: *mut u32) -> i32 {
+    if out.is_null() { return ERR_NULL; }
+    unsafe { *out = spin_hopf::SPIN_TOTAL_CARD as u32; }
+    OK
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_spin_phase_act(k: u32, v2: *const u8, out2: *mut u8) -> i32 {
+    if v2.is_null() || out2.is_null() { return ERR_NULL; }
+    let v = unsafe { std::slice::from_raw_parts(v2, 2) };
+    if v[0] > 2 || v[1] > 2 { return ERR_TRIT; }
+    let r = spin_hopf::phase_act(
+        k % 4,
+        (sov_core::types::Trit::from_u8(v[0]), sov_core::types::Trit::from_u8(v[1])),
+    );
+    unsafe {
+        *out2 = r.0.to_u8();
+        *out2.add(1) = r.1.to_u8();
+    }
+    OK
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_spin_alpha_pow(k: u32, out4: *mut u8) -> i32 {
+    if out4.is_null() { return ERR_NULL; }
+    let r = spin_hopf::alpha_pow(k % 4).to_u8s();
+    unsafe { std::ptr::copy_nonoverlapping(r.as_ptr(), out4, 4); }
+    OK
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_section_dims(out5: *mut u32) -> i32 {
+    if out5.is_null() { return ERR_NULL; }
+    unsafe {
+        *out5 = section::base_dim() as u32;
+        *out5.add(1) = section::fiber_dim() as u32;
+        *out5.add(2) = section::flat_dim() as u32;
+        *out5.add(3) = section::effective_dim() as u32;
+        *out5.add(4) = section::overcount() as u32;
+    }
+    OK
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_carrier_a4_dim(out: *mut u8) -> i32 {
+    if out.is_null() { return ERR_NULL; }
+    unsafe { *out = carrier_a4::DIM_CARRIER as u8; }
+    OK
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_carrier_a4_plancherel(out: *mut u16) -> i32 {
+    if out.is_null() { return ERR_NULL; }
+    unsafe { *out = carrier_a4::plancherel_sum() as u16; }
+    OK
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_carrier_a4_basis_norm(elem: u8, re: *mut i64, im: *mut i64) -> i32 {
+    if re.is_null() || im.is_null() { return ERR_NULL; }
+    let Some(g) = a4_of(elem) else { return ERR_RANGE; };
+    let c = carrier_a4::basis_vec(g);
+    put_eis(carrier_a4::norm_c2(&c), re, im);
+    OK
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_carrier_2a4_dim(out: *mut u8) -> i32 {
+    if out.is_null() { return ERR_NULL; }
+    unsafe { *out = carrier_2a4::DIM_FIELD as u8; }
+    OK
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_carrier_2a4_bilinear_schur(out: *mut u8) -> i32 {
+    if out.is_null() { return ERR_NULL; }
+    unsafe { *out = if carrier_2a4::bilinear_schur() { 1 } else { 0 }; }
+    OK
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_carrier_2a4_fs_indicator(out: *mut i64) -> i32 {
+    if out.is_null() { return ERR_NULL; }
+    let num = carrier_2a4::frobenius_schur_num();
+    if num.1 != 0 || num.0 % 24 != 0 { return ERR_STATE; }
+    unsafe { *out = num.0 / 24; }
+    OK
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sov_carrier_2a4_coefficient_gram_det(re: *mut i64, im: *mut i64) -> i32 {
+    if re.is_null() || im.is_null() { return ERR_NULL; }
+    put_eis(carrier_2a4::gram_det(), re, im);
     OK
 }

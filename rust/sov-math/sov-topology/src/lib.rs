@@ -1,6 +1,10 @@
 // sov-topology — L4 T⁶ + L5 纳音孤子 + L6 仲吕倍频
 use sov_core::constants::*;
 
+// 2026-10-28：零浮点内核件（hs/cpp 同步落点）；保留本文件既有 f64 展示层
+pub mod soliton;
+pub mod time_crystal;
+
 // L4
 pub const T6_POLAR: usize = POLAR_WINDING;
 pub const T6_TOROIDAL: usize = TOROIDAL_WINDING;
@@ -15,6 +19,7 @@ pub const SOLITON_EIGEN_0: f64 = 94.8;
 pub const SOLITON_EIGEN_1: f64 = 4.3;
 pub const SOLITON_EIGEN_2: f64 = 0.9;
 #[derive(Debug, Clone, Copy)] pub enum SolitonPhase { SolidFrozen, CurieTransition, LiquidForming, Superfluid }
+#[deprecated(note = "零浮点改造：请用 soliton::soliton_rho_q16（Q32 Taylor + Q16 配方）")]
 pub fn compute_rho(step: usize) -> f64 {
     if step >= PHASE_ANCHOR_STEPS { 1.0 }
     else { let p = std::f64::consts::FRAC_PI_2 * step as f64 / PHASE_ANCHOR_STEPS as f64; let s = p.sin(); s*s }
@@ -117,7 +122,8 @@ pub fn n14_is_closure_zero(step: usize) -> bool {
 mod tests {
     use super::*;
     #[test] fn test_t6() { assert_eq!(t6_index(0,0),0); assert_eq!(t6_index(0,1),1); }
-    #[test] fn test_rho() { assert!((compute_rho(0)-0.0).abs()<0.001); assert!((compute_rho(4500)-1.0).abs()<0.001); }
+    #[test] #[allow(deprecated)]
+    fn test_rho() { assert!((compute_rho(0)-0.0).abs()<0.001); assert!((compute_rho(4500)-1.0).abs()<0.001); }
     #[test] fn test_standing() { for t in [0,3,6,9] { assert!(is_standing_node(t)); } }
     #[test] fn test_ratio() { assert_eq!(c3_zhonglv_ratio(), 125); }
     #[test] fn test_time_crystal() { assert_eq!(time_crystal_phase(0), 0); assert_eq!(time_crystal_phase(500), 500); }

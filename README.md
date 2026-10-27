@@ -31,7 +31,7 @@
 ## Architecture
 
 ```
-include/          — 33 header files (C++23, headers-only + optional .so)
+include/          — 45 header files (C++23, headers-only + optional .so)
   ├── lcm_constants.h          L0-L8 constitutional constants
   ├── gf3_types.h              Core types: Trit, TryteValue, SovBlock128
   ├── gf3_field.h              L1 GF(3) field — C3 rotation, mul, norm
@@ -54,10 +54,20 @@ include/          — 33 header files (C++23, headers-only + optional .so)
   ├── sovereign_assert.h       Compile-time constitutional validators
   ├── sov_format.h             SOV v2.6 file format
   ├── sov_io.h                 File I/O engine
+  ├── a4_group.h               A₄ group (12 alternating permutations)
+  ├── sl23.h                   2A₄ = SL(2,F₃) — 24 unimodular matrices
+  ├── cover_2a4.h              cover SL(2,F₃) → A₄ (kernel = ±I)
+  ├── complex_2a4.h            2A₄ in GL(2, Z[ω]) — χ = tr
+  ├── rep_a4.h / rep_2a4.h     character tables + orthogonality
+  ├── carrier_a4.h / carrier_2a4.h  C[A₄] / C[2A₄] + Schur relations
+  ├── hopf_quotient.h          stratified quotient T⁶/A₄ (135 classes)
+  ├── spin_hopf.h              spinor phase (α order 4)
+  ├── spin_criteria.h          Spin2/Spin3 irreducibility criteria
+  ├── section_field.h          associated-bundle sections + overcount
   └── ...                      (advanced: solver, tetration, time crystal)
 
 vavx3/            — Optional AVX2 C kernels (shared library)
-tests/            — 🔴🟡🟢 traffic-light test suite (9 tests)
+tests/            — 🔴🟡🟢 traffic-light test suite (11 tests)
 ```
 
 ## Building

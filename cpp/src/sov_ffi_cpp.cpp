@@ -9,6 +9,18 @@
 #include "lcm_constants.h"
 #include "eisenstein.h"
 #include "chern_exact.h"
+// ABI 1.1：A₄/2A₄ 族
+#include "a4_group.h"
+#include "carrier_2a4.h"
+#include "carrier_a4.h"
+#include "cover_2a4.h"
+#include "hopf_quotient.h"
+#include "rep_2a4.h"
+#include "rep_a4.h"
+#include "section_field.h"
+#include "sl23.h"
+#include "spin_criteria.h"
+#include "spin_hopf.h"
 #include <array>
 #include <new>
 #include <cstring>
@@ -835,6 +847,385 @@ int32_t sov_tryte_value(const uint8_t t6[6], uint16_t* out) {
         v += uint16_t(t6[i]) * p; p *= 3;
     }
     *out = v;
+    return SOV_OK;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+ * 第十一批（ABI 1.1）：A₄ / 2A₄ / 覆盖 / 表示论 / Hopf 商 / 载体
+ * ═══════════════════════════════════════════════════════════════════════ */
+
+namespace {
+
+inline bool sl23_in(const uint8_t* v) {
+    return v && v[0] < 3 && v[1] < 3 && v[2] < 3 && v[3] < 3;
+}
+inline sl23::M2 sl23_of(const uint8_t* v) {
+    return sl23::M2{v[0], v[1], v[2], v[3]};
+}
+inline void sl23_to(sl23::M2 m, uint8_t* out) {
+    out[0] = m.a; out[1] = m.b; out[2] = m.c; out[3] = m.d;
+}
+inline bool sl23_member(const sl23::M2& m) { return sl23::mat_det(m) == 1; }
+
+inline void eis_out(sov::math::eis::Eis e, int64_t* re, int64_t* im) {
+    *re = e.a;
+    *im = e.b;
+}
+
+} // namespace
+
+int32_t sov_a4_card(uint8_t* out) {
+    if (!out) return SOV_ERR_NULL;
+    *out = static_cast<uint8_t>(a4::A4_CARD);
+    return SOV_OK;
+}
+
+int32_t sov_a4_perm(uint8_t elem, uint8_t* out4) {
+    if (!out4) return SOV_ERR_NULL;
+    if (elem >= 12) return SOV_ERR_RANGE;
+    const auto p = a4::perm(a4::from_index(elem));
+    for (int i = 0; i < 4; ++i) out4[i] = p[static_cast<std::size_t>(i)];
+    return SOV_OK;
+}
+
+int32_t sov_a4_index(const uint8_t* perm4, uint8_t* out) {
+    if (!perm4 || !out) return SOV_ERR_NULL;
+    std::array<uint8_t, 4> p{};
+    for (int i = 0; i < 4; ++i) {
+        if (perm4[i] >= 4) return SOV_ERR_RANGE;
+        p[static_cast<std::size_t>(i)] = perm4[i];
+    }
+    if (!a4::is_even_perm(p)) return SOV_ERR_RANGE;   // 奇置换不属于 A₄
+    for (int i = 0; i < 4; ++i)
+        for (int j = i + 1; j < 4; ++j)
+            if (p[static_cast<std::size_t>(i)] == p[static_cast<std::size_t>(j)])
+                return SOV_ERR_RANGE;                 // 不是置换
+    *out = a4::of_perm(p).index();
+    return SOV_OK;
+}
+
+int32_t sov_a4_mul(uint8_t g, uint8_t h, uint8_t* out) {
+    if (!out) return SOV_ERR_NULL;
+    if (g >= 12 || h >= 12) return SOV_ERR_RANGE;
+    *out = a4::mul(a4::from_index(g), a4::from_index(h)).index();
+    return SOV_OK;
+}
+
+int32_t sov_a4_inv(uint8_t g, uint8_t* out) {
+    if (!out) return SOV_ERR_NULL;
+    if (g >= 12) return SOV_ERR_RANGE;
+    *out = a4::inv(a4::from_index(g)).index();
+    return SOV_OK;
+}
+
+int32_t sov_a4_order(uint8_t g, uint8_t* out) {
+    if (!out) return SOV_ERR_NULL;
+    if (g >= 12) return SOV_ERR_RANGE;
+    *out = static_cast<uint8_t>(a4::order(a4::from_index(g)));
+    return SOV_OK;
+}
+
+int32_t sov_sl23_card(uint16_t* out) {
+    if (!out) return SOV_ERR_NULL;
+    *out = static_cast<uint16_t>(sl23::SL23_CARD);
+    return SOV_OK;
+}
+
+int32_t sov_sl23_mul(const uint8_t* g4, const uint8_t* h4, uint8_t* out4) {
+    if (!g4 || !h4 || !out4) return SOV_ERR_NULL;
+    if (!sl23_in(g4) || !sl23_in(h4)) return SOV_ERR_TRIT;
+    sl23_to(sl23::mat_mul(sl23_of(g4), sl23_of(h4)), out4);
+    return SOV_OK;
+}
+
+int32_t sov_sl23_det(const uint8_t* g4, uint8_t* out) {
+    if (!g4 || !out) return SOV_ERR_NULL;
+    if (!sl23_in(g4)) return SOV_ERR_TRIT;
+    *out = sl23::mat_det(sl23_of(g4));
+    return SOV_OK;
+}
+
+int32_t sov_sl23_inv(const uint8_t* g4, uint8_t* out4) {
+    if (!g4 || !out4) return SOV_ERR_NULL;
+    if (!sl23_in(g4)) return SOV_ERR_TRIT;
+    const auto m = sl23_of(g4);
+    if (!sl23_member(m)) return SOV_ERR_RANGE;
+    sl23_to(sl23::mat_inv(m), out4);
+    return SOV_OK;
+}
+
+int32_t sov_sl23_pow(const uint8_t* g4, uint32_t n, uint8_t* out4) {
+    if (!g4 || !out4) return SOV_ERR_NULL;
+    if (!sl23_in(g4)) return SOV_ERR_TRIT;
+    const auto m = sl23_of(g4);
+    if (!sl23_member(m)) return SOV_ERR_RANGE;
+    sl23_to(sl23::mat_pow(n, m), out4);
+    return SOV_OK;
+}
+
+int32_t sov_sl23_order(const uint8_t* g4, uint8_t* out) {
+    if (!g4 || !out) return SOV_ERR_NULL;
+    if (!sl23_in(g4)) return SOV_ERR_TRIT;
+    const auto m = sl23_of(g4);
+    if (!sl23_member(m)) return SOV_ERR_RANGE;
+    *out = static_cast<uint8_t>(sl23::order_of(m));
+    return SOV_OK;
+}
+
+int32_t sov_sl23_order4_count(uint8_t* out) {
+    if (!out) return SOV_ERR_NULL;
+    *out = static_cast<uint8_t>(sl23::elems_of_order4().size());
+    return SOV_OK;
+}
+
+int32_t sov_sl23_w_is_neg_i(uint8_t* out) {
+    if (!out) return SOV_ERR_NULL;
+    *out = (sl23::w_element() == sl23::neg_i) ? 1 : 0;
+    return SOV_OK;
+}
+
+int32_t sov_cover_perm(const uint8_t* g4, uint8_t* out4) {
+    if (!g4 || !out4) return SOV_ERR_NULL;
+    if (!sl23_in(g4)) return SOV_ERR_TRIT;
+    const auto m = sl23_of(g4);
+    if (!sl23_member(m)) return SOV_ERR_RANGE;
+    const auto p = cover2a4::perm_of_m(m);
+    for (int i = 0; i < 4; ++i) out4[i] = p[static_cast<std::size_t>(i)];
+    return SOV_OK;
+}
+
+int32_t sov_cover_kernel_size(uint8_t* out) {
+    if (!out) return SOV_ERR_NULL;
+    *out = static_cast<uint8_t>(cover2a4::kernel_of_cover().size());
+    return SOV_OK;
+}
+
+int32_t sov_cover_ok(uint8_t* out) {
+    if (!out) return SOV_ERR_NULL;
+    *out = cover2a4::cover_ok() ? 1 : 0;
+    return SOV_OK;
+}
+
+/* ── 表示论 ─────────────────────────────────────────────────────────── */
+
+int32_t sov_a4_chi(uint8_t irrep, uint8_t elem, int64_t* re, int64_t* im) {
+    if (!re || !im) return SOV_ERR_NULL;
+    if (irrep >= 4 || elem >= 12) return SOV_ERR_RANGE;
+    eis_out(rep_a4::chi(static_cast<rep_a4::Irrep>(irrep), a4::from_index(elem)), re, im);
+    return SOV_OK;
+}
+
+int32_t sov_a4_chi_orth(uint8_t rho, uint8_t sigma, int64_t* re, int64_t* im) {
+    if (!re || !im) return SOV_ERR_NULL;
+    if (rho >= 4 || sigma >= 4) return SOV_ERR_RANGE;
+    eis_out(rep_a4::chi_orth(static_cast<rep_a4::Irrep>(rho),
+                             static_cast<rep_a4::Irrep>(sigma)), re, im);
+    return SOV_OK;
+}
+
+int32_t sov_a4_regular_mult(uint8_t irrep, int64_t* re, int64_t* im) {
+    if (!re || !im) return SOV_ERR_NULL;
+    if (irrep >= 4) return SOV_ERR_RANGE;
+    eis_out(rep_a4::regular_multiplicity_num(static_cast<rep_a4::Irrep>(irrep)), re, im);
+    return SOV_OK;
+}
+
+int32_t sov_a4_col_orth_at_id(int64_t* re, int64_t* im) {
+    if (!re || !im) return SOV_ERR_NULL;
+    eis_out(rep_a4::col_orth_at_id(), re, im);
+    return SOV_OK;
+}
+
+int32_t sov_a4_one_dim_nonfaithful(uint8_t* out) {
+    if (!out) return SOV_ERR_NULL;
+    *out = rep_a4::one_dim_reps_non_faithful() ? 1 : 0;
+    return SOV_OK;
+}
+
+int32_t sov_rep2_class_sizes(uint8_t* out7) {
+    if (!out7) return SOV_ERR_NULL;
+    const auto& sizes = rep_2a4::class_sizes7();
+    for (std::size_t i = 0; i < 7; ++i) out7[i] = static_cast<uint8_t>(sizes[i]);
+    return SOV_OK;
+}
+
+int32_t sov_rep2_class_info(uint8_t* out14) {
+    if (!out14) return SOV_ERR_NULL;
+    const auto& info = rep_2a4::class_info_c();
+    for (std::size_t i = 0; i < 7; ++i) {
+        out14[2 * i] = static_cast<uint8_t>(info[i].first);
+        out14[2 * i + 1] = static_cast<uint8_t>(info[i].second);
+    }
+    return SOV_OK;
+}
+
+int32_t sov_rep2_char(uint8_t row, uint8_t cls, int64_t* re, int64_t* im) {
+    if (!re || !im) return SOV_ERR_NULL;
+    if (row >= 7 || cls >= 7) return SOV_ERR_RANGE;
+    const auto& rows = rep_2a4::all_chars();
+    eis_out(rows[row][cls], re, im);
+    return SOV_OK;
+}
+
+int32_t sov_rep2_char_orth(uint8_t row_a, uint8_t row_b, int64_t* re, int64_t* im) {
+    if (!re || !im) return SOV_ERR_NULL;
+    if (row_a >= 7 || row_b >= 7) return SOV_ERR_RANGE;
+    const auto& rows = rep_2a4::all_chars();
+    eis_out(rep_2a4::char_pairing_l(rows[row_a], rows[row_b]), re, im);
+    return SOV_OK;
+}
+
+int32_t sov_rep2_dims(uint8_t* out7) {
+    if (!out7) return SOV_ERR_NULL;
+    const auto& dims = rep_2a4::predicted_dims();
+    for (std::size_t i = 0; i < 7; ++i) out7[i] = static_cast<uint8_t>(dims[i]);
+    return SOV_OK;
+}
+
+int32_t sov_rep2_spinor_dim(uint8_t* out) {
+    if (!out) return SOV_ERR_NULL;
+    *out = 2;
+    return SOV_OK;
+}
+
+int32_t sov_spin2_det_commutator(int64_t* re, int64_t* im) {
+    if (!re || !im) return SOV_ERR_NULL;
+    eis_out(spin_criteria::det_commutator2(), re, im);
+    return SOV_OK;
+}
+
+int32_t sov_spin2_no_common_eigenvector(uint8_t* out) {
+    if (!out) return SOV_ERR_NULL;
+    *out = spin_criteria::no_common_eigenvector2() ? 1 : 0;
+    return SOV_OK;
+}
+
+int32_t sov_spin3_det_rows(int64_t* re, int64_t* im) {
+    if (!re || !im) return SOV_ERR_NULL;
+    eis_out(spin_criteria::det_rows(), re, im);
+    return SOV_OK;
+}
+
+int32_t sov_spin3_no_common_eigenvector(uint8_t* out) {
+    if (!out) return SOV_ERR_NULL;
+    *out = spin_criteria::no_common_eigenvector3() ? 1 : 0;
+    return SOV_OK;
+}
+
+/* ── Hopf 商 / 旋量相位 / 截面 ──────────────────────────────────────── */
+
+int32_t sov_hopf_base_card(uint16_t* out) {
+    if (!out) return SOV_ERR_NULL;
+    *out = static_cast<uint16_t>(hopf::base_card());
+    return SOV_OK;
+}
+
+int32_t sov_hopf_proj(uint16_t point, uint16_t* out) {
+    if (!out) return SOV_ERR_NULL;
+    if (point >= 729) return SOV_ERR_RANGE;
+    *out = static_cast<uint16_t>(hopf::proj_class(hopf::from_code(point)));
+    return SOV_OK;
+}
+
+int32_t sov_hopf_fiber_size(uint16_t point, uint8_t* out) {
+    if (!out) return SOV_ERR_NULL;
+    if (point >= 729) return SOV_ERR_RANGE;
+    *out = static_cast<uint8_t>(hopf::fiber_size_of(hopf::from_code(point)));
+    return SOV_OK;
+}
+
+int32_t sov_hopf_fiber_distribution(uint8_t* out8) {
+    if (!out8) return SOV_ERR_NULL;
+    const auto& dist = hopf::fiber_size_distribution();
+    if (dist.size() != 4) return SOV_ERR_STATE;
+    for (std::size_t i = 0; i < 4; ++i) {
+        out8[2 * i] = static_cast<uint8_t>(dist[i].first);
+        out8[2 * i + 1] = static_cast<uint8_t>(dist[i].second);
+    }
+    return SOV_OK;
+}
+
+int32_t sov_spin_fiber_card(uint8_t* out) {
+    if (!out) return SOV_ERR_NULL;
+    *out = static_cast<uint8_t>(spin_hopf::SPIN_FIBER_CARD);
+    return SOV_OK;
+}
+
+int32_t sov_spin_total_card(uint32_t* out) {
+    if (!out) return SOV_ERR_NULL;
+    *out = static_cast<uint32_t>(spin_hopf::SPIN_TOTAL_CARD);
+    return SOV_OK;
+}
+
+int32_t sov_spin_phase_act(uint32_t k, const uint8_t* v2, uint8_t* out2) {
+    if (!v2 || !out2) return SOV_ERR_NULL;
+    if (v2[0] > 2 || v2[1] > 2) return SOV_ERR_TRIT;
+    const auto r = spin_hopf::phase_act(k % 4, sl23::Vec2{v2[0], v2[1]});
+    out2[0] = r.first;
+    out2[1] = r.second;
+    return SOV_OK;
+}
+
+int32_t sov_spin_alpha_pow(uint32_t k, uint8_t* out4) {
+    if (!out4) return SOV_ERR_NULL;
+    sl23_to(spin_hopf::alpha_pow(k % 4), out4);
+    return SOV_OK;
+}
+
+int32_t sov_section_dims(uint32_t* out5) {
+    if (!out5) return SOV_ERR_NULL;
+    out5[0] = static_cast<uint32_t>(section::base_dim());
+    out5[1] = static_cast<uint32_t>(section::fiber_dim());
+    out5[2] = static_cast<uint32_t>(section::flat_dim());
+    out5[3] = static_cast<uint32_t>(section::effective_dim());
+    out5[4] = static_cast<uint32_t>(section::overcount());
+    return SOV_OK;
+}
+
+/* ── 载体 ───────────────────────────────────────────────────────────── */
+
+int32_t sov_carrier_a4_dim(uint8_t* out) {
+    if (!out) return SOV_ERR_NULL;
+    *out = static_cast<uint8_t>(carrier_a4::DIM_CARRIER);
+    return SOV_OK;
+}
+
+int32_t sov_carrier_a4_plancherel(uint16_t* out) {
+    if (!out) return SOV_ERR_NULL;
+    *out = static_cast<uint16_t>(carrier_a4::plancherel_sum());
+    return SOV_OK;
+}
+
+int32_t sov_carrier_a4_basis_norm(uint8_t elem, int64_t* re, int64_t* im) {
+    if (!re || !im) return SOV_ERR_NULL;
+    if (elem >= 12) return SOV_ERR_RANGE;
+    eis_out(carrier_a4::norm_c2(carrier_a4::basis_vec(a4::from_index(elem))), re, im);
+    return SOV_OK;
+}
+
+int32_t sov_carrier_2a4_dim(uint8_t* out) {
+    if (!out) return SOV_ERR_NULL;
+    *out = static_cast<uint8_t>(carrier_2a4::DIM_FIELD);
+    return SOV_OK;
+}
+
+int32_t sov_carrier_2a4_bilinear_schur(uint8_t* out) {
+    if (!out) return SOV_ERR_NULL;
+    *out = carrier_2a4::bilinear_schur() ? 1 : 0;
+    return SOV_OK;
+}
+
+int32_t sov_carrier_2a4_fs_indicator(int64_t* out) {
+    if (!out) return SOV_ERR_NULL;
+    const auto num = carrier_2a4::frobenius_schur_num();
+    if (num.b != 0 || num.a % 24 != 0) return SOV_ERR_STATE;
+    *out = num.a / 24;
+    return SOV_OK;
+}
+
+int32_t sov_carrier_2a4_coefficient_gram_det(int64_t* re, int64_t* im) {
+    if (!re || !im) return SOV_ERR_NULL;
+    eis_out(carrier_2a4::gram_det(), re, im);
     return SOV_OK;
 }
 

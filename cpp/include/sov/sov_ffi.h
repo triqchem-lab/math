@@ -29,5 +29,9 @@
 #include <sov/doz.h>
 #include <sov/pack.h>
 #include <sov/tryte.h>
+#include <sov/a4.h>
+#include <sov/rep.h>
+#include <sov/hopf.h>
+#include <sov/carrier.h>
 
 #endif /* SOV_FFI_H */

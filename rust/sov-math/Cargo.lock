@@ -54,6 +54,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "sov-a4"
+version = "0.1.0"
+dependencies = [
+ "sov-core",
+]
+
+[[package]]
 name = "sov-chiral"
 version = "0.1.0"
 dependencies = [
@@ -71,6 +78,7 @@ dependencies = [
 name = "sov-guard"
 version = "0.1.0"
 dependencies = [
+ "sov-a4",
  "sov-chiral",
  "sov-core",
  "sov-topology",

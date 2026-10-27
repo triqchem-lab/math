@@ -1,5 +1,5 @@
 runtime_init=0
-abi=65536
+abi=65537
 trit00=0/0,0/0
 trit01=0/1,0/0
 trit02=0/2,0/0
@@ -1101,7 +1101,7 @@ eis_comm=1
 standing_full_bad=0,chk=431363297
 chiral_thresh_bad=0
 holo=399134,399134,10587846
-abi_version=65536,major=1,minor=0
+abi_version=65537,major=1,minor=1
 strerror_ok=1,trit=1
 strerror_unknown_nonnull=1
 holo_sweep_chk=654910944,neg_bad=0
@@ -1122,5 +1122,299 @@ b_cap3_40=12157665459056928801;b_cap3_41=-2
 b_cap2_63=9223372036854775808;b_cap2_64=-2
 b_pack5max=242;b_unpack5=22222
 b_tryte729=-2
+a4card=0/12
+a4_0=0/0123 inv=0/0 ord=0/1 idx=0/0
+a4_1=0/0231 inv=0/2 ord=0/3 idx=0/1
+a4_2=0/0312 inv=0/1 ord=0/3 idx=0/2
+a4_3=0/2130 inv=0/4 ord=0/3 idx=0/3
+a4_4=0/3102 inv=0/3 ord=0/3 idx=0/4
+a4_5=0/1320 inv=0/6 ord=0/3 idx=0/5
+a4_6=0/3021 inv=0/5 ord=0/3 idx=0/6
+a4_7=0/1203 inv=0/8 ord=0/3 idx=0/7
+a4_8=0/2013 inv=0/7 ord=0/3 idx=0/8
+a4_9=0/1032 inv=0/9 ord=0/2 idx=0/9
+a4_10=0/2301 inv=0/10 ord=0/2 idx=0/10
+a4_11=0/3210 inv=0/11 ord=0/2 idx=0/11
+a4_mul_0=0/0
+a4_mul_1=0/2
+a4_mul_2=0/1
+a4_mul_3=0/4
+a4_mul_4=0/3
+a4_mul_5=0/6
+a4_mul_6=0/5
+a4_mul_7=0/8
+a4_mul_8=0/7
+a4_mul_9=0/0
+a4_mul_10=0/0
+a4_mul_11=0/0
+sl23card=0/24
+sl23_0120=1 inv=0/0210 sq=0/2002 ord=0/4 cov=0/1032
+sl23_0121=1 inv=0/1210 sq=0/2120 ord=0/6 cov=0/1203
+sl23_0122=1 inv=0/2210 sq=0/2210 ord=0/3 cov=0/1320
+sl23_0210=1 inv=0/0120 sq=0/2002 ord=0/4 cov=0/1032
+sl23_0211=1 inv=0/1120 sq=0/2210 ord=0/6 cov=0/1320
+sl23_0212=1 inv=0/2120 sq=0/2120 ord=0/3 cov=0/1203
+sl23_1001=1 inv=0/1001 sq=0/1001 ord=0/1 cov=0/0123
+sl23_1011=1 inv=0/1021 sq=0/1021 ord=0/3 cov=0/2130
+sl23_1021=1 inv=0/1011 sq=0/1011 ord=0/3 cov=0/3102
+sl23_1101=1 inv=0/1201 sq=0/1201 ord=0/3 cov=0/0231
+sl23_1112=1 inv=0/2221 sq=0/2002 ord=0/4 cov=0/2301
+sl23_1120=1 inv=0/0211 sq=0/0122 ord=0/6 cov=0/3021
+sl23_1201=1 inv=0/1101 sq=0/1101 ord=0/3 cov=0/0312
+sl23_1210=1 inv=0/0121 sq=0/0212 ord=0/6 cov=0/2013
+sl23_1222=1 inv=0/2111 sq=0/2002 ord=0/4 cov=0/3210
+sl23_2002=1 inv=0/2002 sq=0/1001 ord=0/2 cov=0/0123
+sl23_2012=1 inv=0/2022 sq=0/1011 ord=0/6 cov=0/3102
+sl23_2022=1 inv=0/2012 sq=0/1021 ord=0/6 cov=0/2130
+sl23_2102=1 inv=0/2202 sq=0/1101 ord=0/6 cov=0/0312
+sl23_2111=1 inv=0/1222 sq=0/2002 ord=0/4 cov=0/3210
+sl23_2120=1 inv=0/0212 sq=0/0212 ord=0/3 cov=0/2013
+sl23_2202=1 inv=0/2102 sq=0/1201 ord=0/6 cov=0/0231
+sl23_2210=1 inv=0/0122 sq=0/0122 ord=0/3 cov=0/3021
+sl23_2221=1 inv=0/1112 sq=0/2002 ord=0/4 cov=0/2301
+sl23_o4=0/6 sl23_w=0/1 cov_ker=0/2 cov_ok=0/1
+a4chi_0_0=0/1,0
+a4chi_0_1=0/1,0
+a4chi_0_2=0/1,0
+a4chi_0_3=0/1,0
+a4chi_0_4=0/1,0
+a4chi_0_5=0/1,0
+a4chi_0_6=0/1,0
+a4chi_0_7=0/1,0
+a4chi_0_8=0/1,0
+a4chi_0_9=0/1,0
+a4chi_0_10=0/1,0
+a4chi_0_11=0/1,0
+a4reg_0=0/12,0
+a4chi_1_0=0/1,0
+a4chi_1_1=0/0,1
+a4chi_1_2=0/-1,-1
+a4chi_1_3=0/-1,-1
+a4chi_1_4=0/0,1
+a4chi_1_5=0/0,1
+a4chi_1_6=0/-1,-1
+a4chi_1_7=0/-1,-1
+a4chi_1_8=0/0,1
+a4chi_1_9=0/1,0
+a4chi_1_10=0/1,0
+a4chi_1_11=0/1,0
+a4reg_1=0/12,0
+a4chi_2_0=0/1,0
+a4chi_2_1=0/-1,-1
+a4chi_2_2=0/0,1
+a4chi_2_3=0/0,1
+a4chi_2_4=0/-1,-1
+a4chi_2_5=0/-1,-1
+a4chi_2_6=0/0,1
+a4chi_2_7=0/0,1
+a4chi_2_8=0/-1,-1
+a4chi_2_9=0/1,0
+a4chi_2_10=0/1,0
+a4chi_2_11=0/1,0
+a4reg_2=0/12,0
+a4chi_3_0=0/3,0
+a4chi_3_1=0/0,0
+a4chi_3_2=0/0,0
+a4chi_3_3=0/0,0
+a4chi_3_4=0/0,0
+a4chi_3_5=0/0,0
+a4chi_3_6=0/0,0
+a4chi_3_7=0/0,0
+a4chi_3_8=0/0,0
+a4chi_3_9=0/-1,0
+a4chi_3_10=0/-1,0
+a4chi_3_11=0/-1,0
+a4reg_3=0/36,0
+a4orth_0_0=0/12,0
+a4orth_0_1=0/0,0
+a4orth_0_2=0/0,0
+a4orth_0_3=0/0,0
+a4orth_1_0=0/0,0
+a4orth_1_1=0/12,0
+a4orth_1_2=0/0,0
+a4orth_1_3=0/0,0
+a4orth_2_0=0/0,0
+a4orth_2_1=0/0,0
+a4orth_2_2=0/12,0
+a4orth_2_3=0/0,0
+a4orth_3_0=0/0,0
+a4orth_3_1=0/0,0
+a4orth_3_2=0/0,0
+a4orth_3_3=0/12,0
+a4col=0/12,0 a4odnf=0/1
+rep2_sizes=0/6444411 info=0/64464346431112
+rep2chi_0_0=0/1,0
+rep2chi_0_1=0/1,0
+rep2chi_0_2=0/1,0
+rep2chi_0_3=0/1,0
+rep2chi_0_4=0/1,0
+rep2chi_0_5=0/1,0
+rep2chi_0_6=0/1,0
+rep2orth_0_0=0/24,0
+rep2orth_0_1=0/0,0
+rep2orth_0_2=0/0,0
+rep2orth_0_3=0/0,0
+rep2orth_0_4=0/0,0
+rep2orth_0_5=0/0,0
+rep2orth_0_6=0/0,0
+rep2chi_1_0=0/1,0
+rep2chi_1_1=0/0,1
+rep2chi_1_2=0/-1,-1
+rep2chi_1_3=0/-1,-1
+rep2chi_1_4=0/0,1
+rep2chi_1_5=0/1,0
+rep2chi_1_6=0/1,0
+rep2orth_1_0=0/0,0
+rep2orth_1_1=0/24,0
+rep2orth_1_2=0/0,0
+rep2orth_1_3=0/0,0
+rep2orth_1_4=0/0,0
+rep2orth_1_5=0/0,0
+rep2orth_1_6=0/0,0
+rep2chi_2_0=0/1,0
+rep2chi_2_1=0/-1,-1
+rep2chi_2_2=0/0,1
+rep2chi_2_3=0/0,1
+rep2chi_2_4=0/-1,-1
+rep2chi_2_5=0/1,0
+rep2chi_2_6=0/1,0
+rep2orth_2_0=0/0,0
+rep2orth_2_1=0/0,0
+rep2orth_2_2=0/24,0
+rep2orth_2_3=0/0,0
+rep2orth_2_4=0/0,0
+rep2orth_2_5=0/0,0
+rep2orth_2_6=0/0,0
+rep2chi_3_0=0/0,0
+rep2chi_3_1=0/1,0
+rep2chi_3_2=0/-1,0
+rep2chi_3_3=0/1,0
+rep2chi_3_4=0/-1,0
+rep2chi_3_5=0/2,0
+rep2chi_3_6=0/-2,0
+rep2orth_3_0=0/0,0
+rep2orth_3_1=0/0,0
+rep2orth_3_2=0/0,0
+rep2orth_3_3=0/24,0
+rep2orth_3_4=0/0,0
+rep2orth_3_5=0/0,0
+rep2orth_3_6=0/0,0
+rep2chi_4_0=0/0,0
+rep2chi_4_1=0/-1,-1
+rep2chi_4_2=0/0,-1
+rep2chi_4_3=0/0,1
+rep2chi_4_4=0/1,1
+rep2chi_4_5=0/2,0
+rep2chi_4_6=0/-2,0
+rep2orth_4_0=0/0,0
+rep2orth_4_1=0/0,0
+rep2orth_4_2=0/0,0
+rep2orth_4_3=0/0,0
+rep2orth_4_4=0/24,0
+rep2orth_4_5=0/0,0
+rep2orth_4_6=0/0,0
+rep2chi_5_0=0/0,0
+rep2chi_5_1=0/0,1
+rep2chi_5_2=0/1,1
+rep2chi_5_3=0/-1,-1
+rep2chi_5_4=0/0,-1
+rep2chi_5_5=0/2,0
+rep2chi_5_6=0/-2,0
+rep2orth_5_0=0/0,0
+rep2orth_5_1=0/0,0
+rep2orth_5_2=0/0,0
+rep2orth_5_3=0/0,0
+rep2orth_5_4=0/0,0
+rep2orth_5_5=0/24,0
+rep2orth_5_6=0/0,0
+rep2chi_6_0=0/-1,0
+rep2chi_6_1=0/0,0
+rep2chi_6_2=0/0,0
+rep2chi_6_3=0/0,0
+rep2chi_6_4=0/0,0
+rep2chi_6_5=0/3,0
+rep2chi_6_6=0/3,0
+rep2orth_6_0=0/0,0
+rep2orth_6_1=0/0,0
+rep2orth_6_2=0/0,0
+rep2orth_6_3=0/0,0
+rep2orth_6_4=0/0,0
+rep2orth_6_5=0/0,0
+rep2orth_6_6=0/24,0
+rep2_dims=0/1112223 spinor_dim=0/2
+spin2=0/2,0 nc=0/1 spin3=0/4,0 nc=0/1
+hopf_base=0/135
+hopf_0=0/0 fib=0/1
+hopf_73=0/72 fib=0/12
+hopf_146=0/75 fib=0/12
+hopf_219=0/42 fib=0/12
+hopf_292=0/100 fib=0/4
+hopf_365=0/103 fib=0/4
+hopf_438=0/43 fib=0/12
+hopf_511=0/74 fib=0/12
+hopf_584=0/77 fib=0/12
+hopf_657=0/17 fib=0/4
+hopf_728=0/134 fib=0/1;hopf_729=-2
+hopf_dist=0/1,27,4,54,6,27,12,27
+spin_fiber=0/9 spin_total=0/6561
+sphase_0_00=0/00
+sphase_0_01=0/01
+sphase_0_02=0/02
+sphase_0_10=0/10
+sphase_0_11=0/11
+sphase_0_12=0/12
+sphase_0_20=0/20
+sphase_0_21=0/21
+sphase_0_22=0/22
+salpha_0=0/1001
+sphase_1_00=0/00
+sphase_1_01=0/20
+sphase_1_02=0/10
+sphase_1_10=0/01
+sphase_1_11=0/21
+sphase_1_12=0/11
+sphase_1_20=0/02
+sphase_1_21=0/22
+sphase_1_22=0/12
+salpha_1=0/0210
+sphase_2_00=0/00
+sphase_2_01=0/02
+sphase_2_02=0/01
+sphase_2_10=0/20
+sphase_2_11=0/22
+sphase_2_12=0/21
+sphase_2_20=0/10
+sphase_2_21=0/12
+sphase_2_22=0/11
+salpha_2=0/2002
+sphase_3_00=0/00
+sphase_3_01=0/10
+sphase_3_02=0/20
+sphase_3_10=0/02
+sphase_3_11=0/12
+sphase_3_12=0/22
+sphase_3_20=0/01
+sphase_3_21=0/11
+sphase_3_22=0/21
+salpha_3=0/0120
+section=0/135,12,1620,729,891
+ca_dim=0/12 ca_plan=0/12 c2_dim=0/24 c2_schur=0/1 c2_fs=0/-1
+ca_bn_0=0/1,0
+ca_bn_1=0/1,0
+ca_bn_2=0/1,0
+ca_bn_3=0/1,0
+ca_bn_4=0/1,0
+ca_bn_5=0/1,0
+ca_bn_6=0/1,0
+ca_bn_7=0/1,0
+ca_bn_8=0/1,0
+ca_bn_9=0/1,0
+ca_bn_10=0/1,0
+ca_bn_11=0/1,0
+c2_gram_det=0/20736,0
+e_a4perm=-2 e_a4mul=-2 e_a4inv=-2 e_a4chi=-4
+e_sl23trit=-1 e_sl23inv=-2 e_sl23order=-2 e_covperm=-2
+e_hopf729=-2 e_rep2row=-2 e_rep2cls=-2
+e_a4index_odd=-2
 err_null=-4
 runtime_fini=0

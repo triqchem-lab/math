@@ -19,6 +19,9 @@ pub mod l2_ring;
 pub mod l2_matmul;
 pub mod l2_ops;
 
+// NSE 三模式演化内核（2026-10-28：从 sov-guard FFI 内嵌实现提升为内核件）
+pub mod l2_nse;
+
 // Bridge
 pub mod bridge;
 

@@ -6,6 +6,7 @@ members = [
     "sov-topology",
     "sov-guard",
     "sov-validation",
+    "sov-a4",
 ]
 
 [workspace.package]

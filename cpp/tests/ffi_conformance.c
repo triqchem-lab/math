@@ -1545,6 +1545,264 @@ int main(int argc, char **argv) {
         { uint8_t t[6]; printf("b_tryte729=%d\n", tu(729, t)); }
     }
 
+    /* ══════════════════════════════════════════════════════════════════
+     * ABI 1.1：A₄ / 2A₄ / 覆盖 / 表示论 / Hopf 商 / 载体
+     * ══════════════════════════════════════════════════════════════════ */
+    {
+        typedef int32_t (*f_u8p)(uint8_t*);
+        typedef int32_t (*f_u16p)(uint16_t*);
+        typedef int32_t (*f_u32p)(uint32_t*);
+        typedef int32_t (*f_i64p)(int64_t*);
+        typedef int32_t (*f_u8_u8p)(uint8_t, uint8_t*);
+        typedef int32_t (*f_u8_arr4)(uint8_t, uint8_t*);
+        typedef int32_t (*f_carr)(const uint8_t*, uint8_t*);
+        typedef int32_t (*f_carr2)(const uint8_t*, const uint8_t*, uint8_t*);
+        typedef int32_t (*f_carr_u32)(const uint8_t*, uint32_t, uint8_t*);
+        typedef int32_t (*f_u8_i64)(uint8_t, int64_t*, int64_t*);
+        typedef int32_t (*f_u8u8_2i64)(uint8_t, uint8_t, int64_t*, int64_t*);
+        typedef int32_t (*f_u8u8_i64)(uint8_t, uint8_t, int64_t*, int64_t*);
+        typedef int32_t (*f_i64_i64)(int64_t*, int64_t*);
+        typedef int32_t (*f_u8u8_u8p)(uint8_t, uint8_t, uint8_t*);
+        typedef int32_t (*f_u16_u16p)(uint16_t, uint16_t*);
+        typedef int32_t (*f_u16_u8p)(uint16_t, uint8_t*);
+        typedef int32_t (*f_u32_carr)(uint32_t, uint8_t*);
+        typedef int32_t (*f_u32_arr2)(uint32_t, const uint8_t*, uint8_t*);
+
+        f_u8p a4card = (f_u8p)sym("sov_a4_card");
+        f_u8_arr4 a4perm = (f_u8_arr4)sym("sov_a4_perm");
+        f_carr a4index = (f_carr)sym("sov_a4_index");
+        f_u8u8_u8p a4mul = (f_u8u8_u8p)sym("sov_a4_mul");
+        f_u8_u8p a4inv = (f_u8_u8p)sym("sov_a4_inv");
+        f_u8_u8p a4ord = (f_u8_u8p)sym("sov_a4_order");
+        f_u16p slcard = (f_u16p)sym("sov_sl23_card");
+        f_carr2 slmul = (f_carr2)sym("sov_sl23_mul");
+        f_carr sldet = (f_carr)sym("sov_sl23_det");
+        f_carr slinv = (f_carr)sym("sov_sl23_inv");
+        f_carr_u32 slpow = (f_carr_u32)sym("sov_sl23_pow");
+        f_carr slord = (f_carr)sym("sov_sl23_order");
+        f_u8p slo4 = (f_u8p)sym("sov_sl23_order4_count");
+        f_u8p slw = (f_u8p)sym("sov_sl23_w_is_neg_i");
+        f_carr covperm = (f_carr)sym("sov_cover_perm");
+        f_u8p covker = (f_u8p)sym("sov_cover_kernel_size");
+        f_u8p covok = (f_u8p)sym("sov_cover_ok");
+        f_u8u8_2i64 a4chi = (f_u8u8_2i64)sym("sov_a4_chi");
+        f_u8u8_2i64 a4chiorth = (f_u8u8_2i64)sym("sov_a4_chi_orth");
+        f_u8_i64 a4reg = (f_u8_i64)sym("sov_a4_regular_mult");
+        f_i64_i64 a4col = (f_i64_i64)sym("sov_a4_col_orth_at_id");
+        f_u8p a4odnf = (f_u8p)sym("sov_a4_one_dim_nonfaithful");
+        f_u8p r2sizes = (f_u8p)sym("sov_rep2_class_sizes");
+        f_u8p r2info = (f_u8p)sym("sov_rep2_class_info");
+        f_u8u8_i64 r2char = (f_u8u8_i64)sym("sov_rep2_char");
+        f_u8u8_i64 r2chiorth = (f_u8u8_i64)sym("sov_rep2_char_orth");
+        f_u8p r2dims = (f_u8p)sym("sov_rep2_dims");
+        f_u8p r2sdim = (f_u8p)sym("sov_rep2_spinor_dim");
+        f_i64_i64 s2det = (f_i64_i64)sym("sov_spin2_det_commutator");
+        f_u8p s2nc = (f_u8p)sym("sov_spin2_no_common_eigenvector");
+        f_i64_i64 s3det = (f_i64_i64)sym("sov_spin3_det_rows");
+        f_u8p s3nc = (f_u8p)sym("sov_spin3_no_common_eigenvector");
+        f_u16p hopfbase = (f_u16p)sym("sov_hopf_base_card");
+        f_u16_u16p hopfproj = (f_u16_u16p)sym("sov_hopf_proj");
+        f_u16_u8p hopffib = (f_u16_u8p)sym("sov_hopf_fiber_size");
+        f_u8p hopfdist = (f_u8p)sym("sov_hopf_fiber_distribution");
+        f_u8p spfiber = (f_u8p)sym("sov_spin_fiber_card");
+        f_u32p sptotal = (f_u32p)sym("sov_spin_total_card");
+        f_u32_arr2 spphase = (f_u32_arr2)sym("sov_spin_phase_act");
+        f_u32_carr spalpha = (f_u32_carr)sym("sov_spin_alpha_pow");
+        f_u32p secdims = (f_u32p)sym("sov_section_dims");
+        f_u8p cadim = (f_u8p)sym("sov_carrier_a4_dim");
+        f_u16p caplan = (f_u16p)sym("sov_carrier_a4_plancherel");
+        f_u8_i64 cabn = (f_u8_i64)sym("sov_carrier_a4_basis_norm");
+        f_u8p c2dim = (f_u8p)sym("sov_carrier_2a4_dim");
+        f_u8p c2bs = (f_u8p)sym("sov_carrier_2a4_bilinear_schur");
+        f_i64p c2fs = (f_i64p)sym("sov_carrier_2a4_fs_indicator");
+        f_i64_i64 c2gd = (f_i64_i64)sym("sov_carrier_2a4_coefficient_gram_det");
+
+        { uint8_t o = 0xFF; int32_t r = a4card(&o); printf("a4card=%d/%d\n", r, (int)o); }
+
+        uint8_t perms[12][4];
+        for (int g = 0; g < 12; ++g) {
+            uint8_t p[4] = {9, 9, 9, 9}, iv = 0xFF, od = 0xFF, ix = 0xFF;
+            int32_t r1 = a4perm((uint8_t)g, p);
+            int32_t r2 = a4inv((uint8_t)g, &iv);
+            int32_t r3 = a4ord((uint8_t)g, &od);
+            int32_t r4 = a4index(p, &ix);
+            for (int k = 0; k < 4; ++k) perms[g][k] = p[k];
+            printf("a4_%d=%d/%d%d%d%d inv=%d/%d ord=%d/%d idx=%d/%d\n",
+                   g, r1, (int)p[0], (int)p[1], (int)p[2], (int)p[3],
+                   r2, (int)iv, r3, (int)od, r4, (int)ix);
+        }
+        for (int g = 0; g < 12; ++g) {
+            uint8_t o = 0xFF;
+            int32_t r = a4mul((uint8_t)g, (uint8_t)g, &o);
+            printf("a4_mul_%d=%d/%d\n", g, r, (int)o);
+        }
+
+        { uint16_t o = 0; int32_t r = slcard(&o); printf("sl23card=%d/%d\n", r, (int)o); }
+
+        /* SL(2,F₃) 全 24 元素（枚举 3⁴ 候选，输出次序固定）*/
+        {
+            for (int a = 0; a < 3; ++a)
+                for (int b = 0; b < 3; ++b)
+                    for (int c = 0; c < 3; ++c)
+                        for (int d = 0; d < 3; ++d) {
+                            const uint8_t cur[4] = {(uint8_t)a, (uint8_t)b, (uint8_t)c, (uint8_t)d};
+                            uint8_t det = 0xFF;
+                            if (sldet(cur, &det) != 0 || det != 1) continue;
+                            uint8_t inv[4] = {9, 9, 9, 9}, sq[4] = {9, 9, 9, 9}, ord = 0xFF;
+                            int32_t r2 = slinv(cur, inv);
+                            int32_t r3 = slpow(cur, 2, sq);
+                            int32_t r4 = slord(cur, &ord);
+                            uint8_t cp[4] = {9, 9, 9, 9};
+                            int32_t r5 = covperm(cur, cp);
+                            printf("sl23_%d%d%d%d=%d inv=%d/%d%d%d%d sq=%d/%d%d%d%d ord=%d/%d cov=%d/%d%d%d%d\n",
+                                   a, b, c, d, (int)det,
+                                   r2, (int)inv[0], (int)inv[1], (int)inv[2], (int)inv[3],
+                                   r3, (int)sq[0], (int)sq[1], (int)sq[2], (int)sq[3],
+                                   r4, (int)ord, r5, (int)cp[0], (int)cp[1], (int)cp[2], (int)cp[3]);
+                        }
+        }
+
+        { uint8_t o = 0xFF; int32_t r1 = slo4(&o); printf("sl23_o4=%d/%d", r1, (int)o);
+          int32_t r2 = slw(&o); printf(" sl23_w=%d/%d", r2, (int)o);
+          int32_t r3 = covker(&o); printf(" cov_ker=%d/%d", r3, (int)o);
+          int32_t r4 = covok(&o); printf(" cov_ok=%d/%d\n", r4, (int)o); }
+
+        /* A₄ 表示论全表 4×12 + 正交 4×4 */
+        for (int r = 0; r < 4; ++r) {
+            for (int g = 0; g < 12; ++g) {
+                int64_t re = 0, im = 0;
+                int32_t rc = a4chi((uint8_t)r, (uint8_t)g, &re, &im);
+                printf("a4chi_%d_%d=%d/%lld,%lld\n", r, g, rc, (long long)re, (long long)im);
+            }
+            { int64_t re = 0, im = 0;
+              int32_t rc = a4reg((uint8_t)r, &re, &im);
+              printf("a4reg_%d=%d/%lld,%lld\n", r, rc, (long long)re, (long long)im); }
+        }
+        for (int a = 0; a < 4; ++a)
+            for (int b = 0; b < 4; ++b) {
+                int64_t re = 0, im = 0;
+                int32_t rc = a4chiorth((uint8_t)a, (uint8_t)b, &re, &im);
+                printf("a4orth_%d_%d=%d/%lld,%lld\n", a, b, rc, (long long)re, (long long)im);
+            }
+        { int64_t re = 0, im = 0;
+          int32_t rc = a4col(&re, &im);
+          printf("a4col=%d/%lld,%lld", rc, (long long)re, (long long)im);
+          uint8_t o = 0xFF; int32_t r2 = a4odnf(&o);
+          printf(" a4odnf=%d/%d\n", r2, (int)o); }
+
+        /* 2A₄：类 + 7×7 表 + 正交 + 维数 */
+        { uint8_t s7[7] = {0}, i14[14] = {0};
+          int32_t r1 = r2sizes(s7), r2 = r2info(i14);
+          printf("rep2_sizes=%d/%d%d%d%d%d%d%d info=%d/%d%d%d%d%d%d%d%d%d%d%d%d%d%d\n",
+                 r1, (int)s7[0], (int)s7[1], (int)s7[2], (int)s7[3], (int)s7[4], (int)s7[5], (int)s7[6],
+                 r2, (int)i14[0], (int)i14[1], (int)i14[2], (int)i14[3], (int)i14[4], (int)i14[5],
+                 (int)i14[6], (int)i14[7], (int)i14[8], (int)i14[9], (int)i14[10], (int)i14[11],
+                 (int)i14[12], (int)i14[13]); }
+        for (int a = 0; a < 7; ++a) {
+            for (int c = 0; c < 7; ++c) {
+                int64_t re = 0, im = 0;
+                int32_t rc = r2char((uint8_t)a, (uint8_t)c, &re, &im);
+                printf("rep2chi_%d_%d=%d/%lld,%lld\n", a, c, rc, (long long)re, (long long)im);
+            }
+            for (int b = 0; b < 7; ++b) {
+                int64_t re = 0, im = 0;
+                int32_t rc = r2chiorth((uint8_t)a, (uint8_t)b, &re, &im);
+                printf("rep2orth_%d_%d=%d/%lld,%lld\n", a, b, rc, (long long)re, (long long)im);
+            }
+        }
+        { uint8_t d7[7] = {0}, sd = 0xFF;
+          int32_t r1 = r2dims(d7);
+          printf("rep2_dims=%d/%d%d%d%d%d%d%d", r1, (int)d7[0], (int)d7[1], (int)d7[2],
+                 (int)d7[3], (int)d7[4], (int)d7[5], (int)d7[6]);
+          int32_t r2 = r2sdim(&sd);
+          printf(" spinor_dim=%d/%d\n", r2, (int)sd); }
+
+        /* Spin2 / Spin3 判据 */
+        { int64_t re = 0, im = 0; uint8_t nc = 0xFF;
+          int32_t r1 = s2det(&re, &im); uint8_t o1 = nc;
+          int32_t r2 = s2nc(&o1);
+          printf("spin2=%d/%lld,%lld nc=%d/%d", r1, (long long)re, (long long)im, r2, (int)o1);
+          int64_t re2 = 0, im2 = 0; uint8_t o2 = 0xFF;
+          int32_t r3 = s3det(&re2, &im2);
+          int32_t r4 = s3nc(&o2);
+          printf(" spin3=%d/%lld,%lld nc=%d/%d\n", r3, (long long)re2, (long long)im2, r4, (int)o2); }
+
+        /* Hopf 商（抽样 + 边界）*/
+        { uint16_t o = 0; int32_t r = hopfbase(&o); printf("hopf_base=%d/%d\n", r, (int)o); }
+        for (int pt = 0; pt < 729; pt += 73) {
+            uint16_t pr = 0; uint8_t fs = 0;
+            int32_t r1 = hopfproj((uint16_t)pt, &pr);
+            int32_t r2 = hopffib((uint16_t)pt, &fs);
+            printf("hopf_%d=%d/%d fib=%d/%d\n", pt, r1, (int)pr, r2, (int)fs);
+        }
+        { uint16_t pr = 0; uint8_t fs = 0;
+          int32_t r1 = hopfproj(728, &pr); int32_t r2 = hopffib(728, &fs);
+          printf("hopf_728=%d/%d fib=%d/%d;hopf_729=%d\n", r1, (int)pr, r2, (int)fs,
+                 hopfproj(729, &pr)); }
+        { uint8_t d8[8] = {0};
+          int32_t r = hopfdist(d8);
+          printf("hopf_dist=%d/%d,%d,%d,%d,%d,%d,%d,%d\n", r, (int)d8[0], (int)d8[1],
+                 (int)d8[2], (int)d8[3], (int)d8[4], (int)d8[5], (int)d8[6], (int)d8[7]); }
+
+        /* 旋量相位 */
+        { uint8_t o = 0xFF; int32_t r1 = spfiber(&o); printf("spin_fiber=%d/%d", r1, (int)o);
+          uint32_t t = 0; int32_t r2 = sptotal(&t);
+          printf(" spin_total=%d/%u\n", r2, (unsigned)t); }
+        for (int k = 0; k < 4; ++k) {
+            for (int x = 0; x < 3; ++x)
+                for (int y = 0; y < 3; ++y) {
+                    uint8_t v[2] = {(uint8_t)x, (uint8_t)y}, o[2] = {9, 9};
+                    int32_t r = spphase((uint32_t)k, v, o);
+                    printf("sphase_%d_%d%d=%d/%d%d\n", k, x, y, r, (int)o[0], (int)o[1]);
+                }
+            uint8_t m[4] = {9, 9, 9, 9};
+            int32_t r = spalpha((uint32_t)k, m);
+            printf("salpha_%d=%d/%d%d%d%d\n", k, r, (int)m[0], (int)m[1], (int)m[2], (int)m[3]);
+        }
+
+        /* 截面维数 */
+        { uint32_t d5[5] = {0};
+          int32_t r = secdims(d5);
+          printf("section=%d/%u,%u,%u,%u,%u\n", r, (unsigned)d5[0], (unsigned)d5[1],
+                 (unsigned)d5[2], (unsigned)d5[3], (unsigned)d5[4]); }
+
+        /* 载体 */
+        { uint8_t o = 0xFF; int32_t r1 = cadim(&o); printf("ca_dim=%d/%d", r1, (int)o);
+          uint16_t p = 0; int32_t r2 = caplan(&p);
+          printf(" ca_plan=%d/%d", r2, (int)p);
+          o = 0xFF; int32_t r3 = c2dim(&o);
+          printf(" c2_dim=%d/%d", r3, (int)o);
+          o = 0xFF; int32_t r4 = c2bs(&o);
+          printf(" c2_schur=%d/%d", r4, (int)o);
+          int64_t f = 0; int32_t r5 = c2fs(&f);
+          printf(" c2_fs=%d/%lld\n", r5, (long long)f); }
+        for (int g = 0; g < 12; ++g) {
+            int64_t re = 0, im = 0;
+            int32_t r = cabn((uint8_t)g, &re, &im);
+            printf("ca_bn_%d=%d/%lld,%lld\n", g, r, (long long)re, (long long)im);
+        }
+        { int64_t re = 0, im = 0;
+          int32_t r = c2gd(&re, &im);
+          printf("c2_gram_det=%d/%lld,%lld\n", r, (long long)re, (long long)im); }
+
+        /* ABI 1.1 错误路径 */
+        {
+            uint8_t o = 0, o4[4] = {9, 9, 9, 9};
+            printf("e_a4perm=%d e_a4mul=%d e_a4inv=%d e_a4chi=%d\n",
+                   a4perm(12, &o), a4mul(0, 12, &o), a4inv(12, &o), a4chi(4, 0, NULL, NULL));
+            const uint8_t bad[4] = {3, 0, 0, 1};
+            const uint8_t zero[4] = {0, 0, 0, 0};
+            uint8_t det = 0xFF;
+            printf("e_sl23trit=%d e_sl23inv=%d e_sl23order=%d e_covperm=%d\n",
+                   sldet(bad, &det), slinv(zero, o4), slord(zero, &o), covperm(zero, o4));
+            uint16_t p16 = 0;
+            int64_t re = 0, im = 0;
+            printf("e_hopf729=%d e_rep2row=%d e_rep2cls=%d\n",
+                   hopfproj(729, &p16), r2char(7, 0, &re, &im), r2char(0, 7, &re, &im));
+            printf("e_a4index_odd=%d\n", a4index((const uint8_t[]){1, 0, 2, 3}, &o));
+        }
+    }
+
     /* 空指针保护 */
     printf("err_null=%d\n", tadd(0, 0, NULL));
     { fn_abi rfini = (fn_abi)dlsym(H, "sov_runtime_fini");
