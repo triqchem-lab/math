@@ -34,6 +34,8 @@ library
                       Sov.Math.Cover2A4
                       Sov.Math.SL23
                       Sov.Math.SpinHopf
+                      Sov.Math.Spin2
+                      Sov.Math.Spin3
                       Sov.Math.CarrierA4
                       Sov.Math.Carrier2A4
                       Sov.Math.Hopf

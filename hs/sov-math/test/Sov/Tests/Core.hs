@@ -18,6 +18,8 @@ import qualified Sov.Math.Complex2A4 as C2
 import qualified Sov.Math.Carrier2A4 as K2
 import qualified Sov.Math.SL23 as SL
 import qualified Sov.Math.SpinHopf as SH
+import qualified Sov.Math.Spin2 as S2
+import qualified Sov.Math.Spin3 as S3
 import qualified Sov.Math.Field as FD
 import Sov.Math.Hopf
 import Sov.Math.FixedComplex
@@ -372,8 +374,14 @@ allTests =
       (all (\x -> iterate DC.successor12 x !! 12 == x) [0 .. 11])
   , check "dc_doz_digits"     -- Doz 单位数字: A=10, B=11
       (DC.dozDigit 10 == "A" && DC.dozDigit 11 == "B" && DC.dozDigit 3 == "3")
+  -- ── Spin2 / Spin3（M2：不可约判据移植，镜像 FML SpinNoInvariantLine(3)）──
+  , check "spin2_det_commutator_2"       (S2.detCommutator2 == Eis 2 0)
+  , check "spin2_no_common_eigenvector"  S2.noCommonEigenvector2
+  , check "spin2_ab_ba_pinned"           S2.spin2Ok
+  , check "spin3_closed_products"        S3.spin3Ok
+  , check "spin3_det_rows_4"             (S3.detRows == Eis 4 0)
+  , check "spin3_no_common_eigenvector"  S3.noCommonEigenvector3
   ]
-
 -- ═══ 辅助 ═══
 
 toEnum' :: Int -> Trit
