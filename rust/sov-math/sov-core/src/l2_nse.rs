@@ -189,6 +189,8 @@ impl NseSolver {
 mod tests {
     use super::*;
 
+    include!("l2_nse_golden.rs");
+
     #[test]
     fn nse_dimensions() {
         assert_eq!(T6_TOTAL, 6624);
@@ -243,5 +245,24 @@ mod tests {
         let s = NseSolver::new(NseMode::PumpA);
         assert_eq!(s.density_q16(), 0);
         assert_eq!(s.nonzero(), 0);
+    }
+
+    /// NSE 四步全状态 golden 对拍（FML NSEOnT6 nsStep ⇄ rust formalised_step）：
+    /// 初态 = cpp T6Grid::init_random(seed=42) 同款 LCG 种子（i 主序铺入）；
+    /// 四步逐 trit 比对。配套 FML pin：NSEOnT6Golden.agda（零场不动点/四步推论）。
+    /// ⚠ golden 数据由 FML scripts/gen-nse-golden.py 生成（校验编码，非数学证明）。
+    #[test]
+    fn nse_formal_matches_golden_4step() {
+        let mut s = NseSolver::new(NseMode::Formal);
+        s.comp.copy_from_slice(&GOLDEN_SEED);
+        s.step_once();
+        assert_eq!(s.comp, GOLDEN_S1, "step 1");
+        s.step_once();
+        assert_eq!(s.comp, GOLDEN_S2, "step 2");
+        s.step_once();
+        assert_eq!(s.comp, GOLDEN_S3, "step 3");
+        s.step_once();
+        assert_eq!(s.comp, GOLDEN_S4, "step 4");
+        assert_eq!(s.step, 4);
     }
 }
