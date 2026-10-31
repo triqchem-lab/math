@@ -50,6 +50,13 @@ else()
     target_link_libraries(ffi_conformance PRIVATE dl)
 endif()
 
+# macOS (Mach-O) 的 ld 不允许「未定义的弱符号」：ffi_conformance.c 里 hs_init 声明为
+# __attribute__((weak))（只有验证 Haskell 实现时才需要 GHC RTS），Linux/Windows 的
+# ld 容忍其缺失，macOS 必须显式声明该符号可缺（-U = treat as undefined, still link）。
+if(APPLE)
+    target_link_options(ffi_conformance PRIVATE "-Wl,-U,_hs_init")
+endif()
+
 # 安全硬化（-DSOV_HARDENED=ON 时生效；OFF 时为空操作）
 sov_apply_hardening(ffi_conformance)
 
