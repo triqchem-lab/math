@@ -180,5 +180,10 @@ jobs:
           cmake --build --preset linux-gcc
 
       - name: Run conformance against hs implementation
-        run: ./build/linux-gcc/c_abi/ffi_conformance build/libsovffi.so
+        run: |
+          # GHC 的 -dynamic 库（libHSghc-internal.so）依赖 RTS 的符号（stg_t 等），
+          # 纯 C 宿主 dlopen 时需要 RTS 已加载，故先 LD_PRELOAD 之。
+          RTS=$(find "$(ghc --print-libdir)" -name 'libHSrts-*.so' | head -1)
+          echo "preloading GHC RTS: $RTS"
+          LD_PRELOAD="$RTS" ./build/linux-gcc/c_abi/ffi_conformance build/libsovffi.so
 
