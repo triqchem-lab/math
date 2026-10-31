@@ -43,6 +43,10 @@ jobs:
       - name: Configure
         run: cmake --preset ${{ matrix.preset }}
 
+      - name: ABI symbol gate
+        if: matrix.preset == 'linux-gcc'
+        run: python c_abi/engineering/check_abi_baseline.py
+
       - name: Build
         run: cmake --build --preset ${{ matrix.preset }}
 
