@@ -148,3 +148,37 @@ jobs:
         run: |
           grep -oE '\-fhardened|\-D_FORTIFY_SOURCE=3|\-fstack-protector-strong|\-ftrivial-auto-var-init=zero' \
             build/linux-gcc-hardened/compile_commands.json | sort -u
+
+  # ── Haskell 实现（ELF .so：GNU ld 按名字导出，无 PE 的限制）──────────────
+  hs-ffi:
+    name: Haskell FFI (Linux .so)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: haskell-actions/setup@v2
+        with:
+          ghc-version: '9.14.1'
+          cabal-version: 'latest'
+
+      - name: Install Ninja
+        run: sudo apt-get update && sudo apt-get install -y ninja-build
+
+      - name: Build Haskell C library
+        run: bash hs/sov-math/engineering/build_ffi_hs.sh "$PWD/build/libsovffi.so"
+
+      - name: Verify exports match ABI baseline
+        run: |
+          nm -D --defined-only build/libsovffi.so | awk '$2=="T"{print $3}' | sort -u > /tmp/hs-exports.txt
+          echo "hs exported symbols: $(wc -l < /tmp/hs-exports.txt)"
+          diff c_abi/engineering/abi-baseline.txt /tmp/hs-exports.txt \
+            && echo "✅ hs 导出 == 契约基线（119 个）"
+
+      - name: Build conformance tester
+        run: |
+          cmake --preset linux-gcc
+          cmake --build --preset linux-gcc
+
+      - name: Run conformance against hs implementation
+        run: ./build/linux-gcc/c_abi/ffi_conformance build/libsovffi.so
+
