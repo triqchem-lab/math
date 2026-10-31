@@ -14,11 +14,23 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # 优化标志 —— 按编译器分派:
 #   GCC/Clang: -mavx2 -march=native（在构建机上探测最优指令集）
 #   MSVC:      不认上面两个开关，用 /arch:AVX2 + /O2
+# 目标架构判定：VAVX3 与 -mavx2 都是 x86-64 专有；Apple Silicon (arm64) 走标量路径
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|amd64|x86|i[3-6]86)$")
+    set(SOV_IS_X86 TRUE)
+else()
+    set(SOV_IS_X86 FALSE)
+endif()
+
 if(MSVC)
     set(SOV_ARCH_FLAGS "/arch:AVX2")
     set(SOV_OPT_FLAGS  "/O2")
 else()
-    set(SOV_ARCH_FLAGS "-mavx2 -march=native")
+    if(SOV_IS_X86)
+        set(SOV_ARCH_FLAGS "-mavx2 -march=native")
+    else()
+        # arm64（Apple Silicon）：NEON 默认启用，clang 不接受 -mavx2
+        set(SOV_ARCH_FLAGS "")
+    endif()
     set(SOV_OPT_FLAGS  "-O3")
 endif()
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${SOV_ARCH_FLAGS} ${SOV_OPT_FLAGS}")
@@ -37,9 +49,13 @@ target_include_directories(sov_math INTERFACE
 
 target_compile_features(sov_math INTERFACE cxx_std_23)
 
-# VAVX3 虚拟 ISA 子项目
-add_subdirectory(vavx3)
-target_link_libraries(sov_math INTERFACE vavx3_lib)
+# VAVX3 虚拟 ISA 子项目（x86-64 专有：手写 AVX2 intrinsics）
+if(SOV_IS_X86)
+    add_subdirectory(vavx3)
+    target_link_libraries(sov_math INTERFACE vavx3_lib)
+else()
+    message(STATUS "VAVX3: skipped on ${CMAKE_SYSTEM_PROCESSOR} (AVX2 intrinsics are x86-64 only)")
+endif()
 
 # C 内核共享库（vavx3_s2_kernels）由 vavx3 子项目统一导入并挂到 vavx3_lib 上；
 # 顶层通过下面的 target_link_libraries(sov_math INTERFACE vavx3_lib) 传递。

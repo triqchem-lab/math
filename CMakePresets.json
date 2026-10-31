@@ -98,6 +98,7 @@
 
   "testPresets": [
     { "name": "linux-gcc",           "configurePreset": "linux-gcc",           "output": { "outputOnFailure": true } },
+    { "name": "linux-clang",         "configurePreset": "linux-clang",         "output": { "outputOnFailure": true } },
     { "name": "linux-gcc-hardened",  "configurePreset": "linux-gcc-hardened",  "output": { "outputOnFailure": true } },
     { "name": "windows-mingw",       "configurePreset": "windows-mingw",       "output": { "outputOnFailure": true } },
     { "name": "windows-mingw-hardened", "configurePreset": "windows-mingw-hardened", "output": { "outputOnFailure": true } },
