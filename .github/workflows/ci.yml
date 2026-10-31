@@ -169,7 +169,7 @@ jobs:
 
       - name: Verify exports match ABI baseline
         run: |
-          nm -D --defined-only build/libsovffi.so | awk '$2=="T"{print $3}' | sort -u > /tmp/hs-exports.txt
+          nm -D --defined-only build/libsovffi.so | awk '$2=="T"{print $3}' | sed 's/@@.*//' | sort -u > /tmp/hs-exports.txt
           echo "hs exported symbols: $(wc -l < /tmp/hs-exports.txt)"
           diff c_abi/engineering/abi-baseline.txt /tmp/hs-exports.txt \
             && echo "✅ hs 导出 == 契约基线（119 个）"
