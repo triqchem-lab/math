@@ -13,7 +13,25 @@
 
 #include "gf3_types.h"
 #include <cstdint>
-#include <x86intrin.h>  // [层0] _addcarry_u64, _addcarryx_u64
+
+// ── 进位链原语：x86-64 用硬件指令（ADCX/ADOX），其他架构用 __int128 等价实现 ──
+// Apple Silicon (arm64) 等非 x86 平台没有 <x86intrin.h>。__int128 加法与
+// _addcarry_u64 逐位一致（进位 = 高 64 位），不引入浮点、不改变语义。
+#if defined(__x86_64__) || defined(__i386__) || defined(_M_X64) || defined(_M_IX86)
+#  include <x86intrin.h>  // [层0] _addcarry_u64, _addcarryx_u64
+#else
+namespace sov_adc_detail {
+inline unsigned char addcarry_u64(unsigned char c, unsigned long long a,
+                                  unsigned long long b, unsigned long long* out) {
+    unsigned __int128 s = (unsigned __int128)a + (unsigned __int128)b + (unsigned __int128)c;
+    *out = (unsigned long long)s;
+    return (unsigned char)(s >> 64);
+}
+}  // namespace sov_adc_detail
+// 保持正文调用点不变：把 intrinsics 名映射到等价实现
+#  define _addcarry_u64(c, a, b, out)  ::sov_adc_detail::addcarry_u64((c), (a), (b), (out))
+#  define _addcarryx_u64(c, a, b, out) ::sov_adc_detail::addcarry_u64((c), (a), (b), (out))
+#endif
 
 namespace sov::math {
 
