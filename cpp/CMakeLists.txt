@@ -11,9 +11,18 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-# 优化标志
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx2 -O3 -march=native")
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mavx2 -O3 -march=native")
+# 优化标志 —— 按编译器分派:
+#   GCC/Clang: -mavx2 -march=native（在构建机上探测最优指令集）
+#   MSVC:      不认上面两个开关，用 /arch:AVX2 + /O2
+if(MSVC)
+    set(SOV_ARCH_FLAGS "/arch:AVX2")
+    set(SOV_OPT_FLAGS  "/O2")
+else()
+    set(SOV_ARCH_FLAGS "-mavx2 -march=native")
+    set(SOV_OPT_FLAGS  "-O3")
+endif()
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${SOV_ARCH_FLAGS} ${SOV_OPT_FLAGS}")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${SOV_ARCH_FLAGS} ${SOV_OPT_FLAGS}")
 
 # ============================================================================
 # 一、库目标: sov_math (headers-only + C内核绑定)
@@ -32,18 +41,9 @@ target_compile_features(sov_math INTERFACE cxx_std_23)
 add_subdirectory(vavx3)
 target_link_libraries(sov_math INTERFACE vavx3_lib)
 
-# 链接已有的C内核 .so
-# 直接指定 .so 文件绝对路径，避免 CMake 的 -l 前缀处理
-set(VAVX3_KERNEL_PATH "${CMAKE_CURRENT_SOURCE_DIR}/vavx3/vavx3_s2_kernels.so")
-if(EXISTS "${VAVX3_KERNEL_PATH}")
-    message(STATUS "VAVX3内核: ${VAVX3_KERNEL_PATH}")
-    # 使用 IMPORTED 目标直接链接 .so 文件
-    add_library(vavx3_kernel IMPORTED SHARED)
-    set_target_properties(vavx3_kernel PROPERTIES IMPORTED_LOCATION "${VAVX3_KERNEL_PATH}")
-    target_link_libraries(sov_math INTERFACE vavx3_kernel)
-else()
-    message(WARNING "VAVX3内核未找到 (${VAVX3_KERNEL_PATH}), 将使用纯C++回退路径")
-endif()
+# C 内核共享库（vavx3_s2_kernels）由 vavx3 子项目统一导入并挂到 vavx3_lib 上；
+# 顶层通过下面的 target_link_libraries(sov_math INTERFACE vavx3_lib) 传递。
+# 不在顶层重复定义 vavx3_kernel：CMake target 名全局唯一，两处定义会在文件存在时冲突。
 
 # ============================================================================
 # 二、测试
@@ -125,11 +125,14 @@ install(DIRECTORY include/ DESTINATION include/sov_math)
 install(TARGETS sov_math EXPORT sov_math_targets)
 
 # ============================================================================
-# C ABI: 标准 C 库目标 (共享 + 静态) + 一致性测试
+# C ABI 导出（本实现：C++）。契约头在 ../c_abi/include，与 rust / hs 实现共用。
+# 本目录只负责「C++ 实现 → 导出 libsov_ffi」；契约与一致性测试属于 ../c_abi。
 # ============================================================================
+set(SOV_C_ABI_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../c_abi/include")
 
 add_library(sov_ffi SHARED src/sov_ffi_cpp.cpp)
-target_include_directories(sov_ffi PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_include_directories(sov_ffi PUBLIC ${SOV_C_ABI_INCLUDE_DIR})
+target_link_libraries(sov_ffi PRIVATE sov_math)
 set_target_properties(sov_ffi PROPERTIES
     VERSION 1.0.0
     SOVERSION 1
@@ -137,18 +140,14 @@ set_target_properties(sov_ffi PROPERTIES
     VISIBILITY_INLINES_HIDDEN ON)
 
 add_library(sov_ffi_static STATIC src/sov_ffi_cpp.cpp)
-target_include_directories(sov_ffi_static PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_include_directories(sov_ffi_static PUBLIC ${SOV_C_ABI_INCLUDE_DIR})
+target_link_libraries(sov_ffi_static PRIVATE sov_math)
 
 # 标准安装布局: include/sov/*.h + lib/libsov_ffi.{so,a} + pkgconfig/sov-ffi.pc
 install(TARGETS sov_ffi sov_ffi_static
-        LIBRARY DESTINATION lib ARCHIVE DESTINATION lib)
-install(DIRECTORY include/sov/ DESTINATION include/sov FILES_MATCHING PATTERN "*.h")
-# pkg-config 模板中的 @PREFIX@ 由安装脚本填充 (脚本直装模式); CMake 安装用 CMAKE_INSTALL_PREFIX
-string(REPLACE "@PREFIX@" "${CMAKE_INSTALL_PREFIX}" SOV_PC_PREFIX "${CMAKE_CURRENT_SOURCE_DIR}/packaging/sov-ffi.pc.in")
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/packaging/sov-ffi.pc.in ${CMAKE_CURRENT_BINARY_DIR}/sov-ffi.pc @ONLY)
+        RUNTIME DESTINATION bin    # Windows: .dll 是 RUNTIME；其他平台无影响
+        LIBRARY DESTINATION lib    # Unix: .so / .dylib
+        ARCHIVE DESTINATION lib)   # 静态库；Windows 的导入库 (.dll.a) 也落这里
+install(DIRECTORY ${SOV_C_ABI_INCLUDE_DIR}/sov/ DESTINATION include/sov FILES_MATCHING PATTERN "*.h")
+configure_file(${SOV_C_ABI_INCLUDE_DIR}/../packaging/sov-ffi.pc.in ${CMAKE_CURRENT_BINARY_DIR}/sov-ffi.pc @ONLY)
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/sov-ffi.pc DESTINATION lib/pkgconfig)
-
-# ABI 一致性测试 (dlopen 三语言实现, 与 golden 快照比对)
-add_executable(ffi_conformance tests/ffi_conformance.c)
-target_link_libraries(ffi_conformance PRIVATE dl)
-add_test(NAME ffi_conformance_cpp COMMAND ffi_conformance $<TARGET_FILE:sov_ffi>)

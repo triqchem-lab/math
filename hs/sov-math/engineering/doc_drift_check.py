@@ -1,17 +1,21 @@
 #!/usr/bin/env python3
-"""文档漂移检查: docs/abi.md 的设施表必须与 cpp/include/sov/*.h 完全一致。
+"""文档漂移检查: docs/abi.md 的设施表必须与 c_abi/include/sov/*.h 完全一致。
 
 检查 ①每个头文件的符号集合与文档表逐名一致 ②计数一致 ③文档声明总数 = 实际总数。
+
+注：契约头位于 c_abi/include/sov/（2026-10-31 起从 cpp/include/sov/ 迁出，
+    c_abi 是三语言实现共用的 C ABI 契约层）。
 """
 import re, glob, os, sys
 
 ENG = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(ENG)))
 DOC = os.path.join(ROOT, "docs", "abi.md")
+C_ABI_INCLUDE = os.path.join(ROOT, "c_abi", "include", "sov")
 
 def main():
     hdr = {}
-    for f in sorted(glob.glob(os.path.join(ROOT, "cpp", "include", "sov", "*.h"))):
+    for f in sorted(glob.glob(os.path.join(C_ABI_INCLUDE, "*.h"))):
         syms = []
         for ln in open(f, encoding="utf-8"):
             ln = ln.split("/*")[0]

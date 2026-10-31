@@ -7,6 +7,7 @@
 #include <iostream>
 #include <cmath>
 #include <cstdint>
+#include <numbers>   // C++20 std::numbers::pi —— 严格 -std=c++23 下没有 POSIX 的 M_PI
 #include "vavx3_cpu_impl.h"
 
 using namespace vavx3;
@@ -130,10 +131,10 @@ void test_christoffel_symbols() {
 
     vavx3_512i center{}, left{}, right{}, top{}, bottom{};
     for (int i = 0; i < 16; i++) {
-        double theta = (double)i * M_PI / 8.0;
+        double theta = (double)i * std::numbers::pi / 8.0;
         center.s32[i] = (int32_t)(std::sin(theta) * 100);
-        left.s32[i]   = (int32_t)(std::sin(theta - M_PI/16) * 100);
-        right.s32[i]  = (int32_t)(std::sin(theta + M_PI/16) * 100);
+        left.s32[i]   = (int32_t)(std::sin(theta - std::numbers::pi/16) * 100);
+        right.s32[i]  = (int32_t)(std::sin(theta + std::numbers::pi/16) * 100);
         top.s32[i]    = (int32_t)(std::sin(theta) * 110);
         bottom.s32[i] = (int32_t)(std::sin(theta) * 90);
     }
@@ -218,7 +219,7 @@ void test_coherence_factor() {
 
     double tetra = 1.0 / std::sqrt(2.0);
     double phi = PHI_GOLDEN;
-    double phase_factor = std::cos(2.0 * M_PI / 36.0);
+    double phase_factor = std::cos(2.0 * std::numbers::pi / 36.0);
     double dissipation = 0.08;
 
     double coherence_theory = tetra * phi * phase_factor * (1.0 - dissipation);

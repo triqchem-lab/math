@@ -2,11 +2,57 @@
 
 > **这是我们对外的唯一承诺面**：`dist/include/sov/` 的头 + 动态库导出的符号。
 > 三语言实现（cpp / rust / hs）**逐符号等价**，可由任意 C/C++/带 FFI 的宿主加载。
-> 单一事实源：`cpp/include/sov/*.h`（版本脚本 `cpp/packaging/sov_ffi.map` 由此自动生成）。
+> 单一事实源：`c_abi/include/sov/*.h`（版本脚本 `c_abi/packaging/sov_ffi.map` 由此自动生成）。
 
 > **当前状态（2026-10-28）**：119 符号 / 27 头；三语言 1420 行逐行一致；ABI 1.1（A₄/2A₄ 族新增 48 符号）；总闸门全绿。
 > 交接与待办见 [`docs/handoff-2026-10-19.md`](handoff-2026-10-19.md)。
 > ⚠ 已知欠账：**Agda 侧数字根形式化陈旧**（只有 `n % 9`，无经典数字根），见 §17 与交接文档 §四。
+
+## 〇、目录结构（2026-10-31 重构）
+
+C ABI 的**契约**与**实现**分离：三语言实现各自独立可用，`c_abi` 只承载共同契约。
+
+```
+math/
+├── c_abi/                        ← 契约层（独立 CMake 项目，不依赖任何实现）
+│   ├── include/sov/*.h           30 个公共头（cpp / rust / hs 共用）
+│   ├── include/sov_ffi.h         兼容转发头（旧写法 #include "sov_ffi.h"）
+│   ├── tests/ffi_conformance.c   跨实现一致性测试（dlopen / LoadLibrary）
+│   ├── examples/hello_sov*.c     C99 与 C23 两种消费示例
+│   ├── packaging/                pkg-config 模板 + GNU version script
+│   └── CMakeLists.txt            独立构建；-DSOV_FFI_LIBRARY=<lib> 指定待验证实现
+├── cpp/                          ← C++ 实现（独立 CMake 项目）
+│   ├── include/*.h               内部数学头（不对外暴露）
+│   ├── src/sov_ffi_cpp.cpp       C ABI 导出实现（extern "C"）
+│   └── CMakeLists.txt            产出 libsov_ffi（SHARED + STATIC）
+├── rust/sov-math/                ← Rust 实现（独立 Cargo workspace）
+│   └── sov-guard                 crate-type = ["rlib", "cdylib"] → sov_guard.dll
+└── hs/sov-math/                  ← Haskell 实现（独立 Cabal 项目）
+    └── src/Sov/FFI.hs            120 个 foreign export ccall
+```
+
+**依赖方向**：`c_abi` 不依赖任何实现；三个实现各自引用 `c_abi/include`。
+**验证方向**：`c_abi` 的一致性测试可对**任意**实现库运行，是"C 作为跨语言中转站"的落地判据。
+
+## 〇之二、数值口径（LUT 生成标准）
+
+| 项 | 规定 | 依据 |
+|---|---|---|
+| 高精度金标准 | mpmath **130 位十进制**，Q128.384 定点 | `hs/sov-math/engineering/gen_wide_consts.py`（三语言同源） |
+| 舍入口径 | `int(x + 0.5)`（round，**不是 floor**） | 同上 `mant()` |
+| rsqrt LUT 生成 | `1/√(m/DIM + eps) × 65536 + 0.5` | rust `vavx3.rs:124` 与 cpp `gf3_types.h` 一致 |
+| 消费语义 | `((p·rs + 32768) >> 16) mod 3` | **hs `L2Ops.hs` 为准**（零浮点，LUT 外部注入） |
+| 编译期开方 | 牛顿迭代 60 次（GCC/Clang 都能在 `consteval` 中求值） | `cpp/include/gf3_types.h` 注释含误差界论证 |
+
+**误差界结论（不是"测试通过"，是可证明的余量）**：
+
+- 覆盖 DIM ∈ {24, 144, 1200, 1440}，共 **2812 个 Q16 LUT 元素**，与 130 位金标准**逐位一致**；
+- 最小舍入间隙 **1.058e-4**（DIM=1440, eps=1e-5, m=805，精确值 87651.499894192105208）；
+- double 在该量级（≤2.1e7）的绝对误差上界 **2.33e-9**；
+- 间隙/误差 = **45382 倍** ⇒ 舍入方向不可能被 double 误差翻转。
+
+> hs 端**不生成** rsqrt LUT（`L2Ops.hs:50` 注释：Q16.rsqrt 表外部注入，零浮点），只定义消费语义；
+> 因此"数学标准"= hs 的消费语义 + 130 位金标准生成器，cpp/rust 的 LUT 生成必须与之对齐。
 
 ## 一、符号清单（119 个，分 27 个设施头）
 
@@ -40,7 +86,7 @@
 | `<sov/hopf.h>` | 9 | `sov_hopf_base_card`, `sov_hopf_proj`, `sov_hopf_fiber_size`, `sov_hopf_fiber_distribution`, `sov_spin_fiber_card`, `sov_spin_total_card`, `sov_spin_phase_act`, `sov_spin_alpha_pow`, `sov_section_dims` |
 | `<sov/carrier.h>` | 7 | `sov_carrier_a4_dim`, `sov_carrier_a4_plancherel`, `sov_carrier_a4_basis_norm`, `sov_carrier_2a4_dim`, `sov_carrier_2a4_bilinear_schur`, `sov_carrier_2a4_fs_indicator`, `sov_carrier_2a4_coefficient_gram_det` |
 
-契约外符号 **零容忍**：`engineering/verify_export_surface.sh` 断言三语言 dynsym **恰好等于**上表
+契约外符号 **零容忍**：`hs/sov-math/engineering/verify_export_surface.sh` 断言三语言 dynsym **恰好等于**上表
 （缺失 = ABI 不完整；多出 = 导出面失控）。实测：hs 未加版本脚本时泄漏 1224 个 GHC 运行时符号。
 
 ## 二、调用约定（所有符号一致）
@@ -68,17 +114,17 @@
 - **语言档位**：头文件支持 C99..C23 与 C++11..C++23（19 档位 × gcc/clang 矩阵全绿），
   语言探测宏 `SOV_HAS_C99/C11/C17/C23`、`SOV_HAS_CXX11/17/23`
 - **合规**：标识符全部落 `sov_`/`SOV_` 私有前缀，不侵占 ISO 保留空间（C99 §7.1.3/§7.26）；
-  每个头单头自足（§7.1.2）；见 `engineering/c99_compliance_check.py`
+  每个头单头自足（§7.1.2）；见 `hs/sov-math/engineering/c99_compliance_check.py`
 
 ## 四、闸门（改 ABI 必须同时过）
 
 | 闸门 | 命令 | 判据 |
 |---|---|---|
-| 导出面 | `engineering/verify_export_surface.sh` | 三语言 dynsym == 契约（缺/多皆红） |
-| 实现一致 | `engineering/ffi_conformance.sh` | 三语言同一向量 **1420 行逐行相同** |
-| 头合规 | `engineering/c99_compliance_check.py` | 保留标识符 / 自足性 / 版本闸门 |
-| 档位矩阵 | `engineering/c_standard_matrix.sh` | C99..C23 × C++11..23 × gcc/clang |
-| 安装 | `engineering/install_c_abi.sh` | `dist/` 标准布局 + pkg-config 三套 |
+| 导出面 | `hs/sov-math/engineering/verify_export_surface.sh` | 三语言 dynsym == 契约（缺/多皆红） |
+| 实现一致 | `hs/sov-math/engineering/ffi_conformance.sh` | 三语言同一向量 **1420 行逐行相同** |
+| 头合规 | `hs/sov-math/engineering/c99_compliance_check.py` | 保留标识符 / 自足性 / 版本闸门 |
+| 档位矩阵 | `hs/sov-math/engineering/c_standard_matrix.sh` | C99..C23 × C++11..23 × gcc/clang |
+| 安装 | `hs/sov-math/engineering/install_c_abi.sh` | `dist/` 标准布局 + pkg-config 三套 |
 
 ## 五、语义约定中必须显式规定的边界（实测踩过）
 
@@ -216,7 +262,7 @@ cpp 的 `NSESolver::step` 与 rust/hs 的 `step_once` 在 delta 公式上不同�
 | `sov_dayan_multiplier` | 解析 `DayanState.agda` 的 `dayan-init`/`dayan-step` 原文形态；用 ℤ 版独立实现核对 ABI | ✅ 1101/1101 互素对（m≤60），校验和 823007911 |
 | `sov_crt2` | 广义二模 CRT：验证解满足两同余且唯一落在 [0,m₁m₂) | ✅ 576/576（模数对取自 {2,3,5,7,11}），物不知数 → 23 |
 
-核对器：`engineering/verify_agda_anchors.py`（直接读 Agda 源文件，**不读我方表**；已并入 `abi_check.sh` 第 4.5 步）。
+核对器：`hs/sov-math/engineering/verify_agda_anchors.py`（直接读 Agda 源文件，**不读我方表**；已并入 `abi_check.sh` 第 4.5 步）。
 当前覆盖 **4300 项 + 17496 trits（NSE 四步全状态）**（含全域穷尽类）（含全域穷尽类）（含全域穷尽类）（含全域穷尽类）（含全域穷尽类）（含全域穷尽类）（含全域穷尽类）（含全域穷尽类）（含全域穷尽类）（含全域穷尽类）（含全域穷尽类）：十二律 12 + 损益 12 + 余数 12 + 闭合常数 2 + GF(9) 81 + Eisenstein 625 + CRT 12 + Trit 18 + DC mixedOp 144 + 仲吕闭合 7 + **Tryte 729 + pack5 243 + Doz 数位 12 + Doz 往返 20001 + 数字根 4002**。
 
 负向控制（已实测三条，判官确实会说「不」）：
@@ -481,7 +527,7 @@ abi_dr(n) = 0            (n = 0)
 
 ## 十八、⚠ 找到一处「假验证」：printf 参数求值顺序（已修）
 
-`cpp/tests/ffi_conformance.c` 旧代码：
+`c_abi/tests/ffi_conformance.c` 旧代码：
 
 ```c
 printf("sun%d=%d/%d c3=%d/%d\n", a, tsun(a, &o1), o1, tc3(a, &o2), o2);

@@ -8,7 +8,7 @@
 set -uo pipefail
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 LIBDIR="${1:-$ROOT/dist/lib}"
-MAP="$ROOT/cpp/packaging/sov_ffi.map"
+MAP="$ROOT/c_abi/packaging/sov_ffi.map"
 CONTRACT=$(grep -oP '^\s+\Ksov_[a-z0-9_]+(?=;)' "$MAP" | sort -u)
 NC=$(echo "$CONTRACT" | wc -l)
 fail=0

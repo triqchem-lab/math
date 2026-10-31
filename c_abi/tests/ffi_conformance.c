@@ -4,12 +4,17 @@
  * 输出: 每行 "name=value"; 三语言输出必须**逐行相同** (ABI 等价判据)。
  * 覆盖: 元信息 / GF(3) / GF(9) / 环 / DC / 桥 / 宽定点 / 陈数 / 错误码
  */
-#include <dlfcn.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
-#include <unistd.h>
 #include <stdlib.h>
+
+/* ── 跨平台动态库加载：经 PAL 抽象层，本文件不出现平台宏 ──────────────
+ * 接口声明在 src/platform/dl.h，实现在：
+ *   POSIX → src/platform/dl_posix.c（dlopen/dlsym/dlclose，链接 -ldl）
+ *   Win32 → src/platform/dl_win32.c（LoadLibraryA/GetProcAddress/FreeLibrary）
+ * 由 CMake 按目标平台选择编译哪个实现。 */
+#include "platform/dl.h"
 
 typedef int32_t (*fn_abi)(void);
 typedef int32_t (*fn_t2)(uint8_t, uint8_t, uint8_t *);
@@ -32,8 +37,8 @@ extern void hs_init(int *argc, char ***argv) __attribute__((weak));
 
 static void *H;
 static void *sym(const char *n) {
-    void *p = dlsym(H, n);
-    if (!p) { fprintf(stderr, "missing symbol: %s\n", n); _exit(2); }
+    void *p = sov_dlsym(H, n);
+    if (!p) { fprintf(stderr, "missing symbol: %s\n", n); sov_exit(2); }
     return p;
 }
 
@@ -41,11 +46,11 @@ int main(int argc, char **argv) {
     if (argc < 2) { fprintf(stderr, "usage: %s lib.so\n", argv[0]); return 1; }
     if (hs_init) { hs_init(NULL, NULL); printf("host_hs_init=1\n"); }
     else printf("host_hs_init=0\n");
-    H = dlopen(argv[1], RTLD_NOW | RTLD_GLOBAL);
-    if (!H) { fprintf(stderr, "dlopen: %s\n", dlerror()); return 1; }
+    H = sov_dlopen(argv[1]);
+    if (!H) { fprintf(stderr, "dlopen: %s\n", sov_dlerror()); return 1; }
 
     /* 运行时初始化 (Haskell 需要 hs_init; 其他语言空操作) */
-    { fn_abi rinit = (fn_abi)dlsym(H, "sov_runtime_init");
+    { fn_abi rinit = (fn_abi)sov_dlsym(H, "sov_runtime_init");
       if (rinit) { int32_t r = rinit(); printf("runtime_init=%d\n", r); }
       else printf("runtime_init=absent\n"); }
 
@@ -1805,9 +1810,9 @@ int main(int argc, char **argv) {
 
     /* 空指针保护 */
     printf("err_null=%d\n", tadd(0, 0, NULL));
-    { fn_abi rfini = (fn_abi)dlsym(H, "sov_runtime_fini");
+    { fn_abi rfini = (fn_abi)sov_dlsym(H, "sov_runtime_fini");
       if (rfini) printf("runtime_fini=%d\n", rfini());
       else printf("runtime_fini=absent\n"); }
-    dlclose(H);
+    sov_dlclose(H);
     return 0;
 }

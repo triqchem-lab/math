@@ -197,3 +197,53 @@ cpp/hs 经 `-Wl,--version-script` 钉死导出面（hs 从 **1258 → 37**，杜
 - 全库无 `Float`/`Double`（`-Wall -Werror` 下引入即编译失败可审计）。
 - `{0,1,2}` 编码：`Trit` 只有 3 个构造子，`{-1,0,1}` 不可表达。
 - 跨层操作必须走 `Sov.Math.Bridge`（陈数锁定才允许逆向桥）。
+
+---
+
+## 工程实践：安全治理 / 跨平台 / 性能
+
+> 本节与 `cpp/README.md`、`rust/sov-math/README.md` 的口径一致，三侧共同构成 sov-math 的工程基线。
+
+### 一、安全治理
+
+| 层面 | 做法 |
+|---|---|
+| **类型安全** | 强类型 `Trit`/`RingElement`/`Eis` 等，非法状态不可构造（见 §强类型化对照表） |
+| **FFI 边界** | 120 个 `foreign export ccall`；每个 wrapper 先校验 `Ptr` 非空，写入调用方缓冲区（库内零分配） |
+| **编译期硬化** | GHC 的 `-O2` + C 侧 `-fstack-protector-strong`（见 `engineering/c_standard_matrix.sh`） |
+| **数值严谨性** | 常量表以 mpmath **130 位十进制**为金标准（`engineering/gen_wide_consts.py`），舍入 `int(x+0.5)` |
+| **形式化锚定** | 关键层与 Agda 形式化库对齐（`docs/abi.md` §九） |
+
+不安全点集中在 `src/Sov/FFI.hs`：所有 `unsafePerformIO` / 裸指针写入都应有注释说明前提。
+
+### 二、跨平台
+
+| 项 | 说明 |
+|---|---|
+| **构建** | Cabal 原生跨平台；Windows 需 MSYS2 提供 `gcc`（本仓库用 UCRT64 的 GCC 16.2.0） |
+| **C 库产出** | `engineering/build_ffi_hs.sh` → `libsovffi.{dll,so,dylib}`（需 GHC RTS） |
+| **GNU 链接脚本** | `c_abi/packaging/sov_ffi.map` 仅在 ELF 目标生效；Windows 上跳过 |
+| **一致性验证** | `engineering/verify_export_surface.sh` 断言三语言 dynsym == 契约（需在 Linux/ELF 上跑） |
+
+> Windows 上 Haskell 侧的 C 库需要随包附带 `libHSrts-*.dll`、`libgmp-*.dll` 等 GHC 运行时；
+> 若只是给 C 消费者用，建议优先用 cpp / rust 实现（无 GHC 运行时依赖）。
+
+### 三、性能
+
+| 项 | 现状 / 建议 |
+|---|---|
+| GHC 优化 | `-O2`（`ghc-options`） |
+| 零浮点 | 全库整数域，无 `Double`/`Float` 运行时 |
+| **prim 调用约定**（可选激进优化） | 对极短、不回调 Haskell 的叶子 C 函数，可用 `foreign import prim` 绕过 STG 寄存器保存——**仅限确定不触发 GC 的确定性调用** |
+| 实测数据 | 见 §实测性能/能耗（rho 450k ops，Xeon E5-2686 v4） |
+
+### 四、与其它实现的对接
+
+```bash
+# 1. 构建 hs 的 C 库
+./engineering/build_ffi_hs.sh /tmp/libsovffi.dll
+
+# 2. 用统一的契约头做一致性验证（c_abi 提供测试程序）
+cmake -S ../../c_abi -B /tmp/cabi -G Ninja -DSOV_FFI_LIBRARY=/tmp/libsovffi.dll
+cmake --build /tmp/cabi && ctest --test-dir /tmp/cabi --output-on-failure
+```

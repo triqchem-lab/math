@@ -1,0 +1,106 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": { "major": 3, "minor": 25, "patch": 0 },
+
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "generator": "Ninja",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+      }
+    },
+    {
+      "name": "base-hardened",
+      "hidden": true,
+      "inherits": "base",
+      "cacheVariables": { "SOV_HARDENED": "ON" }
+    },
+
+    {
+      "name": "linux-gcc",
+      "displayName": "Linux / GCC (native)",
+      "description": "Linux 原生 GCC，标准路径",
+      "inherits": "base",
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Linux" },
+      "cacheVariables": { "CMAKE_C_COMPILER": "gcc", "CMAKE_CXX_COMPILER": "g++" }
+    },
+    {
+      "name": "linux-clang",
+      "displayName": "Linux / Clang (native)",
+      "inherits": "base",
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Linux" },
+      "cacheVariables": { "CMAKE_C_COMPILER": "clang", "CMAKE_CXX_COMPILER": "clang++" }
+    },
+    {
+      "name": "linux-gcc-hardened",
+      "displayName": "Linux / GCC / hardened",
+      "description": "生产构建：-fhardened（GCC15+）+ 全部安全标志",
+      "inherits": "base-hardened",
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Linux" },
+      "cacheVariables": { "CMAKE_C_COMPILER": "gcc", "CMAKE_CXX_COMPILER": "g++" }
+    },
+
+    {
+      "name": "windows-mingw",
+      "displayName": "Windows / MinGW-w64 GCC (native)",
+      "description": "Windows 原生 MinGW-w64（MSYS2 ucrt64 或 winlibs）",
+      "inherits": "base",
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Windows" }
+    },
+    {
+      "name": "windows-mingw-clang",
+      "displayName": "Windows / Clang + MinGW ABI",
+      "description": "LLVM/Clang 走 MinGW ABI（与 libstdc++ 兼容）",
+      "inherits": "base",
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Windows" },
+      "cacheVariables": { "CMAKE_C_COMPILER": "clang", "CMAKE_CXX_COMPILER": "clang++" }
+    },
+    {
+      "name": "windows-mingw-hardened",
+      "displayName": "Windows / MinGW / hardened",
+      "inherits": "base-hardened",
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Windows" }
+    },
+
+    {
+      "name": "macos-appleclang",
+      "displayName": "macOS / Apple Clang (native)",
+      "description": "唯一合规路径：Xcode CLT 的 Apple clang",
+      "inherits": "base",
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Darwin" },
+      "cacheVariables": { "CMAKE_C_COMPILER": "clang", "CMAKE_CXX_COMPILER": "clang++" }
+    },
+
+    {
+      "name": "cross-windows-from-linux",
+      "displayName": "Linux host → Windows target (MinGW cross)",
+      "description": "在 Linux 上交叉编译 Windows 产物（需 apt install g++-mingw-w64-x86-64）",
+      "inherits": "base",
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Linux" },
+      "toolchainFile": "${sourceDir}/cmake/toolchain-windows-mingw.cmake"
+    }
+  ],
+
+  "buildPresets": [
+    { "name": "linux-gcc",           "configurePreset": "linux-gcc" },
+    { "name": "linux-clang",         "configurePreset": "linux-clang" },
+    { "name": "linux-gcc-hardened",  "configurePreset": "linux-gcc-hardened" },
+    { "name": "windows-mingw",       "configurePreset": "windows-mingw" },
+    { "name": "windows-mingw-clang", "configurePreset": "windows-mingw-clang" },
+    { "name": "windows-mingw-hardened", "configurePreset": "windows-mingw-hardened" },
+    { "name": "macos-appleclang",    "configurePreset": "macos-appleclang" },
+    { "name": "cross-windows-from-linux", "configurePreset": "cross-windows-from-linux" }
+  ],
+
+  "testPresets": [
+    { "name": "linux-gcc",           "configurePreset": "linux-gcc",           "output": { "outputOnFailure": true } },
+    { "name": "linux-gcc-hardened",  "configurePreset": "linux-gcc-hardened",  "output": { "outputOnFailure": true } },
+    { "name": "windows-mingw",       "configurePreset": "windows-mingw",       "output": { "outputOnFailure": true } },
+    { "name": "windows-mingw-hardened", "configurePreset": "windows-mingw-hardened", "output": { "outputOnFailure": true } },
+    { "name": "macos-appleclang",    "configurePreset": "macos-appleclang",    "output": { "outputOnFailure": true } }
+  ]
+}

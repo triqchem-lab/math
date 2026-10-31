@@ -9,11 +9,11 @@ CFLAGS="-O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer"
 
 echo "[1/3] 构建 ASan/UBSan 版 cpp 库"
 g++ $CFLAGS -std=c++23 -fPIC -shared -I "$ROOT/cpp/include" \
-    -Wl,--version-script="$ROOT/cpp/packaging/sov_ffi.map" \
+    -Wl,--version-script="$ROOT/c_abi/packaging/sov_ffi.map" \
     "$ROOT/cpp/src/sov_ffi_cpp.cpp" -o "$TMP/libsov_ffi_asan.so" || exit 2
 
 echo "[2/3] 全量一致性向量 (约 600 万次调用)"
-gcc $CFLAGS -std=c11 "$ROOT/cpp/tests/ffi_conformance.c" -o "$TMP/conf" -ldl || exit 2
+gcc $CFLAGS -std=c11 "$ROOT/c_abi/tests/ffi_conformance.c" -o "$TMP/conf" -ldl || exit 2
 ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=0 \
     "$TMP/conf" "$TMP/libsov_ffi_asan.so" > "$TMP/out.txt" 2> "$TMP/err1.txt"
 rc=$?
@@ -35,7 +35,7 @@ dfree=$(grep -c 'nse_double_free=0,0,-3' "$TMP/ep.txt" || true)
     || { echo "🔴 错误路径: exit=$rc sanitizer=$bad2 非法返回码=$nonnull 重复释放=$dfree"; head -5 "$TMP/err2.txt"; exit 1; }
 echo "[4/4] 多句柄并发 (TSan)"
 g++ -O1 -g -std=c++23 -fPIC -shared -fsanitize=thread -I "$ROOT/cpp/include" \
-    -Wl,--version-script="$ROOT/cpp/packaging/sov_ffi.map" \
+    -Wl,--version-script="$ROOT/c_abi/packaging/sov_ffi.map" \
     "$ROOT/cpp/src/sov_ffi_cpp.cpp" -o "$TMP/libsov_tsan.so" || exit 2
 gcc -O1 -g -std=c11 -fsanitize=thread -pthread "$ROOT/cpp/tests/abi_thread_check.c" -o "$TMP/th_tsan" -ldl || exit 2
 "$TMP/th_tsan" "$TMP/libsov_tsan.so" > "$TMP/th.txt" 2> "$TMP/err3.txt"

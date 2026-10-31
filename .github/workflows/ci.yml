@@ -1,0 +1,122 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ── 三平台原生构建 + 测试 ────────────────────────────────────────────────
+  build-test:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            name: Linux / GCC
+            preset: linux-gcc
+          - os: ubuntu-latest
+            name: Linux / Clang
+            preset: linux-clang
+          - os: windows-latest
+            name: Windows / MinGW-w64
+            preset: windows-mingw
+          - os: macos-latest
+            name: macOS / Apple Clang
+            preset: macos-appleclang
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Linux / macOS：装 ninja（cmake 已预装）
+      - name: Install Ninja (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y ninja-build
+
+      - name: Install Ninja (macOS)
+        if: runner.os == 'macOS'
+        run: brew install ninja || true
+
+      # Windows：MSYS2 提供 mingw-w64 GCC（与本地开发一致：UCRT64 运行时）
+      - name: Setup MSYS2 + MinGW (Windows)
+        if: runner.os == 'Windows'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-ninja
+            mingw-w64-ucrt-x86_64-cmake
+
+      - name: Configure
+        shell: ${{ runner.os == 'Windows' && 'msys2 {0}' || 'bash' }}
+        run: cmake --preset ${{ matrix.preset }}
+
+      - name: Build
+        shell: ${{ runner.os == 'Windows' && 'msys2 {0}' || 'bash' }}
+        run: cmake --build --preset ${{ matrix.preset }}
+
+      - name: Test
+        shell: ${{ runner.os == 'Windows' && 'msys2 {0}' || 'bash' }}
+        run: ctest --preset ${{ matrix.preset }} --output-on-failure
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.preset }}
+          path: |
+            build/${{ matrix.preset }}/cpp/libsov_ffi.*
+            build/${{ matrix.preset }}/c_abi/ffi_conformance*
+          if-no-files-found: warn
+          retention-days: 7
+
+  # ── 交叉编译验证：Linux 主机 → Windows 产物 ─────────────────────────────
+  cross-windows:
+    name: Linux host → Windows target (MinGW cross)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install cross toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build g++-mingw-w64-x86-64
+
+      - name: Configure (cross)
+        run: cmake --preset cross-windows-from-linux
+
+      - name: Build
+        run: cmake --build --preset cross-windows-from-linux
+
+      - name: Verify PE output
+        run: |
+          file build/cross-windows-from-linux/cpp/libsov_ffi.dll
+          file build/cross-windows-from-linux/c_abi/ffi_conformance.exe
+
+  # ── 安全硬化构建（Linux，-fhardened）────────────────────────────────────
+  hardened:
+    name: Linux / GCC / hardened (-fhardened)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Ninja
+        run: sudo apt-get update && sudo apt-get install -y ninja-build
+      - name: Configure (hardened)
+        run: cmake --preset linux-gcc-hardened
+      - name: Build
+        run: cmake --build --preset linux-gcc-hardened
+      - name: Test
+        run: ctest --preset linux-gcc-hardened --output-on-failure
+      - name: Verify hardening flags applied
+        run: |
+          # 确认 -fhardened 或逐项回退标志确实进入编译命令
+          grep -oE '\-fhardened|\-D_FORTIFY_SOURCE=3|\-fstack-protector-strong|\-ftrivial-auto-var-init=zero' \
+            build/linux-gcc-hardened/compile_commands.json | sort -u

@@ -11,7 +11,7 @@ mkdir -p "$OUT" "$ROOT/hs/sov-math/build"
 cd "$ROOT"
 
 echo "[1/4] 构建 cpp .so"
-g++ -O2 -std=c++23 -fPIC -shared -I cpp/include cpp/src/sov_ffi_cpp.cpp -o "$OUT/libsov_ffi.so"
+g++ -O2 -std=c++23 -fPIC -shared -I c_abi/include -I cpp/include cpp/src/sov_ffi_cpp.cpp -o "$OUT/libsov_ffi.so"
 
 echo "[2/4] 构建 rust .so"
 (cd rust/sov-math && cargo build --release -p sov-guard >/dev/null 2>&1)
@@ -19,8 +19,8 @@ RUST_SO="$ROOT/rust/sov-math/target/release/libsov_guard.so"
 
 echo "[3/4] 构建 hs .so + 宿主驱动"
 hs/sov-math/engineering/build_ffi_hs.sh "$OUT/libsovffi.so" >/dev/null
-gcc -O2 -std=c11 cpp/tests/ffi_conformance.c -o "$ROOT/hs/sov-math/build/ffi_conf" -ldl
-ghc -no-hs-main -O2 cpp/tests/ffi_conformance.c -o "$ROOT/hs/sov-math/build/ffi_conf_hs" \
+gcc -O2 -std=c11 c_abi/tests/ffi_conformance.c -o "$ROOT/hs/sov-math/build/ffi_conf" -ldl
+ghc -no-hs-main -O2 c_abi/tests/ffi_conformance.c -o "$ROOT/hs/sov-math/build/ffi_conf_hs" \
     -optl -Wl,--no-as-needed -optl -L"$RTSDIR" -optl -lHSrts-1.0.3_thr-ghc9.14.1 >/dev/null 2>&1
 
 echo "[4/4] 运行并比对"

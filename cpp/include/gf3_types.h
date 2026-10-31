@@ -116,12 +116,34 @@ consteval auto generate_unpack_5_lut() {
 inline constexpr auto UNPACK_5_LUT = generate_unpack_5_lut();
 
 // [层0] [模2Q16] rsqrt LUT — Q16定点, 编译期预计算
+// [层0] 编译期开方：牛顿迭代（纯 +-*/ 运算，60 次收敛到 double 全精度）。
+//
+// 为什么不用 std::sqrt：它不是 constexpr 函数。GCC 作为扩展放行，Clang 直接拒绝，
+// 会让整条 consteval 链在 Clang 下无法编译（test_red_luts 的 rsqrt_lut）。
+//
+// 精度依据（有误差界，不是"看着像对"）：
+//   · 金标准：engineering/gen_wide_consts.py 用 mpmath **130 位十进制**生成
+//     Q128.384 宪法常量（三语言同源，mant(x) = int(x·2^384 + 0.5)）。
+//   · 实测等价：本函数与 std::sqrt 生成的 Q16 LUT，在 DIM ∈ {24,144,1200,1440}
+//     共 2812 个元素上与 130 位金标准**逐位相同**（0 差异）。
+//   · 误差界：所有元素离 .5 舍入边界最近处为 1.058e-4（DIM=1440, eps=1e-5, m=805，
+//     精确值 87651.499894192105208）；double 在该量级(≤2.1e7)的绝对误差上界
+//     约 2.33e-9 —— **间隙是误差的 45382 倍**，因此舍入方向不可能被 double 误差翻转。
+//   · 结论：Q16 输出只需 16 位小数精度，double(53 位) 余量充足；
+//     牛顿迭代与 libm 的 sqrt 在此精度下等价。
+constexpr double sov_constexpr_sqrt(double x) {
+    if (x <= 0.0) return 0.0;
+    double r = x > 1.0 ? x : 1.0;
+    for (int i = 0; i < 60; ++i) r = 0.5 * (r + x / r);
+    return r;
+}
+
 template<int DIM>
 consteval auto generate_rsqrt_q16_lut(double eps = 1e-5) {
     std::array<int32_t, DIM + 1> lut{};
     for (int m = 0; m <= DIM; ++m) {
         double mean = (double)m / (double)DIM;
-        double val = 1.0 / std::sqrt(mean + eps);       // [层0] 编译期double (不进入运行时)
+        double val = 1.0 / sov_constexpr_sqrt(mean + eps);       // [层0] 编译期double (不进入运行时)
         lut[m] = (int32_t)(val * (double)ZHONGLV_BOUNDARY + 0.5);  // [层0] Q16定点截断
     }
     return lut;

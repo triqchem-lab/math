@@ -20,7 +20,7 @@ step() { printf "\n\033[1m[%s]\033[0m %s\n" "$1" "$2"; }
 
 step 1/6 "契约头 ↔ 版本脚本一致性"
 hs/sov-math/engineering/gen_export_map.sh >/dev/null
-if git diff --quiet -- cpp/packaging/sov_ffi.map; then
+if git diff --quiet -- c_abi/packaging/sov_ffi.map; then
     echo "✅ map 与公共头一致"
 else
     echo "🔴 map 与公共头不一致 (头已改但 map 未更新)"; fail=1
@@ -57,7 +57,7 @@ hs/sov-math/engineering/c_standard_matrix.sh | tail -1 || fail=1
 
 step 6/6 "semver 基线比对"
 CUR=$(mktemp)
-grep -oP '^\s+\Ksov_[a-z0-9_]+(?=;)' cpp/packaging/sov_ffi.map | sort > "$CUR"
+grep -oP '^\s+\Ksov_[a-z0-9_]+(?=;)' c_abi/packaging/sov_ffi.map | sort > "$CUR"
 BASE_SYMS=$(mktemp); grep -E '^sov_' "$BASE" | sort > "$BASE_SYMS"
 ADDED=$(comm -13 "$BASE_SYMS" "$CUR"); REMOVED=$(comm -23 "$BASE_SYMS" "$CUR")
 NADD=$(echo -n "$ADDED" | grep -c . || true); NREM=$(echo -n "$REMOVED" | grep -c . || true)

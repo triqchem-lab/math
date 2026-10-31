@@ -23,7 +23,7 @@ mkdir -p "$PREFIX/include/sov" "$PREFIX/lib/pkgconfig"
 
 echo "[1/5] 头文件"
 # 全部设施头 (umbrella + 契约 + types + 14 个细分头)
-install -m644 cpp/include/sov/*.h "$PREFIX/include/sov/"
+install -m644 c_abi/include/sov/*.h "$PREFIX/include/sov/"
 
 echo "[2/5] cpp 实现 (动态 soname + 静态)"
 g++ -O2 -std=c++23 -fPIC -fvisibility=hidden -I cpp/include \
@@ -47,7 +47,7 @@ echo "[5/5] pkg-config"
 mk_pc() { # name, libname, impl, extra
   sed -e "s|@PREFIX@|$PREFIX|" -e "s|@VERSION@|$VERSION|" \
       -e "s|@IMPL@|$3|" -e "s|@LIBNAME@|$2|" \
-      cpp/packaging/sov-ffi.pc.in > "$PREFIX/lib/pkgconfig/$1.pc"
+      c_abi/packaging/sov-ffi.pc.in > "$PREFIX/lib/pkgconfig/$1.pc"
 }
 mk_pc sov-ffi      sov_ffi      "cpp"
 mk_pc sov-ffi-rust sov_ffi_rust "rust"

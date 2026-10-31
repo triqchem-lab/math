@@ -207,6 +207,7 @@ int32_t sov_dc_translate(uint32_t n, uint8_t t, uint8_t k, uint8_t* t_out, uint8
     return SOV_OK;
 }
 
+extern "C++" {
 namespace {
 // 6-limb × 小整数 (u128 中间量, 溢出位丢弃 — 对齐 rust uint384_mul_u64)
 inline void mul_small(uint64_t limbs[6], uint64_t k) {
@@ -223,6 +224,7 @@ inline void shr_small(uint64_t limbs[6], int bits) {
         limbs[i] = (limbs[i] >> bits) | (i + 1 < 6 ? (limbs[i + 1] << (64 - bits)) : 0);
 }
 } // namespace
+}  // extern "C++"
 
 // 语义 = rust LcmAccumulator::step + bridge::step 的 12 步微泵 (逐步同配方)
 int32_t sov_lcm_step(uint64_t limbs[6], uint64_t delta, uint32_t* step_count) {
@@ -272,12 +274,14 @@ int32_t sov_chern_inject(int64_t* num, int64_t* den) {
 
 /* ══ 第二批 ══ */
 
+extern "C++" {
 namespace {
 // 十二律长度 (宪法固定序列, 与 loss_gain.h TWELVE_LENGTHS 同源)
 constexpr uint16_t kTwelveLengths[12] = {81,54,72,48,64,43,57,38,51,34,45,30};
 // 损益序列: 0=损 1=益 (末段连损)
 constexpr uint8_t kLossGain[12] = {0,1,0,1,0,1,0,1,0,1,0,0};
 } // namespace
+}  // extern "C++"
 
 // 与 Agda SunyiChain.LCM_REMAINDERS 逐项一致 (exact × 3^7)
 int32_t sov_sunyi_remainder(uint8_t tone, uint32_t* out) {
@@ -472,9 +476,11 @@ int32_t sov_chiral_collapse(int32_t torque_q16, uint8_t* out) {
 
 /* ══ 第四批 ══ */
 
+extern "C++" {
 namespace {
 inline char doz_char(uint64_t d) { return d < 10 ? char('0' + d) : (d == 10 ? 'A' : 'B'); }
 } // namespace
+}  // extern "C++"
 
 int32_t sov_format_doz(uint64_t v, char* buf, size_t cap, size_t* written) {
     if (!buf || !written) return SOV_ERR_NULL;
@@ -516,6 +522,7 @@ int32_t sov_tryte_unpack(uint16_t v, uint8_t t6[6]) {
 
 /* ══ 第五批: 孤子相变 (L5) ══ */
 
+extern "C++" {
 namespace {
 // Q32 整数正弦 (Taylor, 与 hs Soliton.sinQ32 同配方): sin(x) ≈ Σ (−1)^k x^(2k+1)/(2k+1)!
 // ⚠ 中间量必须 __int128: x ≈ 6.75e9 (π/2 Q32) ⇒ x² ≈ 4.55e19 > 2^63, int64 会溢出
@@ -532,6 +539,7 @@ inline int64_t sin_q32(int64_t x) {
     return int64_t(total);
 }
 } // namespace
+}  // extern "C++"
 
 int32_t sov_soliton_sin_q32(int64_t x_q32, int64_t* out) {
     if (!out) return SOV_ERR_NULL;
@@ -608,11 +616,14 @@ struct sov_nse_handle {
 
 /* 活句柄注册表: 使 sov_nse_free 可重复调用 (第二次返回 SOV_ERR_STATE, 不是 UB)。
  * 契约: 句柄本身非线程安全, 但多个句柄可跨线程; 故注册表加锁保护。 */
+extern "C++" {
 namespace {
 std::mutex g_nse_mtx;
 std::unordered_set<const sov_nse_handle*> g_nse_live;
 } // namespace
+}  // extern "C++"
 
+extern "C++" {
 namespace {
 inline int32_t nse_nonzero(const sov_nse_handle* h) {
     int32_t c = 0;
@@ -620,7 +631,9 @@ inline int32_t nse_nonzero(const sov_nse_handle* h) {
     return c;
 }
 } // namespace
+}  // extern "C++"
 
+extern "C++" {
 namespace {
 inline uint8_t tadd(uint8_t a, uint8_t b) { return uint8_t((a + b) % 3); }
 inline uint8_t tneg(uint8_t a) { return uint8_t((3 - a) % 3); }
@@ -654,6 +667,7 @@ inline void formalised_step(std::array<uint8_t, 729 * 6>& c) {
     c = next;
 }
 } // namespace
+}  // extern "C++"
 
 int32_t sov_nse_new(uint8_t mode, sov_nse_handle** out) {
     if (!out) return SOV_ERR_NULL;
@@ -746,6 +760,7 @@ int32_t sov_nse_free(sov_nse_handle* h) {
 
 /* ══ 第八批: 大衍求一术 + 广义 CRT ══ */
 
+extern "C++" {
 namespace {
 inline uint32_t gcd_u32(uint32_t a, uint32_t b) { while (b) { uint32_t t = a % b; a = b; b = t; } return a; }
 
@@ -764,6 +779,7 @@ inline bool dayan_signed(uint32_t qi, uint32_t ding, uint32_t* k_out) {
     return true;
 }
 } // namespace
+}  // extern "C++"
 
 int32_t sov_dayan_multiplier(uint32_t qi, uint32_t ding, uint32_t* out) {
     if (!out) return SOV_ERR_NULL;
@@ -792,6 +808,7 @@ int32_t sov_crt2(uint32_t a1, uint32_t m1, uint32_t a2, uint32_t m2, uint32_t* o
 
 /* ══ 第十批: 位宽转换 (二进制 ⇄ 三进制) ══ */
 
+extern "C++" {
 namespace {
 inline uint64_t pow_u64(uint64_t base, unsigned e) {
     uint64_t r = 1;
@@ -799,6 +816,7 @@ inline uint64_t pow_u64(uint64_t base, unsigned e) {
     return r;
 }
 } // namespace
+}  // extern "C++"
 
 int32_t sov_width_capacity_trits(uint8_t trits, uint64_t* out) {
     if (!out) return SOV_ERR_NULL;
@@ -854,6 +872,7 @@ int32_t sov_tryte_value(const uint8_t t6[6], uint16_t* out) {
  * 第十一批（ABI 1.1）：A₄ / 2A₄ / 覆盖 / 表示论 / Hopf 商 / 载体
  * ═══════════════════════════════════════════════════════════════════════ */
 
+extern "C++" {
 namespace {
 
 inline bool sl23_in(const uint8_t* v) {
@@ -873,6 +892,7 @@ inline void eis_out(sov::math::eis::Eis e, int64_t* re, int64_t* im) {
 }
 
 } // namespace
+}  // extern "C++"
 
 int32_t sov_a4_card(uint8_t* out) {
     if (!out) return SOV_ERR_NULL;

@@ -15,12 +15,32 @@ target_include_directories(vavx3_lib INTERFACE
     ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
-# Optional: link existing .so kernel
-set(VAVX3_KERNEL_PATH "${CMAKE_CURRENT_SOURCE_DIR}/vavx3_s2_kernels.so")
+# Optional: link existing kernel shared library (platform-specific suffix)
+#   Windows: .dll + import lib .dll.a (IMPORTED_IMPLIB is required at link time)
+#   macOS:   .dylib
+#   Linux:   .so
+if(WIN32)
+    set(VAVX3_KERNEL_NAME "vavx3_s2_kernels.dll")
+    set(VAVX3_KERNEL_IMPLIB_NAME "vavx3_s2_kernels.dll.a")
+elseif(APPLE)
+    set(VAVX3_KERNEL_NAME "vavx3_s2_kernels.dylib")
+else()
+    set(VAVX3_KERNEL_NAME "vavx3_s2_kernels.so")
+endif()
+set(VAVX3_KERNEL_PATH "${CMAKE_CURRENT_SOURCE_DIR}/${VAVX3_KERNEL_NAME}")
+
 if(EXISTS "${VAVX3_KERNEL_PATH}")
     message(STATUS "VAVX3 S2 kernel: ${VAVX3_KERNEL_PATH}")
-    add_library(vavx3_kernel IMPORTED SHARED)
+    add_library(vavx3_kernel SHARED IMPORTED)
     set_target_properties(vavx3_kernel PROPERTIES IMPORTED_LOCATION "${VAVX3_KERNEL_PATH}")
+    if(WIN32)
+        set(VAVX3_KERNEL_IMPLIB "${CMAKE_CURRENT_SOURCE_DIR}/${VAVX3_KERNEL_IMPLIB_NAME}")
+        if(EXISTS "${VAVX3_KERNEL_IMPLIB}")
+            set_target_properties(vavx3_kernel PROPERTIES IMPORTED_IMPLIB "${VAVX3_KERNEL_IMPLIB}")
+        else()
+            message(WARNING "VAVX3 import library missing (${VAVX3_KERNEL_IMPLIB}); linking will fail on Windows")
+        endif()
+    endif()
     target_link_libraries(vavx3_lib INTERFACE vavx3_kernel)
 endif()
 
@@ -41,7 +61,11 @@ add_test(NAME ternary_system COMMAND test_ternary_system)
 add_executable(test_manifold tests/test_vavx3_manifold.cpp)
 target_include_directories(test_manifold PRIVATE include)
 target_compile_features(test_manifold PRIVATE cxx_std_23)
-target_compile_options(test_manifold PRIVATE -mavx2)
+if(MSVC)
+    target_compile_options(test_manifold PRIVATE /arch:AVX2)
+else()
+    target_compile_options(test_manifold PRIVATE -mavx2)
+endif()
 add_test(NAME vavx3_manifold COMMAND test_manifold)
 
 add_executable(test_api_full tests/test_api_full.cpp)
