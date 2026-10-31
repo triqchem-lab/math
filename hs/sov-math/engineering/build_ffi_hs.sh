@@ -22,7 +22,7 @@ OUT="${1:-$DEFAULT_OUT}"
 mkdir -p "$(dirname "$OUT")"
 
 GHCFLAGS=(
-  -shared -fPIC -O2
+  -shared -dynamic -fPIC -O2
   -package array -package containers
   -XDataKinds -XGADTs -XKindSignatures -XTypeOperators -XScopedTypeVariables
   -XLambdaCase -XTupleSections -XTypeFamilies -XForeignFunctionInterface
